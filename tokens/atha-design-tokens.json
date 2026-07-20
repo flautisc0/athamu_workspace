@@ -1,0 +1,26 @@
+{
+  "colors": {
+    "bg-dark": "#0D0D11",
+    "bg-card": "#16161F",
+    "text-primary": "#FFFFFF",
+    "text-secondary": "#A0A0AB",
+    "accent-gold": "#FFB800",
+    "accent-red": "#E50914"
+  },
+  "typography": {
+    "font-display": "'Montserrat', sans-serif",
+    "font-body": "'Inter', sans-serif"
+  },
+  "spacing": {
+    "page-padding-x": "16mm",
+    "page-padding-y-top": "14mm",
+    "page-padding-y-bottom": "18mm"
+  },
+  "components": {
+    "logo-height": "9mm",
+    "page-title-size": "25pt",
+    "cover-title-size": "54pt",
+    "cover-subtitle-size": "17pt",
+    "body-size": "11.5pt"
+  }
+}

@@ -1,0 +1,58 @@
+2026-07-16 18:49:52,913 INFO [hband_07]                 Book.java:560  | 1 sheet in /home/flautisc0/athamu_workspace/violin1_crops/hband_07.png
+2026-07-16 18:49:52,938 INFO []                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,938 INFO []                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_crops_out/hband_07.omr
+2026-07-16 18:49:52,939 INFO []                 Book.java:1929 | Book reaching PAGE on sheets:[#1]
+2026-07-16 18:49:52,939 INFO [hband_07]       StepMonitoring.java:98   | LOAD
+2026-07-16 18:49:52,942 INFO [hband_07]            SheetStub.java:1278 | Loaded image #1 586x45 from /home/flautisc0/athamu_workspace/violin1_crops/hband_07.png
+2026-07-16 18:49:52,942 INFO [hband_07]            ImageUtil.java:152  | Converting max RGB to gray
+2026-07-16 18:49:52,944 INFO [hband_07]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,947 INFO [hband_07]           DataHolder.java:348  | Stored /sheet#1/GRAY.png
+2026-07-16 18:49:52,948 INFO [hband_07]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:49:52,949 INFO [hband_07]       StepMonitoring.java:98   | BINARY
+2026-07-16 18:49:52,954 INFO [hband_07]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,954 INFO [hband_07]           DataHolder.java:256  | Removed /sheet#1/GRAY.png
+2026-07-16 18:49:52,956 INFO [hband_07]           DataHolder.java:348  | Stored /sheet#1/BINARY.png
+2026-07-16 18:49:52,957 INFO [hband_07]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:49:52,957 INFO [hband_07]       StepMonitoring.java:98   | SCALE
+2026-07-16 18:49:52,958 INFO [hband_07]                 Book.java:543  | Created scores: []
+2026-07-16 18:49:52,958 INFO [hband_07]            SheetStub.java:1194 | Sheet hband_07 flagged as invalid.
+2026-07-16 18:49:52,959 WARN [hband_07]                 Book.java:2044 | Error processing stub org.audiveris.omr.step.StepException: No significant black lines found
+java.util.concurrent.ExecutionException: org.audiveris.omr.step.StepException: No significant black lines found
+	at java.base/java.util.concurrent.FutureTask.report(Unknown Source)
+	at java.base/java.util.concurrent.FutureTask.get(Unknown Source)
+	at org.audiveris.omr.sheet.SheetStub.doOneStep(SheetStub.java:519)
+	at org.audiveris.omr.sheet.SheetStub.reachStep(SheetStub.java:1405)
+	at org.audiveris.omr.sheet.Book.reachBookStep(Book.java:2035)
+	at org.audiveris.omr.sheet.Book.transcribe(Book.java:2626)
+	at org.audiveris.omr.sheet.Book.export(Book.java:593)
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:927)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)
+Caused by: org.audiveris.omr.step.StepException: No significant black lines found
+	at org.audiveris.omr.sheet.ScaleBuilder$HistoKeeper.retrieveLinePeak(ScaleBuilder.java:820)
+	at org.audiveris.omr.sheet.ScaleBuilder.doRetrieveScale(ScaleBuilder.java:357)
+	at org.audiveris.omr.sheet.ScaleBuilder.retrieveScale(ScaleBuilder.java:445)
+	at org.audiveris.omr.step.ScaleStep.doit(ScaleStep.java:64)
+	at org.audiveris.omr.step.OmrStep.doit(OmrStep.java:138)
+	at org.audiveris.omr.sheet.SheetStub.lambda$doOneStep$0(SheetStub.java:503)
+	at java.base/java.util.concurrent.FutureTask.run(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+2026-07-16 18:49:52,959 INFO [hband_07]                 Book.java:2584 | Book{hband_07} storing
+2026-07-16 18:49:52,984 INFO [hband_07]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,986 INFO [hband_07]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:49:52,986 INFO [hband_07]                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_crops_out/hband_07.omr
+2026-07-16 18:49:52,987 INFO [hband_07]            SheetStub.java:1655 | Sheet disposed
+2026-07-16 18:49:53,009 INFO [hband_07]                 Book.java:2050 | End of Stub#1
+2026-07-16 18:49:53,010 INFO [hband_07]                 Book.java:2057 | End of Book{hband_07}
+2026-07-16 18:49:53,010 INFO [hband_07]                 Book.java:596  | Could not export since transcription did not complete successfully
+2026-07-16 18:49:53,010 WARN [hband_07]                  CLI.java:956  | Exception occurred java.lang.Exception: Error in export
+java.lang.Exception: Error in export
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:930)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)

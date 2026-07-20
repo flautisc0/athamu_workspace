@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ATHAMU</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #0e0e12; color: #e7e7ec; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; height: 100%; }
+.tabs { display: flex; gap: 8px; padding: 14px 18px 0; }
+.tab { flex: 1; text-align: center; padding: 10px 6px; border-radius: 14px 14px 0 0; background: #18181f; color: #9898a6; font-weight: 700; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; }
+.tab.active { color: #d4a843; border-bottom-color: #d4a843; background: #1f1f28; }
+.panel { display: none; height: calc(100% - 130px); overflow-y: auto; }
+.panel.active { display: block; }
+.logo-wrap { text-align: center; padding-top: 10px; }
+.logo-wrap img { max-height: 240px; width: auto; border-radius: 0; border: none; background: transparent; mix-blend-mode: screen; animation: floaty 6s ease-in-out infinite; filter: drop-shadow(0 14px 28px rgba(0,0,0,0.7)); }
+@keyframes floaty { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-6px) rotate(0.4deg); } 100% { transform: translateY(0px) rotate(0deg); } }
+
+.panel { display: none; height: calc(100% - 130px); overflow-y: auto; }
+.brand h1 { font-size: 26px; letter-spacing: 5px; color: #d4a843; font-weight: 800; }
+.brand p { font-size: 13px; color: #9898a6; margin-top: 4px; }
+.mode { background: #18181f; border: 1px solid #25252e; border-radius: 16px; padding: 14px; margin-bottom: 12px; cursor: pointer; }
+.mode:hover { border-color: rgba(212,168,67,0.35); }
+.mode-header { display: flex; gap: 10px; align-items: center; }
+.mode-icon { width: 38px; height: 38px; border-radius: 10px; background: rgba(212,168,67,0.12); border: 1px solid rgba(212,168,67,0.35); display: flex; align-items: center; justify-content: center; color: #d4a843; font-weight: 800; font-size: 13px; flex-shrink: 0; }
+.mode-title { font-size: 15px; font-weight: 700; }
+.mode-sub { font-size: 12px; color: #d4a843; margin-top: 2px; font-weight: 700; }
+.mode-desc { font-size: 13px; color: #9898a6; margin-top: 6px; line-height: 1.4; }
+.section-title { font-size: 12px; font-weight: 800; color: #d4a843; margin-top: 10px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+.skills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.skill { padding: 3px 8px; border-radius: 999px; background: rgba(95,184,122,0.12); border: 1px solid rgba(95,184,122,0.35); color: #5fb87a; font-size: 11px; font-weight: 700; }
+.pipe { background: #0e0e12; border: 1px solid #25252e; border-radius: 12px; padding: 10px; margin-top: 6px; }
+.pipe-title { font-size: 12px; font-weight: 700; color: #e7e7ec; }
+.pipe-desc { font-size: 12px; color: #9898a6; margin-top: 2px; line-height: 1.4; }
+.pipe-steps { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.step { width: 22px; height: 22px; border-radius: 50%; background: rgba(212,168,67,0.12); border: 1px solid rgba(212,168,67,0.35); color: #d4a843; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.step-arrow { color: #9898a6; font-size: 12px; }
+.pipe-status { display: inline-block; margin-top: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(95,184,122,0.12); border: 1px solid rgba(95,184,122,0.35); color: #5fb87a; font-size: 10px; font-weight: 700; }
+.pipe-status.warn { background: rgba(212,154,67,0.12); border-color: rgba(212,154,67,0.35); color: #d49a43; }
+.project { background: #18181f; border: 1px solid #25252e; border-radius: 16px; padding: 14px; margin-bottom: 10px; }
+.project-title { font-size: 15px; font-weight: 700; color: #d4a843; }
+.project-meta { font-size: 12px; color: #9898a6; margin-top: 2px; font-weight: 700; }
+.project-text { font-size: 13px; color: #9898a6; margin-top: 4px; line-height: 1.4; }
+.project-link { display: inline-block; margin-top: 6px; color: #d4a843; font-size: 12px; font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(212,168,67,0.35); }
+.chat-overlay { position: fixed; inset: 0; background: #0e0e12; z-index: 50; display: none; flex-direction: column; }
+.chat-overlay.open { display: flex; }
+.chat-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #25252e; background: #18181f; }
+.chat-header-icon { width: 34px; height: 34px; border-radius: 10px; background: rgba(212,168,67,0.12); border: 1px solid rgba(212,168,67,0.35); display: flex; align-items: center; justify-content: center; color: #d4a843; font-weight: 800; font-size: 12px; }
+.chat-header-title { font-weight: 700; font-size: 15px; }
+.chat-header-sub { font-size: 12px; color: #d4a843; font-weight: 700; }
+.chat-header-close { margin-left: auto; background: transparent; border: 1px solid #25252e; color: #e7e7ec; padding: 6px 10px; border-radius: 10px; font-size: 12px; cursor: pointer; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.chat-bubble { max-width: 80%; padding: 10px 12px; border-radius: 14px; font-size: 13px; line-height: 1.4; }
+.chat-bubble.user { align-self: flex-end; background: #2a2a35; color: #e7e7ec; border-bottom-right-radius: 4px; }
+.chat-bubble.bot { align-self: flex-start; background: #18181f; border: 1px solid #25252e; color: #e7e7ec; border-bottom-left-radius: 4px; }
+.chat-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #25252e; background: #18181f; }
+.chat-input { flex: 1; background: #0e0e12; border: 1px solid #25252e; color: #e7e7ec; padding: 10px 12px; border-radius: 12px; outline: none; font-size: 13px; }
+.chat-send { background: #d4a843; color: #0e0e12; border: none; padding: 10px 12px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+.muted { color: #9898a6; }
+</style>
+</head>
+<body>
+  <div class="logo-wrap">
+    <img src="assets/athamu_logo.png" alt="ATHAMU logo">
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="modes">Modos</div>
+    <div class="tab" data-tab="projects">Proyecto</div>
+  </div>
+
+  <div class="panel active" id="modes">
+    <div class="brand">
+      <h1>ATHAMU</h1>
+      <p>Modos operativos · Demo</p>
+    </div>
+
+    <div class="mode" data-mode="artista">
+      <div class="mode-header">
+        <div class="mode-icon">ART</div>
+        <div>
+          <div class="mode-title">Modo Artista</div>
+          <div class="mode-sub">Empaquetamiento y difusión</div>
+        </div>
+      </div>
+      <div class="mode-desc">Dossieres, campañas, repertorio y formatos de presentación. Respeta la voz del artista; ofrece estructuras, no contenidos prefijados.</div>
+      <div class="section-title">Habilidades</div>
+      <div class="skills">
+        <span class="skill">Dossier artístico</span>
+        <span class="skill">Copy para redes</span>
+        <span class="skill">Estructura de repertorio</span>
+        <span class="skill">Formatos de difusión</span>
+      </div>
+      <div class="section-title">Pipelines</div>
+      <div class="pipe">
+        <div class="pipe-title">Pipeline A · Empaquetamiento</div>
+        <div class="pipe-desc">Info del artista → dossier DOCX + PDF cinematográfico → Drive</div>
+        <div class="pipe-steps">
+          <span class="step">1</span><span class="step-arrow">→</span>
+          <span class="step">2</span><span class="step-arrow">→</span>
+          <span class="step">3</span>
+        </div>
+        <div class="pipe-status">Operativo</div>
+      </div>
+    </div>
+
+    <div class="mode" data-mode="gestion">
+      <div class="mode-header">
+        <div class="mode-icon">GES</div>
+        <div>
+          <div class="mode-title">Modo Gestión Cultural</div>
+          <div class="mode-sub">Fondos, presupuestos y postulaciones</div>
+        </div>
+      </div>
+      <div class="mode-desc">Revisión de bases, presupuestos, mailing, calendarios y documentación lista para enviar. Preciso, accionable y tabular.</div>
+      <div class="section-title">Habilidades</div>
+      <div class="skills">
+        <span class="skill">Presupuestos</span>
+        <span class="skill">Postulaciones</span>
+        <span class="skill">Mailing</span>
+        <span class="skill">Checklists</span>
+      </div>
+      <div class="section-title">Pipelines</div>
+      <div class="pipe">
+        <div class="pipe-title">Pipeline B · Postulación</div>
+        <div class="pipe-desc">Bases de fondo → presupuesto + carta + checklist → documento listo</div>
+        <div class="pipe-steps">
+          <span class="step">1</span><span class="step-arrow">→</span>
+          <span class="step">2</span><span class="step-arrow">→</span>
+          <span class="step">3</span>
+        </div>
+        <div class="pipe-status">En uso</div>
+      </div>
+    </div>
+
+    <div class="mode" data-mode="musico">
+      <div class="mode-header">
+        <div class="mode-icon">MUS</div>
+        <div>
+          <div class="mode-title">Modo Músico / Tecnológico</div>
+          <div class="mode-sub">Partituras, audio y transcripción</div>
+        </div>
+      </div>
+      <div class="mode-desc">OMR, MIDI determinista, validación de partituras y materiales didácticos. Cierra el bucle audio ↔ partitura con herramientas libres.</div>
+      <div class="section-title">Habilidades</div>
+      <div class="skills">
+        <span class="skill">OMR</span>
+        <span class="skill">MIDI determinista</span>
+        <span class="skill">Validación</span>
+        <span class="skill">Materiales didácticos</span>
+      </div>
+      <div class="section-title">Pipelines</div>
+      <div class="pipe">
+        <div class="pipe-title">Pipeline 1 · OMR Local</div>
+        <div class="pipe-desc">PDF/imagen → Audiveris → MusicXML → MIDI/PDF</div>
+        <div class="pipe-steps">
+          <span class="step">1</span><span class="step-arrow">→</span>
+          <span class="step">2</span><span class="step-arrow">→</span>
+          <span class="step">3</span>
+        </div>
+        <div class="pipe-status">Usado en BlueBossa y Beethoven</div>
+      </div>
+      <div class="pipe">
+        <div class="pipe-title">Pipeline 2 · MIDI Determinista</div>
+        <div class="pipe-desc">Reglas + seed → MIDI exacto para entrenamiento</div>
+        <div class="pipe-steps">
+          <span class="step">1</span><span class="step-arrow">→</span>
+          <span class="step">2</span>
+        </div>
+        <div class="pipe-status">Validado</div>
+      </div>
+      <div class="pipe">
+        <div class="pipe-title">Pipeline 4 · Corrección por Referencia</div>
+        <div class="pipe-desc">Referencia oficial → segmentación → comparación → corrección</div>
+        <div class="pipe-steps">
+          <span class="step">1</span><span class="step-arrow">→</span>
+          <span class="step">2</span><span class="step-arrow">→</span>
+          <span class="step">3</span><span class="step-arrow">→</span>
+          <span class="step">4</span>
+        </div>
+        <div class="pipe-status warn">Requiere parte aislada</div>
+      </div>
+      <div class="pipe">
+        <div class="pipe-title">Pipeline 3 · Drive</div>
+        <div class="pipe-desc">Subida y limpieza automática de artefactos ATHAMU</div>
+        <div class="pipe-steps">
+          <span class="step">1</span><span class="step-arrow">→</span>
+          <span class="step">2</span>
+        </div>
+        <div class="pipe-status">Operativo</div>
+      </div>
+    </div>
+
+    <div class="mode" data-mode="meta">
+      <div class="mode-header">
+        <div class="mode-icon">META</div>
+        <div>
+          <div class="mode-title">Modo Meta-Reflexivo</div>
+          <div class="mode-sub">Auditoría y coherencia ética</div>
+        </div>
+      </div>
+      <div class="mode-desc">Evalúa coherencia con el marco ATHA, detecta conflictos y propone ajustes. Solo Francisco puede modificar el núcleo ético desde el modo dialéctico.</div>
+      <div class="section-title">Habilidades</div>
+      <div class="skills">
+        <span class="skill">Auditoría</span>
+        <span class="skill">Detección de conflictos</span>
+        <span class="skill">Ajustes propositivos</span>
+      </div>
+      <div class="section-title">Pipelines</div>
+      <div class="pipe">
+        <div class="pipe-title">Pipeline Auditor</div>
+        <div class="pipe-desc">Post-interacción: coherencia ética + revisión de skills + reporte para modo dialéctico</div>
+        <div class="pipe-steps">
+          <span class="step">1</span><span class="step-arrow">→</span>
+          <span class="step">2</span>
+        </div>
+        <div class="pipe-status">Interno</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="projects">
+    <div class="brand">
+      <h1>PROYECTO</h1>
+      <p class="muted">Resultados concretos ATHAMU</p>
+    </div>
+
+    <div class="project">
+      <div class="project-title">BlueBossa · Transcripción OMR</div>
+      <div class="project-meta">Pipeline 1 · Audiveris 5.11.0 + MuseScore 4.7.4</div>
+      <div class="project-text">Transcripción completa del lead sheet de BlueBossa a partir de PDF. Generación de MusicXML y PDF fiel. Marcado como pipeline estable.</div>
+      <a class="project-link" href="https://drive.google.com/file/d/1b6j5noez8SgC85VzRh5AO5yb-CSNPd8O/view?usp=drivesdk" target="_blank">Ver PDF en Drive →</a>
+    </div>
+
+    <div class="project">
+      <div class="project-title">Sinfonía No. 2 · Violín 1</div>
+      <div class="project-meta">Pipeline 1 + Pipeline 4 · Referencia CCARH</div>
+      <div class="project-text">OMR banda por sistema sobre imagen original, combinación automática de 7/8 sistemas mediante music21. Generación de MIDI combinado para validación.</div>
+      <a class="project-link" href="https://drive.google.com/file/d/1-g_Tc46aqbOmK_rIrH54nEwvheSaz5nX/view?usp=drivesdk" target="_blank">Ver MIDI en Drive →</a>
+    </div>
+
+    <div class="project">
+      <div class="project-title">MIDI Determinista · Pruebas</div>
+      <div class="project-meta">Pipeline 2 · Python determinista</div>
+      <div class="project-text">Generación reproducible de MIDI para entrenamiento y validación de detección instrumental. Codificación exacta grid-aligned por bloque.</div>
+      <a class="project-link" href="https://drive.google.com/file/d/1-g_Tc46aqbOmK_rIrH54nEwvheSaz5nX/view?usp=drivesdk" target="_blank">Ver MIDI en Drive →</a>
+    </div>
+
+    <div class="project">
+      <div class="project-title">Dossieres ATHAMU</div>
+      <div class="project-meta">Pipeline A · Canva/Google Docs + Drive</div>
+      <div class="project-text">Dossieres editables con marca ATHA generados desde conceptos artísticos. Intermedio DOCX editable, salida PDF final con imagen de marca.</div>
+      <a class="project-link" href="https://drive.google.com/drive/folders/151uh6u9RAhIqfBrr1Xich7dNg_hrWY_P" target="_blank">Abrir carpeta ATHAMU en Drive →</a>
+    </div>
+
+    <div class="project">
+      <div class="project-title">Referencia IMSLP/CCARH</div>
+      <div class="project-meta">Pipeline 4 · Fuente oficial</div>
+      <div class="project-text">Uso de partituras oficiales domínio público como ground truth para corrección de transcripciones automáticas. Aplicado a Beethoven Sinfonía No. 2.</div>
+    </div>
+  </div>
+
+  <div class="chat-overlay" id="chat">
+    <div class="chat-header">
+      <div class="chat-header-icon" id="chat-icon">ART</div>
+      <div>
+        <div class="chat-header-title" id="chat-title">Modo Artista</div>
+        <div class="chat-header-sub" id="chat-sub">Empaquetamiento y difusión</div>
+      </div>
+      <button class="chat-header-close" id="chat-close">Cerrar</button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-input" placeholder="Escribí tu mensaje..." />
+      <button class="chat-send" id="chat-send">Enviar</button>
+    </div>
+  </div>
+
+  <footer style="text-align:center; padding: 14px 18px 20px; color: #6e6e7a; font-size: 11px; font-weight: 700;">
+    <img src="assets/atha_logo.png" alt="ATHA logo" style="height: 22px; opacity: 0.8;">
+    <div style="margin-top: 6px;">Desarrollado por ATHA Producciones</div>
+  </footer>
+
+<script>
+  const modes = {
+    artista: { title: 'Modo Artista', sub: 'Empaquetamiento y difusión', icon: 'ART', greeting: 'Estás en Modo Artista. Te ayudo con dossieres, campañas, repertorio y formatos de presentación.' },
+    gestion: { title: 'Modo Gestión Cultural', sub: 'Fondos, presupuestos y postulaciones', icon: 'GES', greeting: 'Estás en Modo Gestión Cultural. Revisamos bases, presupuestos, mailing, calendarios y documentación lista para enviar.' },
+    musico: { title: 'Modo Músico / Tecnológico', sub: 'Partituras, audio y transcripción', icon: 'MUS', greeting: 'Estás en Modo Músico/Tecnológico. Cierro el bucle audio ↔ partitura con OMR, MIDI y validación.' },
+    meta: { title: 'Modo Meta-Reflexivo', sub: 'Auditoría y coherencia ética', icon: 'META', greeting: 'Estás en Modo Meta-Reflexivo. Evalúo coherencia con el marco ATHA y propongo ajustes.' },
+  };
+
+  let currentMode = 'artista';
+  let sessionId = 'web-' + Math.random().toString(36).slice(2, 8);
+
+  async function postChat(mode, message) {
+    try {
+      const res = await fetch('http://127.0.0.1:8080/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ mode, message, session_id: sessionId })
+      });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      return data.reply || data.title || 'Sin respuesta';
+    } catch (e) {
+      return 'No pude contactar al modo ATHAMU. Verificá que el backend esté activo.';
+    }
+  }
+
+  function addMessage(role, text) {
+    const box = document.getElementById('chat-messages');
+    const el = document.createElement('div');
+    el.className = 'chat-bubble ' + role;
+    el.textContent = text;
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage('user', text);
+    input.value = '';
+    const reply = await postChat(currentMode, text);
+    addMessage('bot', reply);
+  }
+
+  function setMode(key) {
+    const m = modes[key];
+    document.getElementById('chat-icon').textContent = m.icon;
+    document.getElementById('chat-title').textContent = m.title;
+    document.getElementById('chat-sub').textContent = m.sub;
+    currentMode = key;
+    addMessage('bot', m.greeting);
+  }
+
+  document.querySelectorAll('.mode').forEach(el => {
+    el.addEventListener('click', () => {
+      document.getElementById('chat-messages').innerHTML = '';
+      setMode(el.dataset.mode);
+      document.getElementById('chat').classList.add('open');
+    });
+  });
+
+  document.getElementById('chat-close').addEventListener('click', () => {
+    document.getElementById('chat').classList.remove('open');
+  });
+  document.getElementById('chat-send').addEventListener('click', sendMessage);
+  document.getElementById('chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

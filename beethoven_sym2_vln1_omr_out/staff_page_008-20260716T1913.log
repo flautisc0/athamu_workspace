@@ -1,0 +1,101 @@
+2026-07-16 19:13:30,768 INFO [staff_page_008]                 Book.java:560  | 1 sheet in /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_staff/staff_page_008.png
+2026-07-16 19:13:30,844 INFO []                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:30,844 INFO []                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_omr_out/staff_page_008.omr
+2026-07-16 19:13:30,845 INFO []                 Book.java:1929 | Book reaching PAGE on sheets:[#1]
+2026-07-16 19:13:30,845 INFO [staff_page_008]       StepMonitoring.java:98   | LOAD
+2026-07-16 19:13:30,922 INFO [staff_page_008]            SheetStub.java:1278 | Loaded image #1 2210x1573 from /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_staff/staff_page_008.png
+2026-07-16 19:13:30,922 INFO [staff_page_008]            ImageUtil.java:152  | Converting max RGB to gray
+2026-07-16 19:13:31,008 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:31,060 INFO [staff_page_008]           DataHolder.java:348  | Stored /sheet#1/GRAY.png
+2026-07-16 19:13:31,061 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:31,062 INFO [staff_page_008]       StepMonitoring.java:98   | BINARY
+2026-07-16 19:13:31,593 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:31,594 INFO [staff_page_008]           DataHolder.java:256  | Removed /sheet#1/GRAY.png
+2026-07-16 19:13:31,637 INFO [staff_page_008]           DataHolder.java:348  | Stored /sheet#1/BINARY.png
+2026-07-16 19:13:31,639 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:31,639 INFO [staff_page_008]       StepMonitoring.java:98   | SCALE
+2026-07-16 19:13:31,641 INFO [staff_page_008]         ScaleBuilder.java:254  | Beam  guessed height:  7 -- 0.25 of [5..11] range
+2026-07-16 19:13:31,642 INFO [staff_page_008]         ScaleBuilder.java:271  | Beam measured height:  7 -- 0.33 of [5..11] range at 384% of needed quorum
+2026-07-16 19:13:31,642 INFO [staff_page_008]         ScaleBuilder.java:401  | Normalized black jitter: 8.33 %
+2026-07-16 19:13:31,642 INFO [staff_page_008]            ScaleStep.java:65   | Scale{ interline(11,12,12) line(1,1,2) beam(7)}
+2026-07-16 19:13:31,643 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:31,644 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:31,645 INFO [staff_page_008]       StepMonitoring.java:98   | GRID
+2026-07-16 19:13:31,731 INFO [staff_page_008]       LinesRetriever.java:1508 | Global slope: 0.00000
+2026-07-16 19:13:31,743 INFO [staff_page_008]    ClustersRetriever.java:326  | Retrieved raw line clusters: 8 of sizes [5] with interline(11,12,12)
+2026-07-16 19:13:31,778 INFO [staff_page_008]            PeakGraph.java:310  | Systems: #1[1, 2, 3, 4, 5, 6, 7, 8]
+2026-07-16 19:13:31,783 WARN [staff_page_008]        BarsRetriever.java:368  | Staff#1 isolated brace top
+2026-07-16 19:13:31,783 WARN [staff_page_008]        BarsRetriever.java:374  | Staff#5 expected brace middle/bottom
+2026-07-16 19:13:31,789 INFO [staff_page_008]        BarsRetriever.java:1305 | System#1
+2026-07-16 19:13:31,789 INFO [staff_page_008]        BarsRetriever.java:1308 |    PartGroup{brace number:1 barline:true staves:1}
+2026-07-16 19:13:31,789 INFO [staff_page_008]        BarsRetriever.java:1308 |    PartGroup{brace number:1 barline:false staves:4-5}
+2026-07-16 19:13:31,789 INFO [staff_page_008]        BarsRetriever.java:1308 |    PartGroup{brace number:1 barline:true staves:6-7}
+2026-07-16 19:13:31,912 INFO [staff_page_008]        SystemManager.java:800  | 8 parts along 1 system
+2026-07-16 19:13:31,912 INFO [staff_page_008]                 Book.java:543  | Created scores: [{Score 1}]
+2026-07-16 19:13:31,914 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:31,948 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:31,949 INFO [staff_page_008]       StepMonitoring.java:98   | HEADERS
+2026-07-16 19:13:32,153 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:32,243 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:32,244 INFO [staff_page_008]       StepMonitoring.java:98   | STEM_SEEDS
+2026-07-16 19:13:32,279 INFO [staff_page_008]        StemSeedsStep.java:86   | stem(2 max:3)
+2026-07-16 19:13:32,287 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:32,391 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:32,392 INFO [staff_page_008]       StepMonitoring.java:98   | BEAMS
+2026-07-16 19:13:33,773 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:33,814 INFO [staff_page_008]           DataHolder.java:348  | Stored /sheet#1/HEAD_SPOTS.png
+2026-07-16 19:13:34,202 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:34,204 INFO [staff_page_008]       StepMonitoring.java:98   | LEDGERS
+2026-07-16 19:13:34,287 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:34,693 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:34,694 INFO [staff_page_008]       StepMonitoring.java:98   | HEADS
+2026-07-16 19:13:37,244 INFO [staff_page_008]        HeadSeedTally.java:235  | Scale information: HeadSeeds{NOTEHEAD_BLACK[L:-0.1,R:-0.1]}
+2026-07-16 19:13:37,246 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:37,247 INFO [staff_page_008]           DataHolder.java:256  | Removed /sheet#1/HEAD_SPOTS.png
+2026-07-16 19:13:37,871 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:37,872 INFO [staff_page_008]       StepMonitoring.java:98   | STEMS
+2026-07-16 19:13:39,288 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:39,899 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:39,900 INFO [staff_page_008]       StepMonitoring.java:98   | REDUCTION
+2026-07-16 19:13:40,022 INFO [staff_page_008]        ReductionStep.java:105  | Stems free length median value: 41 pixels, 3.4 interlines
+2026-07-16 19:13:40,026 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:40,319 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:40,320 INFO [staff_page_008]       StepMonitoring.java:98   | CUE_BEAMS
+2026-07-16 19:13:40,320 INFO [staff_page_008]         CueBeamsStep.java:81   | Step CUE_BEAMS is skipped because small heads switch is off
+2026-07-16 19:13:40,322 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:40,604 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:40,605 INFO [staff_page_008]       StepMonitoring.java:98   | TEXTS
+2026-07-16 19:13:41,343 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:41,675 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:41,676 INFO [staff_page_008]       StepMonitoring.java:98   | MEASURES
+2026-07-16 19:13:41,678 INFO [staff_page_008]                 Page.java:307  | 3 raw measures: [3 in system#1]
+2026-07-16 19:13:41,680 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:42,021 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:42,022 INFO [staff_page_008]       StepMonitoring.java:98   | CHORDS
+2026-07-16 19:13:42,029 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:42,380 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:42,381 INFO [staff_page_008]       StepMonitoring.java:98   | CURVES
+2026-07-16 19:13:42,864 INFO [staff_page_008]         SlursBuilder.java:240  | Slurs: 7
+2026-07-16 19:13:42,869 INFO [staff_page_008]      SegmentsBuilder.java:155  | Segments: 12
+2026-07-16 19:13:42,872 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:43,340 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:43,341 INFO [staff_page_008]       StepMonitoring.java:98   | SYMBOLS
+2026-07-16 19:13:44,223 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:44,909 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:44,910 INFO [staff_page_008]       StepMonitoring.java:98   | LINKS
+2026-07-16 19:13:44,955 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:45,589 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:45,590 INFO [staff_page_008]       StepMonitoring.java:98   | RHYTHMS
+2026-07-16 19:13:45,614 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:46,273 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:46,274 INFO [staff_page_008]       StepMonitoring.java:98   | PAGE
+2026-07-16 19:13:46,275 WARN [staff_page_008]         MeasureFixer.java:343  | System#1 No target duration for measures local IDs [1, 2, 3], please check time signatures
+2026-07-16 19:13:46,277 INFO [staff_page_008]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:46,945 INFO [staff_page_008]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:46,946 INFO [staff_page_008]            SheetStub.java:1655 | Sheet disposed
+2026-07-16 19:13:47,033 INFO [staff_page_008]                 Book.java:2050 | End of Stub#1
+2026-07-16 19:13:47,033 INFO [staff_page_008]                 Book.java:2057 | End of Book{staff_page_008}
+2026-07-16 19:13:47,271 INFO [staff_page_008]            SheetStub.java:1000 | Loaded /sheet#1/sheet#1.xml
+2026-07-16 19:13:47,272 INFO [staff_page_008]      PartwiseBuilder.java:2707 | Exporting sheet(s): [#1]
+2026-07-16 19:13:47,311 INFO [staff_page_008]        ScoreExporter.java:164  | Score staff_page_008 exported to /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_omr_out/staff_page_008.mxl
+2026-07-16 19:13:47,402 INFO [staff_page_008]                Score.java:181  | Closing {Score 1}

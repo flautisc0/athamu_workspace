@@ -1,0 +1,101 @@
+2026-07-16 18:57:15,605 INFO [sys_06_3x]                 Book.java:560  | 1 sheet in /home/flautisc0/athamu_workspace/violin1_crop_ready/sys_06_3x.png
+2026-07-16 18:57:15,670 INFO []                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:15,670 INFO []                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_sys_out/sys_06_3x.omr
+2026-07-16 18:57:15,671 INFO []                 Book.java:1929 | Book reaching PAGE on sheets:[#1]
+2026-07-16 18:57:15,671 INFO [sys_06_3x]       StepMonitoring.java:98   | LOAD
+2026-07-16 18:57:15,737 INFO [sys_06_3x]            SheetStub.java:1278 | Loaded image #1 1758x435 from /home/flautisc0/athamu_workspace/violin1_crop_ready/sys_06_3x.png
+2026-07-16 18:57:15,737 INFO [sys_06_3x]            ImageUtil.java:152  | Converting max RGB to gray
+2026-07-16 18:57:15,758 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:15,825 INFO [sys_06_3x]           DataHolder.java:348  | Stored /sheet#1/GRAY.png
+2026-07-16 18:57:15,826 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:15,827 INFO [sys_06_3x]       StepMonitoring.java:98   | BINARY
+2026-07-16 18:57:15,949 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:15,949 INFO [sys_06_3x]           DataHolder.java:256  | Removed /sheet#1/GRAY.png
+2026-07-16 18:57:15,974 INFO [sys_06_3x]           DataHolder.java:348  | Stored /sheet#1/BINARY.png
+2026-07-16 18:57:15,976 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:15,977 INFO [sys_06_3x]       StepMonitoring.java:98   | SCALE
+2026-07-16 18:57:15,981 INFO [sys_06_3x]         ScaleBuilder.java:254  | Beam  guessed height:  8 -- 0.25 of [7..12] range
+2026-07-16 18:57:15,981 WARN [sys_06_3x]         ScaleBuilder.java:300  | No reliable beam height found, guessed value: 8
+2026-07-16 18:57:15,981 INFO [sys_06_3x]         ScaleBuilder.java:401  | Normalized black jitter: 38.46 %
+2026-07-16 18:57:15,981 INFO [sys_06_3x]            ScaleStep.java:65   | Scale{ interline(11,13,15) line(2,4,7) beam(8 extra)}
+2026-07-16 18:57:15,983 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:15,985 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:15,987 INFO [sys_06_3x]       StepMonitoring.java:98   | GRID
+2026-07-16 18:57:16,493 INFO [sys_06_3x]       LinesRetriever.java:1508 | Global slope: 0.02918
+2026-07-16 18:57:16,513 INFO [sys_06_3x]    ClustersRetriever.java:326  | Retrieved raw line clusters: 3 of sizes [5] with interline(11,13,15)
+2026-07-16 18:57:16,583 INFO [sys_06_3x]            PeakGraph.java:310  | Systems: #1[1] #2[2] #3[3]
+2026-07-16 18:57:16,781 WARN [sys_06_3x]          GridBuilder.java:161  | Error in GridBuilder: java.lang.ArrayIndexOutOfBoundsException
+java.lang.ArrayIndexOutOfBoundsException: null
+2026-07-16 18:57:16,869 INFO [sys_06_3x]        SystemManager.java:800  | 1 part along 3 systems
+2026-07-16 18:57:16,869 INFO [sys_06_3x]                 Book.java:543  | Created scores: [{Score 1}]
+2026-07-16 18:57:16,871 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:16,953 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:16,955 INFO [sys_06_3x]       StepMonitoring.java:98   | HEADERS
+2026-07-16 18:57:18,688 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:18,961 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:18,962 INFO [sys_06_3x]       StepMonitoring.java:98   | STEM_SEEDS
+2026-07-16 18:57:18,974 INFO [sys_06_3x]        StemSeedsStep.java:86   | stem(5 max:6)
+2026-07-16 18:57:18,986 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:19,310 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:19,311 INFO [sys_06_3x]       StepMonitoring.java:98   | BEAMS
+2026-07-16 18:57:19,748 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:19,759 INFO [sys_06_3x]           DataHolder.java:348  | Stored /sheet#1/HEAD_SPOTS.png
+2026-07-16 18:57:20,186 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:20,188 INFO [sys_06_3x]       StepMonitoring.java:98   | LEDGERS
+2026-07-16 18:57:20,265 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:20,762 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:20,763 INFO [sys_06_3x]       StepMonitoring.java:98   | HEADS
+2026-07-16 18:57:23,346 INFO [sys_06_3x]        HeadSeedTally.java:235  | Scale information: HeadSeeds{NOTEHEAD_VOID[L:0.1] NOTEHEAD_BLACK[L:0.0,R:1.1]}
+2026-07-16 18:57:23,348 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:23,349 INFO [sys_06_3x]           DataHolder.java:256  | Removed /sheet#1/HEAD_SPOTS.png
+2026-07-16 18:57:23,963 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:23,965 INFO [sys_06_3x]       StepMonitoring.java:98   | STEMS
+2026-07-16 18:57:24,652 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:25,558 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:25,559 INFO [sys_06_3x]       StepMonitoring.java:98   | REDUCTION
+2026-07-16 18:57:25,637 INFO [sys_06_3x]        ReductionStep.java:105  | Stems free length median value: 49 pixels, 3.8 interlines
+2026-07-16 18:57:25,642 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:25,841 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:25,843 INFO [sys_06_3x]       StepMonitoring.java:98   | CUE_BEAMS
+2026-07-16 18:57:25,843 INFO [sys_06_3x]         CueBeamsStep.java:81   | Step CUE_BEAMS is skipped because small heads switch is off
+2026-07-16 18:57:25,845 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:26,025 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:26,026 INFO [sys_06_3x]       StepMonitoring.java:98   | TEXTS
+2026-07-16 18:57:26,386 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:26,587 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:26,589 INFO [sys_06_3x]       StepMonitoring.java:98   | MEASURES
+2026-07-16 18:57:26,591 INFO [sys_06_3x]                 Page.java:307  | 28 raw measures: [10 in system#1, 9 in system#2, 9 in system#3]
+2026-07-16 18:57:26,593 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:26,802 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:26,803 INFO [sys_06_3x]       StepMonitoring.java:98   | CHORDS
+2026-07-16 18:57:26,816 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:27,039 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:27,040 INFO [sys_06_3x]       StepMonitoring.java:98   | CURVES
+2026-07-16 18:57:27,410 INFO [sys_06_3x]         SlursBuilder.java:240  | Slurs: 8
+2026-07-16 18:57:27,418 INFO [sys_06_3x]      SegmentsBuilder.java:155  | Segments: 2
+2026-07-16 18:57:27,420 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:27,678 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:27,680 INFO [sys_06_3x]       StepMonitoring.java:98   | SYMBOLS
+2026-07-16 18:57:30,113 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:31,111 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:31,112 INFO [sys_06_3x]       StepMonitoring.java:98   | LINKS
+2026-07-16 18:57:31,169 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:32,137 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:32,138 INFO [sys_06_3x]       StepMonitoring.java:98   | RHYTHMS
+2026-07-16 18:57:32,159 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:33,191 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:33,192 INFO [sys_06_3x]       StepMonitoring.java:98   | PAGE
+2026-07-16 18:57:33,193 INFO [sys_06_3x]       SheetReduction.java:154  | Gutter. Different glyphs 1/2 DynamicsInter#6890{(0.259/0.541) DYNAMICS_P} vs MarkerInter#7384{(0.662/0.862) staff:2 CODA}
+2026-07-16 18:57:33,194 INFO [sys_06_3x]       SheetReduction.java:154  | Gutter. Different glyphs 2/3 ArticulationInter#7339{(0.570/0.735) STACCATISSIMO_BELOW} vs DynamicsInter#8309{(0.383/0.675) DYNAMICS_F}
+2026-07-16 18:57:33,195 WARN [sys_06_3x]         MeasureFixer.java:343  | System#1 No target duration for measures local IDs [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], please check time signatures
+2026-07-16 18:57:33,195 WARN [sys_06_3x]         MeasureFixer.java:343  | System#2 No target duration for measures local IDs [11, 12, 13, 14, 15, 16, 17, 18, 19], please check time signatures
+2026-07-16 18:57:33,196 WARN [sys_06_3x]         MeasureFixer.java:343  | System#3 No target duration for measures local IDs [20, 21, 22, 23, 24, 25, 26, 27, 28], please check time signatures
+2026-07-16 18:57:33,198 INFO [sys_06_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:34,213 INFO [sys_06_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:34,214 INFO [sys_06_3x]            SheetStub.java:1655 | Sheet disposed
+2026-07-16 18:57:34,284 INFO [sys_06_3x]                 Book.java:2050 | End of Stub#1
+2026-07-16 18:57:34,285 INFO [sys_06_3x]                 Book.java:2057 | End of Book{sys_06_3x}
+2026-07-16 18:57:34,489 INFO [sys_06_3x]            SheetStub.java:1000 | Loaded /sheet#1/sheet#1.xml
+2026-07-16 18:57:34,490 INFO [sys_06_3x]      PartwiseBuilder.java:2707 | Exporting sheet(s): [#1]
+2026-07-16 18:57:34,513 INFO [sys_06_3x]        ScoreExporter.java:164  | Score sys_06_3x exported to /home/flautisc0/athamu_workspace/violin1_sys_out/sys_06_3x.mxl
+2026-07-16 18:57:34,612 INFO [sys_06_3x]                Score.java:181  | Closing {Score 1}

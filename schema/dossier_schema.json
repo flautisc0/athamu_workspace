@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ATHAMU Dossier Payload",
+  "type": "object",
+  "required": ["titulo", "sinopsis", "artista"],
+  "properties": {
+    "titulo": { "type": "string", "minLength": 1 },
+    "artista": { "type": "string", "minLength": 1 },
+    "sinopsis": { "type": "string" },
+    "subtitulo": { "type": "string" },
+    "descripcion_corta": { "type": "string" },
+    "fecha": { "type": "string" },
+    "propuesta_texto": { "type": "string" },
+    "nota_direccion": { "type": "string" },
+    "requerimientos_texto": { "type": "string" },
+    "requerimientos_detalle": { "type": "string" },
+    "contacto_texto": { "type": "string" },
+    "cierre_texto": { "type": "string" },
+    "imagen_1": { "type": ["string", "null"] },
+    "imagen_2": { "type": ["string", "null"] },
+    "email": { "type": ["string", "null"] },
+    "web": { "type": ["string", "null"] },
+    "redes": { "type": "string" }
+  },
+  "defaultSnippets": {
+    "subtitulo": "",
+    "descripcion_corta": "",
+    "fecha": "",
+    "propuesta_texto": "",
+    "nota_direccion": "",
+    "requerimientos_texto": "",
+    "requerimientos_detalle": "",
+    "contacto_texto": "",
+    "cierre_texto": "",
+    "imagen_1": "https://drive.google.com/thumbnail?id=10CPr4Ywd2VnPl3GIfCBwK6ihflS6MS3n&sz=w2000",
+    "imagen_2": null,
+    "email": "",
+    "web": "",
+    "redes": ""
+  }
+}

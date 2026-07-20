@@ -1,0 +1,6 @@
+newmtl ATHAMU_base
+Ka 0.02 0.02 0.02
+Kd 0.75 0.7 0.65
+Ks 0.6 0.55 0.45
+Ns 120
+map_Kd athamu_texture.png

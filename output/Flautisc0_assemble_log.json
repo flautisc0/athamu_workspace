@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-07-15T17:13:43.869286",
+  "variant": "cinematic-dark",
+  "tokens_loaded": true,
+  "logo_used": false,
+  "warnings": [],
+  "components_loaded": [
+    "header",
+    "sinopsis",
+    "galeria",
+    "contacto"
+  ],
+  "html": "/home/flautisc0/athamu_workspace/output/Flautisc0.html"
+}

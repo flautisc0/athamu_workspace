@@ -1,0 +1,60 @@
+2026-07-16 18:49:52,495 INFO [hband_05]                 Book.java:560  | 1 sheet in /home/flautisc0/athamu_workspace/violin1_crops/hband_05.png
+2026-07-16 18:49:52,519 INFO []                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,519 INFO []                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_crops_out/hband_05.omr
+2026-07-16 18:49:52,520 INFO []                 Book.java:1929 | Book reaching PAGE on sheets:[#1]
+2026-07-16 18:49:52,520 INFO [hband_05]       StepMonitoring.java:98   | LOAD
+2026-07-16 18:49:52,528 INFO [hband_05]            SheetStub.java:1278 | Loaded image #1 586x160 from /home/flautisc0/athamu_workspace/violin1_crops/hband_05.png
+2026-07-16 18:49:52,528 INFO [hband_05]            ImageUtil.java:152  | Converting max RGB to gray
+2026-07-16 18:49:52,533 INFO [hband_05]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,544 INFO [hband_05]           DataHolder.java:348  | Stored /sheet#1/GRAY.png
+2026-07-16 18:49:52,546 INFO [hband_05]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:49:52,547 INFO [hband_05]       StepMonitoring.java:98   | BINARY
+2026-07-16 18:49:52,583 INFO [hband_05]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,584 INFO [hband_05]           DataHolder.java:256  | Removed /sheet#1/GRAY.png
+2026-07-16 18:49:52,590 INFO [hband_05]           DataHolder.java:348  | Stored /sheet#1/BINARY.png
+2026-07-16 18:49:52,593 INFO [hband_05]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:49:52,595 INFO [hband_05]       StepMonitoring.java:98   | SCALE
+2026-07-16 18:49:52,600 WARN [hband_05]            SheetStub.java:411  | hband_05   With a too low interline value of 4 pixels,  either this sheet contains no multi-line staves,  or the picture resolution is too low (try 300 DPI).   This interline value is NOT RELIABLE!
+2026-07-16 18:49:52,600 INFO [hband_05]                 Book.java:543  | Created scores: []
+2026-07-16 18:49:52,600 INFO [hband_05]            SheetStub.java:1194 | Sheet hband_05 flagged as invalid.
+2026-07-16 18:49:52,600 WARN [hband_05]                 Book.java:2044 | Error processing stub org.audiveris.omr.step.StepException: Sheet ignored
+java.util.concurrent.ExecutionException: org.audiveris.omr.step.StepException: Sheet ignored
+	at java.base/java.util.concurrent.FutureTask.report(Unknown Source)
+	at java.base/java.util.concurrent.FutureTask.get(Unknown Source)
+	at org.audiveris.omr.sheet.SheetStub.doOneStep(SheetStub.java:519)
+	at org.audiveris.omr.sheet.SheetStub.reachStep(SheetStub.java:1405)
+	at org.audiveris.omr.sheet.Book.reachBookStep(Book.java:2035)
+	at org.audiveris.omr.sheet.Book.transcribe(Book.java:2626)
+	at org.audiveris.omr.sheet.Book.export(Book.java:593)
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:927)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)
+Caused by: org.audiveris.omr.step.StepException: Sheet ignored
+	at org.audiveris.omr.sheet.SheetStub.decideOnRemoval(SheetStub.java:425)
+	at org.audiveris.omr.sheet.ScaleBuilder.checkResolution(ScaleBuilder.java:187)
+	at org.audiveris.omr.sheet.ScaleBuilder.doRetrieveScale(ScaleBuilder.java:380)
+	at org.audiveris.omr.sheet.ScaleBuilder.retrieveScale(ScaleBuilder.java:445)
+	at org.audiveris.omr.step.ScaleStep.doit(ScaleStep.java:64)
+	at org.audiveris.omr.step.OmrStep.doit(OmrStep.java:138)
+	at org.audiveris.omr.sheet.SheetStub.lambda$doOneStep$0(SheetStub.java:503)
+	at java.base/java.util.concurrent.FutureTask.run(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+2026-07-16 18:49:52,601 INFO [hband_05]                 Book.java:2584 | Book{hband_05} storing
+2026-07-16 18:49:52,628 INFO [hband_05]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:49:52,630 INFO [hband_05]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:49:52,630 INFO [hband_05]                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_crops_out/hband_05.omr
+2026-07-16 18:49:52,631 INFO [hband_05]            SheetStub.java:1655 | Sheet disposed
+2026-07-16 18:49:52,653 INFO [hband_05]                 Book.java:2050 | End of Stub#1
+2026-07-16 18:49:52,654 INFO [hband_05]                 Book.java:2057 | End of Book{hband_05}
+2026-07-16 18:49:52,654 INFO [hband_05]                 Book.java:596  | Could not export since transcription did not complete successfully
+2026-07-16 18:49:52,654 WARN [hband_05]                  CLI.java:956  | Exception occurred java.lang.Exception: Error in export
+java.lang.Exception: Error in export
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:930)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)

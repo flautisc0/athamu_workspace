@@ -1,0 +1,105 @@
+2026-07-16 19:13:47,480 INFO [staff_page_009]                 Book.java:560  | 1 sheet in /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_staff/staff_page_009.png
+2026-07-16 19:13:47,558 INFO []                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:47,559 INFO []                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_omr_out/staff_page_009.omr
+2026-07-16 19:13:47,559 INFO []                 Book.java:1929 | Book reaching PAGE on sheets:[#1]
+2026-07-16 19:13:47,560 INFO [staff_page_009]       StepMonitoring.java:98   | LOAD
+2026-07-16 19:13:47,642 INFO [staff_page_009]            SheetStub.java:1278 | Loaded image #1 2210x1573 from /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_staff/staff_page_009.png
+2026-07-16 19:13:47,642 INFO [staff_page_009]            ImageUtil.java:152  | Converting max RGB to gray
+2026-07-16 19:13:47,724 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:47,783 INFO [staff_page_009]           DataHolder.java:348  | Stored /sheet#1/GRAY.png
+2026-07-16 19:13:47,784 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:47,785 INFO [staff_page_009]       StepMonitoring.java:98   | BINARY
+2026-07-16 19:13:48,329 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:48,329 INFO [staff_page_009]           DataHolder.java:256  | Removed /sheet#1/GRAY.png
+2026-07-16 19:13:48,370 INFO [staff_page_009]           DataHolder.java:348  | Stored /sheet#1/BINARY.png
+2026-07-16 19:13:48,371 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:48,372 INFO [staff_page_009]       StepMonitoring.java:98   | SCALE
+2026-07-16 19:13:48,374 INFO [staff_page_009]         ScaleBuilder.java:254  | Beam  guessed height:  7 -- 0.25 of [5..11] range
+2026-07-16 19:13:48,374 INFO [staff_page_009]         ScaleBuilder.java:271  | Beam measured height:  7 -- 0.33 of [5..11] range at 263% of needed quorum
+2026-07-16 19:13:48,374 INFO [staff_page_009]         ScaleBuilder.java:401  | Normalized black jitter: 8.33 %
+2026-07-16 19:13:48,374 INFO [staff_page_009]            ScaleStep.java:65   | Scale{ interline(11,12,12) line(1,1,2) beam(7)}
+2026-07-16 19:13:48,375 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:48,376 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:48,377 INFO [staff_page_009]       StepMonitoring.java:98   | GRID
+2026-07-16 19:13:48,509 INFO [staff_page_009]       LinesRetriever.java:1508 | Global slope: 0.00000
+2026-07-16 19:13:48,527 INFO [staff_page_009]    ClustersRetriever.java:326  | Retrieved raw line clusters: 13 of sizes [5] with interline(11,12,12)
+2026-07-16 19:13:48,597 INFO [staff_page_009]            PeakGraph.java:310  | Systems: #1[1, 2, 3, 4, 5, 6, 7, 8, 9] #2[10, 11, 12, 13]
+2026-07-16 19:13:48,605 WARN [staff_page_009]        BarsRetriever.java:374  | Staff#4 expected brace middle/bottom
+2026-07-16 19:13:48,617 INFO [staff_page_009]        BarsRetriever.java:1595 | Staff#13 serif normalized weight too small 0.15 vs 0.2
+2026-07-16 19:13:48,620 WARN [staff_page_009]        BarsRetriever.java:702  | Staff#1 no group level:1
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:769  | No brace partner at level:1 for Peak{209-225 F#2153 T#4 [BRACE]}
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:769  | No brace partner at level:2 for Peak{226-241 F#2166 T#13 [BRACE]}
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:1305 | System#1
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{bracket number:1 barline:true staves:2-3}
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{brace number:2 barline:false staves:3}
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{bracket number:1 barline:true staves:5-9}
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{brace number:2 barline:true staves:5-6}
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{brace number:2 barline:true staves:8-9}
+2026-07-16 19:13:48,621 INFO [staff_page_009]        BarsRetriever.java:1305 | System#2
+2026-07-16 19:13:48,622 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{bracket number:1 barline:true staves:10-11}
+2026-07-16 19:13:48,622 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{bracket number:1 barline:false staves:12}
+2026-07-16 19:13:48,622 INFO [staff_page_009]        BarsRetriever.java:1308 |    PartGroup{bracket number:1 barline:false staves:13}
+2026-07-16 19:13:48,777 INFO [staff_page_009]        SystemManager.java:800  | 9 parts along 2 systems
+2026-07-16 19:13:48,777 INFO [staff_page_009]                 Book.java:543  | Created scores: [{Score 1}]
+2026-07-16 19:13:48,779 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:48,862 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:48,863 INFO [staff_page_009]       StepMonitoring.java:98   | HEADERS
+2026-07-16 19:13:49,173 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:49,325 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:49,327 INFO [staff_page_009]       StepMonitoring.java:98   | STEM_SEEDS
+2026-07-16 19:13:49,362 INFO [staff_page_009]        StemSeedsStep.java:86   | stem(2 max:3)
+2026-07-16 19:13:49,374 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:49,558 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:49,559 INFO [staff_page_009]       StepMonitoring.java:98   | BEAMS
+2026-07-16 19:13:51,077 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:51,114 INFO [staff_page_009]           DataHolder.java:348  | Stored /sheet#1/HEAD_SPOTS.png
+2026-07-16 19:13:51,594 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:51,596 INFO [staff_page_009]       StepMonitoring.java:98   | LEDGERS
+2026-07-16 19:13:51,700 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:52,222 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:52,223 INFO [staff_page_009]       StepMonitoring.java:98   | HEADS
+2026-07-16 19:13:52,555 WARN [staff_page_009]                 Book.java:2044 | Error processing stub java.lang.ArrayIndexOutOfBoundsException: Index 3476589 out of bounds for length 3476330
+java.util.concurrent.ExecutionException: java.lang.ArrayIndexOutOfBoundsException: Index 3476589 out of bounds for length 3476330
+	at java.base/java.util.concurrent.FutureTask.report(Unknown Source)
+	at java.base/java.util.concurrent.FutureTask.get(Unknown Source)
+	at org.audiveris.omr.sheet.SheetStub.doOneStep(SheetStub.java:519)
+	at org.audiveris.omr.sheet.SheetStub.reachStep(SheetStub.java:1405)
+	at org.audiveris.omr.sheet.Book.reachBookStep(Book.java:2035)
+	at org.audiveris.omr.sheet.Book.transcribe(Book.java:2626)
+	at org.audiveris.omr.sheet.Book.export(Book.java:593)
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:927)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)
+Caused by: java.lang.ArrayIndexOutOfBoundsException: Index 3476589 out of bounds for length 3476330
+	at org.audiveris.omr.util.Table$Short.setValue(Table.java:482)
+	at org.audiveris.omr.image.DistanceTable$Abstract.setValue(DistanceTable.java:183)
+	at org.audiveris.omr.sheet.note.DistancesBuilder$TablePainter.paintPixel(DistancesBuilder.java:275)
+	at org.audiveris.omr.sheet.note.DistancesBuilder.paintLines(DistancesBuilder.java:176)
+	at org.audiveris.omr.sheet.note.DistancesBuilder.buildDistances(DistancesBuilder.java:117)
+	at org.audiveris.omr.sheet.note.HeadsStep.doProlog(HeadsStep.java:87)
+	at org.audiveris.omr.sheet.note.HeadsStep.doProlog(HeadsStep.java:46)
+	at org.audiveris.omr.step.AbstractSystemStep.doit(AbstractSystemStep.java:122)
+	at org.audiveris.omr.step.OmrStep.doit(OmrStep.java:138)
+	at org.audiveris.omr.sheet.SheetStub.lambda$doOneStep$0(SheetStub.java:503)
+	at java.base/java.util.concurrent.FutureTask.run(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+2026-07-16 19:13:52,555 INFO [staff_page_009]                 Book.java:2584 | Book{staff_page_009} storing
+2026-07-16 19:13:52,671 INFO [staff_page_009]                 Book.java:2565 | Stored /book.xml
+2026-07-16 19:13:52,897 INFO [staff_page_009]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 19:13:52,897 INFO [staff_page_009]                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/beethoven_sym2_vln1_omr_out/staff_page_009.omr
+2026-07-16 19:13:52,899 INFO [staff_page_009]            SheetStub.java:1655 | Sheet disposed
+2026-07-16 19:13:52,974 INFO [staff_page_009]                 Book.java:2050 | End of Stub#1
+2026-07-16 19:13:52,975 INFO [staff_page_009]                 Book.java:2057 | End of Book{staff_page_009}
+2026-07-16 19:13:52,975 INFO [staff_page_009]                 Book.java:596  | Could not export since transcription did not complete successfully
+2026-07-16 19:13:52,975 WARN [staff_page_009]                  CLI.java:956  | Exception occurred java.lang.Exception: Error in export
+java.lang.Exception: Error in export
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:930)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)
+2026-07-16 19:13:53,051 INFO [staff_page_009]                Score.java:181  | Closing {Score 1}

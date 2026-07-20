@@ -1,0 +1,27 @@
+name: Teatro
+description: Producción teatral
+body:
+  - type: input
+    attributes:
+      label: Obra
+      placeholder: Ej. Esperando la carroza
+  - type: input
+    attributes:
+      label: Caché estimada
+      placeholder: Ej. $1.200.000
+  - type: input
+    attributes:
+      label: Fecha
+      placeholder: YYYY-MM-DD
+  - type: input
+    attributes:
+      label: Espacio
+      placeholder: Teatro / Centro cultural / Libre
+  - type: textarea
+    attributes:
+      label: Responsables
+      placeholder: Producción / Técnica / Difusión / Logística
+  - type: dropdown
+    attributes:
+      label: Estado
+      options: [Ideación, En producción, Listo para enviar, En cartel, Finalizado]

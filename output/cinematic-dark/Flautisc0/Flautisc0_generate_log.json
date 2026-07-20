@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-07-15T21:13:43.060155+00:00",
+  "payload_path": "payload_flautisc0.json",
+  "variant": "cinematic-dark",
+  "template_used": "/home/flautisc0/athamu_workspace/templates/cinematic-dark/template.docx",
+  "docx_path": "/home/flautisc0/athamu_workspace/output/cinematic-dark/Flautisc0/Flautisc0__cinematic-dark_editable.docx",
+  "pdf_path": "/home/flautisc0/athamu_workspace/output/Flautisc0.pdf",
+  "drive_links": [
+    {
+      "name": "Flautisc0.pdf",
+      "id": "1aBSDenxAjjoOUAMCq1oQfuFnGOEt4Ebv",
+      "webViewLink": "https://drive.google.com/file/d/1aBSDenxAjjoOUAMCq1oQfuFnGOEt4Ebv/view?usp=drivesdk",
+      "webContentLink": "https://drive.google.com/uc?id=1aBSDenxAjjoOUAMCq1oQfuFnGOEt4Ebv&export=download",
+      "mimeType": "application/pdf"
+    },
+    {
+      "name": "Flautisc0__cinematic-dark_editable.docx",
+      "id": "1deo6GcoixIu-1IBu_QDyTSlcK94sWRhn",
+      "webViewLink": "https://docs.google.com/document/d/1deo6GcoixIu-1IBu_QDyTSlcK94sWRhn/edit?usp=drivesdk&ouid=109568952328733739750&rtpof=true&sd=true",
+      "webContentLink": "https://drive.google.com/uc?id=1deo6GcoixIu-1IBu_QDyTSlcK94sWRhn&export=download",
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    }
+  ],
+  "warnings": [],
+  "success": true,
+  "notes": ""
+}

@@ -1,0 +1,60 @@
+2026-07-16 18:22:54,313 INFO [violin1]                 Book.java:560  | 1 sheet in /home/flautisc0/athamu_workspace/violin1_omr_out/violin1.jpg
+2026-07-16 18:22:54,630 INFO []                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:22:54,631 INFO []                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_omr_out/violin1.omr
+2026-07-16 18:22:54,633 INFO []                 Book.java:1929 | Book reaching PAGE on sheets:[#1]
+2026-07-16 18:22:54,634 INFO [violin1]       StepMonitoring.java:98   | LOAD
+2026-07-16 18:22:54,786 INFO [violin1]            SheetStub.java:1278 | Loaded image #1 586x765 from /home/flautisc0/athamu_workspace/violin1_omr_out/violin1.jpg
+2026-07-16 18:22:54,789 INFO [violin1]            ImageUtil.java:152  | Converting max RGB to gray
+2026-07-16 18:22:54,844 INFO [violin1]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:22:54,975 INFO [violin1]           DataHolder.java:348  | Stored /sheet#1/GRAY.png
+2026-07-16 18:22:55,283 INFO [violin1]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:22:55,285 INFO [violin1]       StepMonitoring.java:98   | BINARY
+2026-07-16 18:22:55,595 INFO [violin1]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:22:55,596 INFO [violin1]           DataHolder.java:256  | Removed /sheet#1/GRAY.png
+2026-07-16 18:22:55,611 INFO [violin1]           DataHolder.java:348  | Stored /sheet#1/BINARY.png
+2026-07-16 18:22:55,613 INFO [violin1]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:22:55,615 INFO [violin1]       StepMonitoring.java:98   | SCALE
+2026-07-16 18:22:55,639 WARN [violin1]            SheetStub.java:411  | violin1   With a too low interline value of 4 pixels,  either this sheet contains no multi-line staves,  or the picture resolution is too low (try 300 DPI).   This interline value is NOT RELIABLE!
+2026-07-16 18:22:55,640 INFO [violin1]                 Book.java:543  | Created scores: []
+2026-07-16 18:22:55,640 INFO [violin1]            SheetStub.java:1194 | Sheet violin1 flagged as invalid.
+2026-07-16 18:22:55,641 WARN [violin1]                 Book.java:2044 | Error processing stub org.audiveris.omr.step.StepException: Sheet ignored
+java.util.concurrent.ExecutionException: org.audiveris.omr.step.StepException: Sheet ignored
+	at java.base/java.util.concurrent.FutureTask.report(Unknown Source)
+	at java.base/java.util.concurrent.FutureTask.get(Unknown Source)
+	at org.audiveris.omr.sheet.SheetStub.doOneStep(SheetStub.java:519)
+	at org.audiveris.omr.sheet.SheetStub.reachStep(SheetStub.java:1405)
+	at org.audiveris.omr.sheet.Book.reachBookStep(Book.java:2035)
+	at org.audiveris.omr.sheet.Book.transcribe(Book.java:2626)
+	at org.audiveris.omr.sheet.Book.export(Book.java:593)
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:927)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)
+Caused by: org.audiveris.omr.step.StepException: Sheet ignored
+	at org.audiveris.omr.sheet.SheetStub.decideOnRemoval(SheetStub.java:425)
+	at org.audiveris.omr.sheet.ScaleBuilder.checkResolution(ScaleBuilder.java:187)
+	at org.audiveris.omr.sheet.ScaleBuilder.doRetrieveScale(ScaleBuilder.java:380)
+	at org.audiveris.omr.sheet.ScaleBuilder.retrieveScale(ScaleBuilder.java:445)
+	at org.audiveris.omr.step.ScaleStep.doit(ScaleStep.java:64)
+	at org.audiveris.omr.step.OmrStep.doit(OmrStep.java:138)
+	at org.audiveris.omr.sheet.SheetStub.lambda$doOneStep$0(SheetStub.java:503)
+	at java.base/java.util.concurrent.FutureTask.run(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+2026-07-16 18:22:55,643 INFO [violin1]                 Book.java:2584 | Book{violin1} storing
+2026-07-16 18:22:55,681 INFO [violin1]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:22:55,683 INFO [violin1]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:22:55,683 INFO [violin1]                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_omr_out/violin1.omr
+2026-07-16 18:22:55,684 INFO [violin1]            SheetStub.java:1655 | Sheet disposed
+2026-07-16 18:22:55,710 INFO [violin1]                 Book.java:2050 | End of Stub#1
+2026-07-16 18:22:55,711 INFO [violin1]                 Book.java:2057 | End of Book{violin1}
+2026-07-16 18:22:55,712 INFO [violin1]                 Book.java:596  | Could not export since transcription did not complete successfully
+2026-07-16 18:22:55,712 WARN [violin1]                  CLI.java:956  | Exception occurred java.lang.Exception: Error in export
+java.lang.Exception: Error in export
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:930)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)

@@ -1,0 +1,92 @@
+2026-07-16 18:57:34,689 INFO [sys_07_3x]                 Book.java:560  | 1 sheet in /home/flautisc0/athamu_workspace/violin1_crop_ready/sys_07_3x.png
+2026-07-16 18:57:34,749 INFO []                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:34,749 INFO []                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_sys_out/sys_07_3x.omr
+2026-07-16 18:57:34,750 INFO []                 Book.java:1929 | Book reaching PAGE on sheets:[#1]
+2026-07-16 18:57:34,750 INFO [sys_07_3x]       StepMonitoring.java:98   | LOAD
+2026-07-16 18:57:34,788 INFO [sys_07_3x]            SheetStub.java:1278 | Loaded image #1 1758x420 from /home/flautisc0/athamu_workspace/violin1_crop_ready/sys_07_3x.png
+2026-07-16 18:57:34,788 INFO [sys_07_3x]            ImageUtil.java:152  | Converting max RGB to gray
+2026-07-16 18:57:34,849 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:34,934 INFO [sys_07_3x]           DataHolder.java:348  | Stored /sheet#1/GRAY.png
+2026-07-16 18:57:34,935 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:34,936 INFO [sys_07_3x]       StepMonitoring.java:98   | BINARY
+2026-07-16 18:57:35,050 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:35,050 INFO [sys_07_3x]           DataHolder.java:256  | Removed /sheet#1/GRAY.png
+2026-07-16 18:57:35,063 INFO [sys_07_3x]           DataHolder.java:348  | Stored /sheet#1/BINARY.png
+2026-07-16 18:57:35,065 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:35,066 INFO [sys_07_3x]       StepMonitoring.java:98   | SCALE
+2026-07-16 18:57:35,068 INFO [sys_07_3x]         ScaleBuilder.java:254  | Beam  guessed height:  8 -- 0.25 of [7..12] range
+2026-07-16 18:57:35,068 WARN [sys_07_3x]         ScaleBuilder.java:300  | No reliable beam height found, guessed value: 8
+2026-07-16 18:57:35,068 INFO [sys_07_3x]         ScaleBuilder.java:401  | Normalized black jitter: 38.46 %
+2026-07-16 18:57:35,068 INFO [sys_07_3x]            ScaleStep.java:65   | Scale{ interline(11,13,15) line(2,4,7) beam(8 extra)}
+2026-07-16 18:57:35,069 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:35,070 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:35,071 INFO [sys_07_3x]       StepMonitoring.java:98   | GRID
+2026-07-16 18:57:35,531 INFO [sys_07_3x]       LinesRetriever.java:1508 | Global slope: 0.02962
+2026-07-16 18:57:35,549 INFO [sys_07_3x]    ClustersRetriever.java:326  | Retrieved raw line clusters: 3 of sizes [5] with interline(11,13,15)
+2026-07-16 18:57:35,659 INFO [sys_07_3x]            PeakGraph.java:310  | Systems: #1[1] #2[2] #3[3]
+2026-07-16 18:57:35,869 WARN [sys_07_3x]          GridBuilder.java:161  | Error in GridBuilder: java.lang.ArrayIndexOutOfBoundsException
+java.lang.ArrayIndexOutOfBoundsException: null
+2026-07-16 18:57:35,968 INFO [sys_07_3x]        SystemManager.java:800  | 1 part along 3 systems
+2026-07-16 18:57:35,968 INFO [sys_07_3x]                 Book.java:543  | Created scores: [{Score 1}]
+2026-07-16 18:57:35,969 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:36,051 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:36,052 INFO [sys_07_3x]       StepMonitoring.java:98   | HEADERS
+2026-07-16 18:57:37,068 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:37,274 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:37,275 INFO [sys_07_3x]       StepMonitoring.java:98   | STEM_SEEDS
+2026-07-16 18:57:37,284 INFO [sys_07_3x]        StemSeedsStep.java:86   | stem(5 max:6)
+2026-07-16 18:57:37,296 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:37,545 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:37,546 INFO [sys_07_3x]       StepMonitoring.java:98   | BEAMS
+2026-07-16 18:57:38,020 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:38,031 INFO [sys_07_3x]           DataHolder.java:348  | Stored /sheet#1/HEAD_SPOTS.png
+2026-07-16 18:57:38,438 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:38,440 INFO [sys_07_3x]       StepMonitoring.java:98   | LEDGERS
+2026-07-16 18:57:38,575 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:39,055 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:39,056 INFO [sys_07_3x]       StepMonitoring.java:98   | HEADS
+2026-07-16 18:57:39,169 WARN [sys_07_3x]                 Book.java:2044 | Error processing stub java.lang.ArrayIndexOutOfBoundsException: Index -1693 out of bounds for length 738360
+java.util.concurrent.ExecutionException: java.lang.ArrayIndexOutOfBoundsException: Index -1693 out of bounds for length 738360
+	at java.base/java.util.concurrent.FutureTask.report(Unknown Source)
+	at java.base/java.util.concurrent.FutureTask.get(Unknown Source)
+	at org.audiveris.omr.sheet.SheetStub.doOneStep(SheetStub.java:519)
+	at org.audiveris.omr.sheet.SheetStub.reachStep(SheetStub.java:1405)
+	at org.audiveris.omr.sheet.Book.reachBookStep(Book.java:2035)
+	at org.audiveris.omr.sheet.Book.transcribe(Book.java:2626)
+	at org.audiveris.omr.sheet.Book.export(Book.java:593)
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:927)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)
+Caused by: java.lang.ArrayIndexOutOfBoundsException: Index -1693 out of bounds for length 738360
+	at org.audiveris.omr.util.Table$Short.setValue(Table.java:482)
+	at org.audiveris.omr.image.DistanceTable$Abstract.setValue(DistanceTable.java:183)
+	at org.audiveris.omr.sheet.note.DistancesBuilder$TablePainter.paintPixel(DistancesBuilder.java:275)
+	at org.audiveris.omr.sheet.note.DistancesBuilder.paintLines(DistancesBuilder.java:176)
+	at org.audiveris.omr.sheet.note.DistancesBuilder.buildDistances(DistancesBuilder.java:117)
+	at org.audiveris.omr.sheet.note.HeadsStep.doProlog(HeadsStep.java:87)
+	at org.audiveris.omr.sheet.note.HeadsStep.doProlog(HeadsStep.java:46)
+	at org.audiveris.omr.step.AbstractSystemStep.doit(AbstractSystemStep.java:122)
+	at org.audiveris.omr.step.OmrStep.doit(OmrStep.java:138)
+	at org.audiveris.omr.sheet.SheetStub.lambda$doOneStep$0(SheetStub.java:503)
+	at java.base/java.util.concurrent.FutureTask.run(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+2026-07-16 18:57:39,170 INFO [sys_07_3x]                 Book.java:2584 | Book{sys_07_3x} storing
+2026-07-16 18:57:39,295 INFO [sys_07_3x]                 Book.java:2565 | Stored /book.xml
+2026-07-16 18:57:39,460 INFO [sys_07_3x]                Sheet.java:1583 | Stored /sheet#1/sheet#1.xml
+2026-07-16 18:57:39,460 INFO [sys_07_3x]                 Book.java:2525 | Book stored as /home/flautisc0/athamu_workspace/violin1_sys_out/sys_07_3x.omr
+2026-07-16 18:57:39,461 INFO [sys_07_3x]            SheetStub.java:1655 | Sheet disposed
+2026-07-16 18:57:39,527 INFO [sys_07_3x]                 Book.java:2050 | End of Stub#1
+2026-07-16 18:57:39,527 INFO [sys_07_3x]                 Book.java:2057 | End of Book{sys_07_3x}
+2026-07-16 18:57:39,527 INFO [sys_07_3x]                 Book.java:596  | Could not export since transcription did not complete successfully
+2026-07-16 18:57:39,528 WARN [sys_07_3x]                  CLI.java:956  | Exception occurred java.lang.Exception: Error in export
+java.lang.Exception: Error in export
+	at org.audiveris.omr.CLI$ProcessingTask.processBook(CLI.java:930)
+	at org.audiveris.omr.CLI$CliTask.call(CLI.java:513)
+	at org.audiveris.omr.Main.runBatchTasks(Main.java:370)
+	at org.audiveris.omr.Main.main(Main.java:272)
+	at Audiveris.main(Audiveris.java:50)
+2026-07-16 18:57:39,588 INFO [sys_07_3x]                Score.java:181  | Closing {Score 1}
