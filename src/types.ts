@@ -1,0 +1,207 @@
+export type Discipline = 'Teatro' | 'Danza' | 'Música' | 'Festival' | 'Interdisciplinar';
+
+export type ObraStatus = 'En repertorio' | 'En gira' | 'En producción' | 'Estreno' | 'I+D';
+
+export interface Obra {
+  id: string;
+  title: string;
+  discipline: Discipline;
+  format: string; // 'Sala Grande' | 'Caja Negra' | 'Espacio Público' | 'Íntimo / Concierto'
+  duration: string;
+  targetAudience: string;
+  status: ObraStatus;
+  synopsis: string;
+  castTeam: {
+    direction: string;
+    cast: string[];
+    music: string;
+    technical: string;
+  };
+  technicalRider: {
+    minStageWidthMeters: number;
+    minStageDepthMeters: number;
+    lighting: string;
+    sound: string;
+    loadInHours: number;
+    crewRequired: number;
+  };
+  economics: {
+    feeCLP: number; // Caché referencial
+    ticketSplitEstimatedCLP: number;
+    productionCostCLP: number;
+  };
+  premiereDate: string;
+  image: string;
+  dossierHighlights: string[];
+  notes?: string;
+}
+
+export type LeadType = 'sala' | 'festival' | 'programador' | 'artista' | 'proveedor';
+export type LeadStatus = 'contactado' | 'negociacion' | 'cerrado' | 'archivado';
+
+export interface Lead {
+  id: string;
+  name: string;
+  organization: string;
+  type: LeadType;
+  status: LeadStatus;
+  city: string;
+  email: string;
+  phone: string;
+  notes: string;
+  lastContactDate: string;
+  estimatedValueCLP: number;
+  assignedTo: string;
+}
+
+export interface ProjectRD {
+  id: string;
+  code: string;
+  title: string;
+  progress: number; // 0-100
+  phase: string;
+  description: string;
+  teamLead: string;
+  budgetCLP: number;
+  spentCLP: number;
+  milestoneUpcoming: string;
+  tags: string[];
+  updatedAt: string;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  title: string;
+  bio: string;
+  image: string;
+  email: string;
+  phone: string;
+  location: string;
+  activeProjects: string[];
+  discipline: string;
+}
+
+export interface Venue {
+  id: string;
+  name: string;
+  city: string;
+  region: string;
+  capacity: number;
+  stageType: string;
+  contactPerson: string;
+  contactEmail: string;
+  status: 'Activo / Convenio' | 'En prospección' | 'Histórico' | 'Bloqueado';
+  specs: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  code: string;
+  name: string;
+  category: 'Audio / Backline' | 'Iluminación' | 'Estructura / Escenario' | 'Video / Proyección' | 'Cables & DMX';
+  condition: 'Excelente' | 'Operativo' | 'En mantención';
+  status: 'Disponible' | 'Asignado en gira' | 'En bodega central';
+  assignedToWork?: string;
+  location: string;
+  valueCLP: number;
+}
+
+export interface FinanceRecord {
+  id: string;
+  projectId: string;
+  projectName: string;
+  type: 'Ingreso' | 'Gasto';
+  category: 'Honorarios' | 'Traslados/Viáticos' | 'Técnica & Arriendo' | 'Escenografía & Vestuario' | 'Difusión & Prensa';
+  amountCLP: number;
+  date: string;
+  status: 'Rendido' | 'Pendiente' | 'Aprobado';
+  invoiceRef: string;
+  responsible: string;
+}
+
+export interface CreativeLog {
+  id: string;
+  obraId: string;
+  obraTitle: string;
+  date: string;
+  author: string;
+  phase?: 'Concepto' | 'Dramaturgia / Partitura' | 'Ensayo general' | 'Puesta técnica' | string;
+  title: string;
+  entry: string;
+  tags: string[];
+}
+
+export type ProcessLog = CreativeLog;
+
+export interface StandardRider {
+  id: string;
+  title: string;
+  category: string;
+  version: string;
+  description: string;
+  keySpecs: string[];
+  pdfFileTitle: string;
+  technicalDirector: string;
+  specs?: {
+    equipment: string[];
+    powerRequirement: string;
+    crewNeeded: string;
+    setupNotes: string;
+  };
+  lastUpdated?: string;
+}
+
+export type TechnicalRider = StandardRider;
+
+export interface ReminderNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  date: string;
+  read: boolean;
+}
+
+export type UserProfile = UserSession;
+
+
+export interface EventSchedule {
+  id: string;
+  title: string;
+  obraId: string;
+  obraTitle: string;
+  type: 'Ensayo' | 'Montaje técnico' | 'Función / Estreno' | 'Reunión de producción';
+  date: string;
+  timeStart: string;
+  timeEnd: string;
+  venue: string;
+  castCount: number;
+  status: 'Confirmado' | 'Pendiente' | 'Completado';
+}
+
+export interface ArtistAvailability {
+  id: string;
+  artistName: string;
+  role: string;
+  avatar: string;
+  timeSlots: {
+    lunes: string[];
+    martes: string[];
+    miercoles: string[];
+    jueves: string[];
+    viernes: string[];
+    sabado: string[];
+  };
+  notes: string;
+}
+
+export interface UserSession {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar: string;
+  provider: 'google' | 'apple' | 'atha_id';
+}
