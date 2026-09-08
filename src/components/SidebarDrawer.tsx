@@ -13,6 +13,7 @@ import {
   BookOpenText,
   FileSpreadsheet,
   Info,
+  Workflow,
   X,
   ChevronRight,
   ExternalLink
@@ -82,6 +83,12 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       items: [
         { id: 'equipo', label: '7. Equipo Fundador (4)', icon: Award, accentColor: '#fbbf24' },
         { id: 'acerca', label: '13. Contexto / Acerca ATHA', icon: Info, accentColor: '#6ee7b7' }
+      ]
+    },
+    {
+      name: 'Ecosistema',
+      items: [
+        { id: 'ecosistema', label: 'Herramientas del Ecosistema', icon: Workflow, accentColor: '#6ee7b7' }
       ]
     }
   ];

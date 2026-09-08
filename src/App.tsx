@@ -63,6 +63,7 @@ import { FinanzasSection } from './components/sections/FinanzasSection';
 import { DiarioProcesoSection } from './components/sections/DiarioProcesoSection';
 import { RidersSection } from './components/sections/RidersSection';
 import { AcercaSection } from './components/sections/AcercaSection';
+import { EcosistemaSection } from './components/sections/EcosistemaSection';
 
 export default function App() {
   // Navigation & Drawer
@@ -402,6 +403,10 @@ export default function App() {
 
         {activeSection === 'acerca' && (
           <AcercaSection />
+        )}
+
+        {activeSection === 'ecosistema' && (
+          <EcosistemaSection />
         )}
       </main>
 
