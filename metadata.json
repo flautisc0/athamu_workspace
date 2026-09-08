@@ -1,0 +1,6 @@
+{
+  "name": "Arquitecto de Proyecto — ATHA Producciones",
+  "description": "Herramienta de control de gestión cultural y simulación de viabilidad de proyectos para artes escénicas, música y gestión cultural del ecosistema ATHA Producciones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
