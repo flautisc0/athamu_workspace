@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../types/project';
 import { CrmFolder, CrmCatalogEntry } from '../types/crm';
-import { 
-  loadCrmFolders, 
-  loadCrmCatalog, 
-  sendProjectToCrm, 
-  createNewCrmFolder 
+import {
+  loadCrmFolders,
+  loadCrmFoldersAsync,
+  loadCrmCatalog,
+  loadCrmCatalogAsync,
+  sendProjectToCrm,
+  sendProjectToCrmAsync,
+  createNewCrmFolder,
+  getUserSession,
+  getAuthToken,
 } from '../utils/crmCatalogService';
 import { formatCLP } from '../utils/calculations';
 import { 
@@ -58,19 +63,32 @@ export const CrmCatalogExplorerModal: React.FC<CrmCatalogExplorerModalProps> = (
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderDesc, setNewFolderDesc] = useState('');
+  const [isConnected, setIsConnected] = useState(false);  // estado conexión CRM real
 
-  // Reload data on open
+  // Reload data on open — intenta backend REAL primero
   useEffect(() => {
     if (isOpen) {
-      const f = loadCrmFolders();
-      const c = loadCrmCatalog();
-      setFolders(f);
-      setCatalog(c);
-      setMode(initialMode);
-      setSendSuccessMessage(null);
-      if (f.length > 0) {
-        setSendFolderId(f[0].id);
-      }
+      let cancelled = false;
+      (async () => {
+        const token = getAuthToken();
+        const user = getUserSession();
+        setIsConnected(!!(token && user));
+
+        // cargar folders REALES (fallback localStorage)
+        const realFolders = await loadCrmFoldersAsync();
+        if (!cancelled) setFolders(realFolders);
+
+        // cargar catálogo REAL (fallback localStorage)
+        const realCatalog = await loadCrmCatalogAsync();
+        if (!cancelled) setCatalog(realCatalog);
+
+        if (!cancelled) {
+          setMode(initialMode);
+          setSendSuccessMessage(null);
+          if (realFolders.length > 0) setSendFolderId(realFolders[0].id);
+        }
+      })();
+      return () => { cancelled = true; };
     }
   }, [isOpen, initialMode]);
 
@@ -87,16 +105,24 @@ export const CrmCatalogExplorerModal: React.FC<CrmCatalogExplorerModalProps> = (
     return matchesFolder && matchesQuery;
   });
 
-  const handleSendProject = (e: React.FormEvent) => {
+  const handleSendProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = sendProjectToCrm(activeProject, sendFolderId, sendNotes);
-    if (result.success) {
+    // Intentar backend REAL primero; fallback localStorage
+    const result = await sendProjectToCrmAsync(
+      activeProject, sendFolderId, sendNotes,
+    );
+    if (result) {
+      const label = result.backend ? 'CRM real' : 'Intranet (local)';
       setCatalog(result.updatedCatalog);
-      setFolders(loadCrmFolders());
-      setSendSuccessMessage(`¡Proyecto "${activeProject.title}" enviado exitosamente al catálogo del CRM!`);
-      setTimeout(() => {
-        setMode('explore');
-      }, 1200);
+      setFolders(await loadCrmFoldersAsync());
+      setSendSuccessMessage(
+        result.backend
+          ? `¡Proyecto "${activeProject.title}" sincronizado con el CRM real!`
+          : `¡Proyecto "${activeProject.title}" guardado en Intranet CRM ATHAMU (modo local)!`,
+      );
+      setTimeout(() => setMode('explore'), 2000);
+    } else {
+      setSendSuccessMessage('Error al enviar proyecto al CRM ATHAMU.');
     }
   };
 
@@ -282,13 +308,22 @@ export const CrmCatalogExplorerModal: React.FC<CrmCatalogExplorerModalProps> = (
               </div>
 
               {/* Status info */}
-              <div className="mt-auto pt-4 border-t border-stone-200 dark:border-stone-800 text-[11px] text-stone-500 space-y-1">
-                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Conector CRM ATHAMU Activo</span>
+              <div className="mt-auto pt-4 border-t border-stone-200 dark:border-stone-800 text-[11px] text-stone-500 space-y-2">
+                <div className={`flex items-center gap-1.5 font-semibold ${isConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {isConnected ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Conector CRM ATHAMU: conectado a backend real</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>Conector CRM ATHAMU: modo local (Intranet)</span>
+                    </>
+                  )}
                 </div>
                 <p className="text-[10px] text-stone-400">
-                  Formato de intercambio compatible con Esquema v1.1.0-ATHAMU.
+                  Formato de intercambio compatible con Esquema v1.1.0-ATHAMU. Integrantes y obras sincronizados con crm-v1 (:5052).
                 </p>
               </div>
 

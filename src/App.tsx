@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Project } from './types/project';
 import { INITIAL_PROJECTS } from './data/initialProjects';
 import { calculateProjectFinances } from './utils/calculations';
@@ -16,33 +16,27 @@ import { ConsolidatedSummaryView } from './components/ConsolidatedSummaryView';
 import { AthamuSyncModal } from './components/AthamuSyncModal';
 import { ProjectWizardModal } from './components/ProjectWizardModal';
 import { CrmCatalogExplorerModal } from './components/CrmCatalogExplorerModal';
+import { loadCrmCatalogAsync, loadCrmFoldersAsync, UserSession, getUserSession, PRESET_USERS } from './utils/crmCatalogService';
 
 const STORAGE_KEY = 'atha_projects_v1';
 const THEME_STORAGE_KEY = 'atha_dark_mode';
 
 export default function App() {
-  // Theme state
+  // State
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved !== null) {
-      return saved === 'true';
-    }
+    if (saved !== null) return saved === 'true';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  // Projects state
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch (e) {
-      console.error('Error loading projects from localStorage', e);
-    }
+    } catch (e) { console.error('Error loading projects from localStorage', e); }
     return INITIAL_PROJECTS;
   });
 
@@ -294,6 +288,50 @@ export default function App() {
     }
   };
 
+  // Auth + sync cloud
+  const [currentUser, setCurrentUser] = useState<UserSession>(() => {
+    const saved = getUserSession();
+    return saved || PRESET_USERS[0];
+  });
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncCloud = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      await loadCrmCatalogAsync();
+      await loadCrmFoldersAsync();
+    } catch (e) {
+    } finally { setIsSyncing(false); }
+  }, []);
+  const [crmReady, setCrmReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [folders] = await Promise.all([
+          loadCrmFoldersAsync(),
+        ]);
+        // guardar folders reales en localStorage (fallback)
+        try { localStorage.setItem('atha_crm_folders_v1', JSON.stringify(folders)); } catch {}
+
+        // Si localStorage está vacío, bootstrapear con datos reales del backend
+        const saved = localStorage.getItem('atha_crm_catalog_v1');
+        if (!saved || JSON.parse(saved).length === 0) {
+          const realProjects = await loadCrmCatalogAsync();
+          const mapped = realProjects.map(e => e.projectData).filter(Boolean);
+          if (mapped.length && !cancelled) {
+            saveProjects(mapped);
+          }
+        }
+        if (!cancelled) setCrmReady(true);
+      } catch (e) {
+        console.warn('CRM real no disponible en bootstrap:', e);
+        if (!cancelled) setCrmReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans transition-colors">
       {/* 1. Top Header */}
@@ -318,6 +356,10 @@ export default function App() {
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         lastSavedAt={lastSavedAt}
         onResetToDefaults={handleResetToDefaults}
+        currentUser={currentUser}
+        onSelectUser={setCurrentUser}
+        onSyncCloud={handleSyncCloud}
+        isSyncing={isSyncing}
       />
 
       {/* 2. Project Summary Bar */}
