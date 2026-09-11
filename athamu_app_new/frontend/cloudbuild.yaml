@@ -1,0 +1,18 @@
+# ATHA CRM Web — build con BACKEND_URL explícito como Docker build arg
+# Las rewrites de Next.js se evalúan en build, así que el arg debe llegar al Dockerfile.
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_IMAGE}'
+      - '--build-arg'
+      - 'BACKEND_URL=${_BACKEND_URL}'
+      - '.'
+images:
+  - '${_IMAGE}'
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _BACKEND_URL: 'https://crm-v1-uc-897089213264.us-central1.run.app'
