@@ -59,6 +59,83 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const [authMethodFeedback, setAuthMethodFeedback] = useState<string | null>(null);
 
+  // Login REAL con Google Identity Services -> backend crm-v1-uc
+  const handleGoogleLogin = async () => {
+    setAuthMethodFeedback('Iniciando sesión con Google...');
+    try {
+      // Cargar el script de Google Identity Services dinámicamente
+      if (typeof window.google === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        document.body.appendChild(script);
+        await new Promise((resolve) => (script.onload = resolve));
+      }
+
+      const google = (window as any).google;
+      if (!google || !google.accounts) {
+        throw new Error('Google Identity Services no disponible');
+      }
+
+      google.accounts.id.initialize({
+        client_id: '531499970965-mk7m56su2oipvf7qirda8sdkdakuvf94.apps.googleusercontent.com',
+        callback: async (response: any) => {
+          try {
+            const res = await fetch('https://crm-v1-uc-897089213264.us-central1.run.app/api/v1/crm/auth/google', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id_token: response.credential }),
+            });
+            if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+            const userData = await res.json();
+            // Guardar user_session en localStorage (formato backend)
+            localStorage.setItem('user_session', JSON.stringify(userData));
+            // Trigger para que App.tsx recargue el usuario
+            window.dispatchEvent(new Event('user_session_updated'));
+            setAuthMethodFeedback('¡Login exitoso! Redirigiendo...');
+            onClose();
+            setTimeout(() => window.location.href = window.location.origin + window.location.pathname, 800);
+          } catch (err) {
+            console.error('Login error:', err);
+            setAuthMethodFeedback('Error en login. Inténtalo de nuevo.');
+          }
+        },
+      });
+
+      google.accounts.id.prompt((notification: any) => {
+        // No auto-attach; we'll use a custom button below
+      });
+
+      // Usar el renderizado del botón para un click explícito
+      google.accounts.id.renderButton(
+        document.getElementById('google-login-btn-real') as HTMLElement,
+        { theme: 'filled_black', size: 'large', text: 'signin_with' }
+      );
+    } catch (err) {
+      console.error('Google Login init error:', err);
+      setAuthMethodFeedback('No se pudo iniciar Google Identity Services.');
+    }
+  };
+
+  // Cargar GIS cuando el modal se abre
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined') {
+      const initGIS = async () => {
+        if (typeof (window as any).google === 'undefined') {
+          const script = document.createElement('script');
+          script.src = 'https://accounts.google.com/gsi/client';
+          script.async = true;
+          script.defer = true;
+          script.onload = () => handleGoogleLogin();
+          document.head.appendChild(script);
+        } else {
+          handleGoogleLogin();
+        }
+      };
+      initGIS();
+    }
+  }, [isOpen]);
+
   const handleOAuthSimulate = (provider: 'google' | 'apple') => {
     setAuthMethodFeedback(`Autenticando con ${provider === 'google' ? 'Google Workspace' : 'Apple ID'}...`);
     setTimeout(() => {
@@ -114,6 +191,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               Iniciar Sesión con Cuenta Corporativa
             </p>
+            {/* Botón REAL de Google Identity Services */}
+            <div id="google-login-btn-real" className="w-full flex justify-center mb-1"></div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"

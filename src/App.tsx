@@ -183,18 +183,18 @@ export default function App() {
         const session = JSON.parse(rawSession);
         if (session && (session.display_name || session.email)) {
           setCurrentUser(prev => ({
-            id: session.user_id || prev?.id || 'usr_fase_1',
-            name: session.display_name || prev?.name || 'ATHA',
+            id: session.user_id || session.id || prev?.id || 'usr_fase_1',
+            name: session.display_name || session.name || prev?.name || 'ATHA',
             email: session.email || prev?.email || '',
-            role: session.role_title || session.role || prev?.role || 'Productor',
-            avatar: session.avatar_url || prev?.avatar || '',
+            role: session.role_title || session.role || session.title || prev?.role || 'Productor',
+            avatar: session.avatar_url || session.avatar || session.picture || prev?.avatar || '',
             provider: session.provider || prev?.provider || 'google',
-            initials: (session.display_name || 'AT').substring(0, 2).toUpperCase()
+            initials: (session.display_name || session.name || 'AT').substring(0, 2).toUpperCase()
           }));
         }
       }
     } catch {
-      // Fallback
+      // Fallback: usar datos locales si hay error parsing
     }
   }, []);
 
