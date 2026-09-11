@@ -17,7 +17,8 @@ import {
   X,
   ChevronRight,
   ExternalLink,
-  User as UserIcon
+  User as UserIcon,
+  Database
 } from 'lucide-react';
 
 interface SidebarDrawerProps {
@@ -102,6 +103,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
     {
       name: 'Técnica & Recursos',
       items: [
+        { id: 'sql-hub', label: 'Base de Datos SQL & Archivos (PHP)', icon: Database, badge: 'PostgreSQL', accentColor: '#34d399' },
         { id: 'venues', label: 'Salas / Venues', icon: Building2, accentColor: '#38bdf8' },
         { id: 'inventario', label: 'Inventario & Backline', icon: PackageCheck, badge: counts.inventory, accentColor: '#6ee7b7' },
         { id: 'finanzas', label: 'Rendiciones & Finanzas', icon: ReceiptText, accentColor: '#fbbf24' },

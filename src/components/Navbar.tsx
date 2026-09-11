@@ -22,7 +22,8 @@ import {
   Info,
   Workflow,
   Menu,
-  Sparkles
+  Sparkles,
+  Database
 } from 'lucide-react';
 import { UserProfile, Obra, Lead, Venue } from '../types';
 import { FaseLogo } from './FaseLogo';
@@ -39,6 +40,7 @@ export interface NavbarProps {
   currentUser: UserProfile;
   onOpenAuth: () => void;
   onOpenNotifications: () => void;
+  onOpenSqlHub?: () => void;
   unreadNotificationsCount?: number;
   isCloudSynced: boolean;
   theme?: 'terracota' | 'dia';
@@ -59,6 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onOpenAuth,
   onOpenNotifications,
+  onOpenSqlHub,
   unreadNotificationsCount = 0,
   isCloudSynced,
   theme = 'terracota',
@@ -132,6 +135,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Direct visible navigation items
   const directNavItems = [
     { id: 'inicio', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'sql-hub', label: 'SQL & Archivos (PHP)', icon: Database, badge: 'PostgreSQL' },
     { id: 'obras', label: 'Catálogo Obras', icon: Drama, badge: counts.obras },
     { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd },
     { id: 'crm', label: 'CRM Leads', icon: Users2, badge: counts.leads },
@@ -375,6 +379,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="hidden sm:inline">Modo Día</span>
               </>
             )}
+          </button>
+
+          {/* SQL & Archivos Hub Trigger */}
+          <button
+            type="button"
+            onClick={onOpenSqlHub}
+            title="Base de Datos Cloud SQL, Importar/Exportar y Automatización PHP"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+              isLight
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-xs'
+                : 'bg-emerald-950/40 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/50 shadow-xs'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+            <span className="hidden md:inline font-mono">SQL & Archivos</span>
           </button>
 
           {/* Cloud Sync Status */}

@@ -1,0 +1,205 @@
+/**
+ * Servicio de Cliente API y Sincronización con Cloud SQL (PostgreSQL)
+ * Gestiona consultas, sincronización en vivo, importación y exportación de archivos
+ */
+
+export interface CloudSqlStatus {
+  status: 'online' | 'offline' | 'checking';
+  databaseEngine: string;
+  host: string;
+  database: string;
+  tables: {
+    obras: number;
+    leads: number;
+    rdProjects: number;
+    venues: number;
+    events: number;
+    inventory: number;
+    finances: number;
+    processLogs: number;
+    riders: number;
+    team: number;
+  };
+  timestamp?: string;
+  latencyMs?: number;
+}
+
+export async function checkCloudSqlStatus(): Promise<CloudSqlStatus> {
+  const start = performance.now();
+  try {
+    const res = await fetch('/api/status');
+    const latencyMs = Math.round(performance.now() - start);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    return {
+      ...data,
+      latencyMs,
+      status: 'online'
+    };
+  } catch (error) {
+    console.warn('Cloud SQL status check failed, using local cache:', error);
+    return {
+      status: 'offline',
+      databaseEngine: 'PostgreSQL (Desconectado/Modo Local)',
+      host: 'Pendiente de reconexión',
+      database: 'defaultdb',
+      tables: {
+        obras: 0,
+        leads: 0,
+        rdProjects: 0,
+        venues: 0,
+        events: 0,
+        inventory: 0,
+        finances: 0,
+        processLogs: 0,
+        riders: 0,
+        team: 0,
+      },
+      latencyMs: 0
+    };
+  }
+}
+
+export async function fetchAllFromSql() {
+  try {
+    const res = await fetch('/api/data');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
+    console.warn('Error fetching all data from SQL:', error);
+    return null;
+  }
+}
+
+export async function seedCloudSql() {
+  const res = await fetch('/api/seed', { method: 'POST' });
+  if (!res.ok) throw new Error('Error al ejecutar el sembrador SQL');
+  return await res.json();
+}
+
+export async function saveObraToSql(obra: any) {
+  try {
+    const res = await fetch('/api/obras', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(obra)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('Could not save obra to SQL:', err);
+  }
+}
+
+export async function saveLeadToSql(lead: any) {
+  try {
+    const res = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lead)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('Could not save lead to SQL:', err);
+  }
+}
+
+export async function saveFinanceToSql(record: any) {
+  try {
+    const res = await fetch('/api/finances', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('Could not save finance to SQL:', err);
+  }
+}
+
+export async function saveInventoryToSql(item: any) {
+  try {
+    const res = await fetch('/api/inventory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item)
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('Could not save inventory to SQL:', err);
+  }
+}
+
+/**
+ * Descargar archivos de datos (Exportación)
+ */
+export function downloadExportFile(table: string = 'all', format: 'json' | 'csv' | 'sql' = 'json') {
+  if (format === 'sql') {
+    window.location.href = `/php/export.php?table=${encodeURIComponent(table)}&format=sql`;
+    return;
+  }
+  window.location.href = `/api/export?table=${encodeURIComponent(table)}&format=${encodeURIComponent(format)}`;
+}
+
+/**
+ * Subir archivos de datos (Importación)
+ */
+export async function uploadImportFile(file: File, targetTable: string = 'obras'): Promise<{ success: boolean; message: string; count?: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const isJson = file.name.endsWith('.json');
+    const isCsv = file.name.endsWith('.csv');
+
+    if (!isJson && !isCsv) {
+      return reject(new Error('Formato no soportado. Por favor sube un archivo .json o .csv'));
+    }
+
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+
+        if (isJson) {
+          const parsed = JSON.parse(text);
+          const res = await fetch(`/api/import?table=${encodeURIComponent(targetTable)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsed)
+          });
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error || 'Error al importar JSON');
+          resolve({ success: true, message: result.message, count: result.importedCount });
+        } else {
+          // Parse CSV to objects
+          const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+          if (lines.length < 2) throw new Error('El archivo CSV debe contener una cabecera y al menos una fila de datos.');
+          const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+          const items: any[] = [];
+
+          for (let i = 1; i < lines.length; i++) {
+            const rowValues = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+            const obj: any = {};
+            headers.forEach((header, idx) => {
+              obj[header] = rowValues[idx] ?? '';
+            });
+            items.push(obj);
+          }
+
+          const res = await fetch(`/api/import?table=${encodeURIComponent(targetTable)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetTable, items })
+          });
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error || 'Error al importar CSV');
+          resolve({ success: true, message: result.message, count: result.importedCount });
+        }
+      } catch (err: any) {
+        reject(err);
+      }
+    };
+
+    reader.onerror = () => reject(new Error('Error al leer el archivo en el navegador.'));
+    reader.readAsText(file);
+  });
+}

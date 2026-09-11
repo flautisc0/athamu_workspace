@@ -3,9 +3,29 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+function faseApiPlugin() {
+  return {
+    name: 'fase-api-middleware',
+    configureServer(server: any) {
+      server.middlewares.use(async (req: any, res: any, next: any) => {
+        if (req.url && req.url.startsWith('/api/')) {
+          try {
+            const { handleApiRequest } = await import('./src/server/apiHandler.ts');
+            const handled = await handleApiRequest(req, res);
+            if (handled) return;
+          } catch (err) {
+            console.error('API middleware error:', err);
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), faseApiPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

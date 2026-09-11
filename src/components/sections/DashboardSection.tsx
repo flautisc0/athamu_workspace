@@ -12,7 +12,11 @@ import {
   ArrowRight,
   Sparkles,
   MapPin,
-  DollarSign
+  DollarSign,
+  Database,
+  Download,
+  Upload,
+  FileCode
 } from 'lucide-react';
 
 interface DashboardSectionProps {
@@ -209,6 +213,56 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
               {finances.length} registros
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Cloud SQL PostgreSQL & PHP File Automation Bar */}
+      <div className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+        isLight
+          ? 'bg-emerald-50/70 border-emerald-200 text-stone-900 shadow-xs'
+          : 'bg-gradient-to-r from-emerald-950/40 via-[#1C1412] to-[#221513] border-emerald-800/40 text-white shadow-sm'
+      }`}>
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center shrink-0">
+            <Database className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold font-mono text-emerald-500 uppercase tracking-wider">
+                Cloud SQL (PostgreSQL) Activo
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-[11px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 font-mono hidden sm:inline">
+                Región us-west2
+              </span>
+            </div>
+            <p className={`text-xs mt-0.5 ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
+              Datos servidos dinámicamente con Drizzle ORM y automatización PHP. Descarga y sube archivos (.json, .csv, .sql).
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+          <button
+            onClick={() => onNavigateSection('sql-hub')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Gestionar SQL & Archivos</span>
+          </button>
+          <a
+            href="/php/index.php"
+            target="_blank"
+            rel="noreferrer"
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition cursor-pointer ${
+              isLight
+                ? 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200'
+                : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
+            }`}
+          >
+            <FileCode className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Ver PHP</span>
+          </a>
         </div>
       </div>
 

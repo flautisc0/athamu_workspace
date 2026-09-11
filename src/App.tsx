@@ -51,6 +51,14 @@ import { EditObraModal } from './components/EditObraModal';
 import { EditLeadModal } from './components/EditLeadModal';
 import { AuthModal } from './components/AuthModal';
 import { NotificationsModal } from './components/NotificationsModal';
+import { SqlDataHubModal } from './components/SqlDataHubModal';
+import {
+  fetchAllFromSql,
+  saveObraToSql,
+  saveLeadToSql,
+  saveFinanceToSql,
+  saveInventoryToSql
+} from './services/apiClient';
 
 // Sections
 import { DashboardSection } from './components/sections/DashboardSection';
@@ -173,6 +181,23 @@ export default function App() {
   const [isNewObraOpen, setIsNewObraOpen] = useState<boolean>(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isNewLeadOpen, setIsNewLeadOpen] = useState<boolean>(false);
+  const [isSqlHubOpen, setIsSqlHubOpen] = useState<boolean>(false);
+
+  // Synchronize with Cloud SQL (PostgreSQL) on mount
+  useEffect(() => {
+    fetchAllFromSql().then(res => {
+      if (res && res.success) {
+        if (res.obras && res.obras.length > 0) setObras(res.obras);
+        if (res.leads && res.leads.length > 0) setLeads(res.leads);
+        if (res.finances && res.finances.length > 0) setFinances(res.finances);
+        if (res.inventory && res.inventory.length > 0) setInventory(res.inventory);
+        if (res.venues && res.venues.length > 0) setVenues(res.venues);
+        if (res.events && res.events.length > 0) setEvents(res.events);
+      }
+    }).catch(err => {
+      console.warn('Initial SQL fetch skipped:', err);
+    });
+  }, []);
 
   // Persist state updates to localStorage
   useEffect(() => {
@@ -256,6 +281,7 @@ export default function App() {
 
   // Handlers for Obra CRUD
   const handleSaveObra = (savedObra: Obra) => {
+    saveObraToSql(savedObra);
     setObras(prev => {
       const exists = prev.some(o => o.id === savedObra.id);
       if (exists) {
@@ -273,6 +299,7 @@ export default function App() {
 
   // Handlers for Lead CRUD
   const handleSaveLead = (savedLead: Lead) => {
+    saveLeadToSql(savedLead);
     setLeads(prev => {
       const exists = prev.some(l => l.id === savedLead.id);
       if (exists) {
@@ -351,6 +378,7 @@ export default function App() {
   };
 
   const handleSaveInventoryItem = (savedItem: InventoryItem) => {
+    saveInventoryToSql(savedItem);
     setInventory(prev => {
       const exists = prev.some(i => i.id === savedItem.id);
       if (exists) {
@@ -366,10 +394,12 @@ export default function App() {
 
   // Handlers for Finance records CRUD
   const handleAddFinanceRecord = (newRecord: FinanceRecord) => {
+    saveFinanceToSql(newRecord);
     setFinances(prev => [newRecord, ...prev]);
   };
 
   const handleSaveFinanceRecord = (savedRecord: FinanceRecord) => {
+    saveFinanceToSql(savedRecord);
     setFinances(prev => {
       const exists = prev.some(f => f.id === savedRecord.id);
       if (exists) {
@@ -477,6 +507,10 @@ export default function App() {
 
   // Navigation from search or internal links
   const handleNavigateSection = (sectionId: string) => {
+    if (sectionId === 'sql-hub') {
+      setIsSqlHubOpen(true);
+      return;
+    }
     setActiveSection(sectionId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -499,6 +533,7 @@ export default function App() {
         currentUser={currentUser || defaultUserProfile}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
+        onOpenSqlHub={() => setIsSqlHubOpen(true)}
         unreadNotificationsCount={unreadRemindersCount}
         isCloudSynced={isCloudSynced}
         theme={theme}
@@ -781,6 +816,24 @@ export default function App() {
         onMarkAsRead={handleMarkAsRead}
         onClearAll={handleClearAllReminders}
         onTriggerSimulatedPush={handleTriggerSimulatedPush}
+      />
+
+      {/* 6. Cloud SQL Database & File Import/Export Modal */}
+      <SqlDataHubModal
+        isOpen={isSqlHubOpen}
+        onClose={() => setIsSqlHubOpen(false)}
+        onDataRefreshed={() => {
+          fetchAllFromSql().then(res => {
+            if (res && res.success) {
+              if (res.obras) setObras(res.obras);
+              if (res.leads) setLeads(res.leads);
+              if (res.finances) setFinances(res.finances);
+              if (res.inventory) setInventory(res.inventory);
+              if (res.venues) setVenues(res.venues);
+              if (res.events) setEvents(res.events);
+            }
+          });
+        }}
       />
 
     </div>
