@@ -8,7 +8,7 @@ function faseApiPlugin() {
     name: 'fase-api-middleware',
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
-        if (req.url && req.url.startsWith('/api/')) {
+        if (req.url && (req.url.startsWith('/api/') || req.url.startsWith('/php/') || req.url === '/php')) {
           try {
             const { handleApiRequest } = await import('./src/server/apiHandler.ts');
             const handled = await handleApiRequest(req, res);
