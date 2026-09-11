@@ -54,12 +54,12 @@ app.use('/admin-api.php', requireAdmin, createProxyMiddleware({
   }
 }));
 
-// Proxy: /admin/index.php → PHP frontend
-app.use('/admin/index.php', requireAdmin, createProxyMiddleware({
+// Proxy: /admin-ui.php → PHP frontend
+app.use('/admin-ui.php', requireAdmin, createProxyMiddleware({
   target: 'http://127.0.0.1:8080',
   changeOrigin: true,
   pathRewrite: {
-    '^/admin/index.php': '/index.php'
+    '^/admin-ui.php': '/index.php'
   }
 }));
 
