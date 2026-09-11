@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserSession } from '../types';
 import { X, ShieldCheck, CheckCircle2, RefreshCw, LogIn, LogOut } from 'lucide-react';
+import { FaseLogo } from './FaseLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -74,9 +75,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141a]">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#6ee7b7]" />
-            <h2 className="text-base font-semibold text-white">Autenticación & Acceso ATHA</h2>
+          <div className="flex items-center gap-2.5">
+            <FaseLogo variant="symbol" size="xs" />
+            <h2 className="text-base font-semibold text-white">Autenticación & Sesión F.A.S.E</h2>
           </div>
           <button
             onClick={onClose}
@@ -190,24 +191,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           {/* Cloud Sync Section */}
-          <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 space-y-2">
+          <div className="p-4 rounded-xl bg-[#E05A47]/10 border border-[#E05A47]/25 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Sincronización Cloud ATHA
+              <span className="text-xs font-semibold text-[#FF6B4A] flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#FF6B4A]" />
+                Sincronización F.A.S.E Cloud
               </span>
               <button
                 type="button"
                 onClick={onSyncCloud}
                 disabled={isSyncing}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-white bg-[#E05A47] hover:bg-[#FF6B4A] rounded-md transition-colors cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
               </button>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Tus modificaciones de leads, fichas de obra y calculadora se respaldan localmente en tu navegador y se enlazan con el servidor de producción de ATHA Producciones.
+              Tus modificaciones de proyectos, leads, fichas de obra y presupuesto se respaldan localmente en tu navegador y se enlazan con el servidor de F.A.S.E Producciones.
             </p>
           </div>
 

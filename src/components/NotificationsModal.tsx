@@ -36,9 +36,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         const perm = await Notification.requestPermission();
         setPermissionState(perm);
         if (perm === 'granted') {
-          new Notification('ATHA Producciones — Notificaciones Activas', {
+          new Notification('F.A.S.E Producciones — Notificaciones Activas', {
             body: '¡Listo! Recibirás recordatorios diarios de ensayos, llamados de función y alertas técnicas.',
-            icon: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=128&q=80'
+            icon: '/assets/fase/fase-simbolo.svg'
           });
         }
       } catch (err) {
@@ -49,9 +49,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
   const sendTestNotification = () => {
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification('Recordatorio ATHA: Ensayo General Mañana', {
+      new Notification('Recordatorio F.A.S.E: Ensayo General Mañana', {
         body: 'Ensayo con pasada de luces en Centro GAM - Sala A1 (10:00 hrs). Elenco confirmado.',
-        icon: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=128&q=80'
+        icon: '/assets/fase/fase-simbolo.svg'
       });
       setNotificationSent(true);
       setTimeout(() => setNotificationSent(false), 3000);

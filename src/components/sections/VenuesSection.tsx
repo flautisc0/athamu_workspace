@@ -8,16 +8,32 @@ import {
   Search,
   Sliders,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Save,
+  Phone
 } from 'lucide-react';
 
 interface VenuesSectionProps {
   venues: Venue[];
+  onSaveVenue: (venue: Venue) => void;
+  onDeleteVenue: (venueId: string) => void;
 }
 
-export const VenuesSection: React.FC<VenuesSectionProps> = ({ venues }) => {
+export const VenuesSection: React.FC<VenuesSectionProps> = ({
+  venues,
+  onSaveVenue,
+  onDeleteVenue
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [regionFilter, setRegionFilter] = useState('all');
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVenue, setEditingVenue] = useState<Partial<Venue> | null>(null);
 
   const filteredVenues = venues.filter((v) => {
     const matchesSearch =
@@ -33,22 +49,77 @@ export const VenuesSection: React.FC<VenuesSectionProps> = ({ venues }) => {
 
   const regions = Array.from(new Set(venues.map(v => v.region)));
 
+  const handleOpenAdd = () => {
+    setEditingVenue({
+      id: `venue-${Date.now()}`,
+      name: '',
+      city: 'Santiago',
+      region: 'Región Metropolitana',
+      capacity: 350,
+      stageType: 'Italiano (boca 12m x prof 10m x alto 7m)',
+      specs: 'Vara motorizada, parrilla completa, consola GrandMA2, PA Meyer Sound.',
+      contactPerson: 'Jefe Técnico de Sala',
+      contactEmail: 'tecnica@teatro.cl',
+      contactPhone: '+56 9 1234 5678',
+      status: 'Activo / Convenio'
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (v: Venue) => {
+    setEditingVenue({ ...v });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVenue || !editingVenue.name) return;
+
+    const saved: Venue = {
+      id: editingVenue.id || `venue-${Date.now()}`,
+      name: editingVenue.name,
+      city: editingVenue.city || 'Santiago',
+      region: editingVenue.region || 'Región Metropolitana',
+      capacity: Number(editingVenue.capacity) || 100,
+      stageType: editingVenue.stageType || 'Caja negra adaptable',
+      specs: editingVenue.specs || 'Rider técnico estándar',
+      contactPerson: editingVenue.contactPerson || 'Administración de Sala',
+      contactEmail: editingVenue.contactEmail || 'contacto@teatro.cl',
+      contactPhone: editingVenue.contactPhone || '+56 9 ',
+      status: editingVenue.status || 'Activo / Convenio'
+    };
+
+    onSaveVenue(saved);
+    setIsModalOpen(false);
+    setEditingVenue(null);
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
       
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 text-xs font-mono text-[#38bdf8] uppercase tracking-wider">
-          <span>8. Salas & Teatros</span>
-          <span>•</span>
-          <span>Red de Circulación Chilena</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-mono text-[#38bdf8] uppercase tracking-wider">
+            <span>8. Salas & Teatros</span>
+            <span>•</span>
+            <span>Red de Circulación Chilena</span>
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight font-display mt-0.5">
+            Salas, Teatros & Venues Asociados
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Catastro de teatros y espacios escénicos con información de aforo, tipología de escenario y requerimientos técnicos homologados para giras ATHA.
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-white tracking-tight font-display mt-0.5">
-          Salas, Teatros & Venues Asociados
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Catastro de teatros y espacios escénicos con información de aforo, tipología de escenario y requerimientos técnicos homologados para giras ATHA.
-        </p>
+
+        <button
+          onClick={handleOpenAdd}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#38bdf8] hover:bg-[#0284c7] text-[#0f1115] font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Nueva Sala / Teatro</span>
+        </button>
       </div>
 
       {/* Filter and Search */}
@@ -81,7 +152,7 @@ export const VenuesSection: React.FC<VenuesSectionProps> = ({ venues }) => {
         {filteredVenues.map((venue) => (
           <div
             key={venue.id}
-            className="p-5 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-4 shadow-lg"
+            className="p-5 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-4 shadow-lg group relative"
           >
             <div className="space-y-3">
               
@@ -99,12 +170,35 @@ export const VenuesSection: React.FC<VenuesSectionProps> = ({ venues }) => {
                   </p>
                 </div>
 
-                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                  venue.status === 'Activo / Convenio' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
-                  'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                }`}>
-                  {venue.status}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                    venue.status === 'Activo / Convenio' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
+                    'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {venue.status}
+                  </span>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenEdit(venue)}
+                      title="Editar sala"
+                      className="p-1.5 text-slate-400 hover:text-[#38bdf8] hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`¿Eliminar la sala "${venue.name}"?`)) {
+                          onDeleteVenue(venue.id);
+                        }
+                      }}
+                      title="Eliminar sala"
+                      className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Aforo & Stage Type */}
@@ -145,15 +239,219 @@ export const VenuesSection: React.FC<VenuesSectionProps> = ({ venues }) => {
             <div className="pt-3 border-t border-white/10 text-xs text-slate-400 space-y-1">
               <span className="text-[10px] text-slate-400 block">Jefatura Técnica:</span>
               <div className="text-slate-300 font-medium">{venue.contactPerson}</div>
-              <a href={`mailto:${venue.contactEmail}`} className="text-[#38bdf8] hover:underline flex items-center gap-1 font-mono">
-                <Mail className="w-3 h-3" />
-                <span>{venue.contactEmail}</span>
-              </a>
+              <div className="flex flex-wrap items-center gap-3">
+                <a href={`mailto:${venue.contactEmail}`} className="text-[#38bdf8] hover:underline flex items-center gap-1 font-mono text-[11px]">
+                  <Mail className="w-3 h-3" />
+                  <span>{venue.contactEmail}</span>
+                </a>
+                {venue.contactPhone && (
+                  <span className="text-slate-400 flex items-center gap-1 font-mono text-[11px]">
+                    <Phone className="w-3 h-3" />
+                    <span>{venue.contactPhone}</span>
+                  </span>
+                )}
+              </div>
             </div>
 
           </div>
         ))}
       </div>
+
+      {/* Modal Add / Edit Venue */}
+      {isModalOpen && editingVenue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-xl bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
+            <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-[#38bdf8]" />
+                <h3 className="text-base font-semibold text-white">
+                  {venues.some(v => v.id === editingVenue.id) ? `Editar: ${editingVenue.name}` : 'Nueva Sala o Teatro'}
+                </h3>
+              </div>
+              <button
+                onClick={() => { setIsModalOpen(false); setEditingVenue(null); }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveModal} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Nombre del Espacio / Teatro *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingVenue.name || ''}
+                  onChange={e => setEditingVenue(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ej. Teatro Municipal de Las Condes"
+                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Ciudad
+                  </label>
+                  <input
+                    type="text"
+                    value={editingVenue.city || ''}
+                    onChange={e => setEditingVenue(prev => ({ ...prev, city: e.target.value }))}
+                    placeholder="Ej. Santiago"
+                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Región
+                  </label>
+                  <input
+                    type="text"
+                    value={editingVenue.region || ''}
+                    onChange={e => setEditingVenue(prev => ({ ...prev, region: e.target.value }))}
+                    placeholder="Ej. Región Metropolitana"
+                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Aforo (Número de Butacas)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editingVenue.capacity ?? 300}
+                    onChange={e => setEditingVenue(prev => ({ ...prev, capacity: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Estado de Relación / Convenio
+                  </label>
+                  <select
+                    value={editingVenue.status || 'Activo / Convenio'}
+                    onChange={e => setEditingVenue(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  >
+                    <option value="Activo / Convenio">Activo / Convenio</option>
+                    <option value="En Conversaciones">En Conversaciones</option>
+                    <option value="Inactivo / Por Visitar">Inactivo / Por Visitar</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Tipología y Dimensiones de Escenario
+                </label>
+                <input
+                  type="text"
+                  value={editingVenue.stageType || ''}
+                  onChange={e => setEditingVenue(prev => ({ ...prev, stageType: e.target.value }))}
+                  placeholder="Ej. Italiano con foso (boca 14m x prof 12m x alto 8m)"
+                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Equipamiento Técnico y Rider de Sala
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingVenue.specs || ''}
+                  onChange={e => setEditingVenue(prev => ({ ...prev, specs: e.target.value }))}
+                  placeholder="Detalla iluminación, sonido, varas, tiros contrapesados, pantalla o proyector..."
+                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Contacto / Jefe Técnico
+                  </label>
+                  <input
+                    type="text"
+                    value={editingVenue.contactPerson || ''}
+                    onChange={e => setEditingVenue(prev => ({ ...prev, contactPerson: e.target.value }))}
+                    placeholder="Ej. Claudio Morales"
+                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Email Técnico
+                  </label>
+                  <input
+                    type="email"
+                    value={editingVenue.contactEmail || ''}
+                    onChange={e => setEditingVenue(prev => ({ ...prev, contactEmail: e.target.value }))}
+                    placeholder="tecnica@teatro.cl"
+                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Teléfono
+                  </label>
+                  <input
+                    type="text"
+                    value={editingVenue.contactPhone || ''}
+                    onChange={e => setEditingVenue(prev => ({ ...prev, contactPhone: e.target.value }))}
+                    placeholder="+56 9 8765 4321"
+                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-between border-t border-white/10">
+                {editingVenue.id && venues.some(v => v.id === editingVenue.id) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`¿Eliminar definitivamente "${editingVenue.name}"?`)) {
+                        onDeleteVenue(editingVenue.id!);
+                        setIsModalOpen(false);
+                        setEditingVenue(null);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar</span>
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsModalOpen(false); setEditingVenue(null); }}
+                    className="px-4 py-2 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#38bdf8] hover:bg-[#0284c7] rounded-lg shadow cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Guardar Sala</span>
+                  </button>
+                </div>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

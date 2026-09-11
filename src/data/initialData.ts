@@ -1075,21 +1075,21 @@ export const INITIAL_ARTISTS_AVAILABILITY: ArtistAvailability[] = [
   }
 ];
 
-// 12. HISTORIA Y MISIÓN DE ATHA PRODUCCIONES
-export const ATHA_ABOUT_INFO = {
-  name: 'ATHA Producciones',
-  legalName: 'ATHA Artes Escénicas y Música SpA',
+// 12. HISTORIA Y MISIÓN DE F.A.S.E PRODUCCIONES
+export const FASE_ABOUT_INFO = {
+  name: 'F.A.S.E',
+  legalName: 'F.A.S.E Producciones & Gestión Escénica SpA',
   rut: '77.892.410-K',
   founded: 'Valparaíso / Santiago, 2018',
-  tagline: 'Creación, producción técnica y circulación de artes vivas contemporáneas',
-  mission: 'Diseñar, producir y hacer circular obras de teatro, danza y música de alto estándar estético y técnico en Chile y el mundo, construyendo puentes sostenibles entre la investigación de lenguajes contemporáneos, la memoria territorial y el diálogo con comunidades diversas.',
-  vision: 'Ser la productora chilena referente en profesionalización de la gestión de artes escénicas, integrando innovación tecnológica limpia, sustentabilidad laboral para artistas y técnicos, y descentralización efectiva de la oferta cultural.',
+  tagline: 'Creación, producción técnica, articulación escénica y circulación de artes vivas',
+  mission: 'Diseñar, articular y hacer circular obras de teatro, danza, música e interdisciplina con alto estándar estético y técnico en Chile y el mundo, estructurando el ciclo productivo en fases claras: Creación, Producción, Circulación y Rendición.',
+  vision: 'Consolidar F.A.S.E como la plataforma y productora referente en profesionalización, innovación tecnológica y sostenibilidad para las artes escénicas de Chile e Iberoamérica.',
   values: [
     'Rigor Técnico y Seguridad Escénica',
     'Investigación Creativa y Riesgo Artístico',
     'Descentralización Territorial Activa',
     'Condiciones Laborales Dignas y Transparentes',
-    'Sostenibilidad Ecológica en Giras (Huella Cero)'
+    'Sostenibilidad y Circulación Inteligente'
   ],
   stats: {
     totalObras: 9,
@@ -1100,9 +1100,9 @@ export const ATHA_ABOUT_INFO = {
   },
   contact: {
     address: 'Av. Providencia 1208, Of. 402, Santiago / Espacio Taller Cerro Alegre, Valparaíso',
-    email: 'contacto@athaproducciones.cl',
+    email: 'contacto@plataformafase.cl',
     phone: '+56 2 2840 9100',
-    web: 'www.athaproducciones.cl'
+    web: 'www.plataformafase.cl'
   }
 };
 
@@ -1118,6 +1118,7 @@ export const initialProcessLogs = INITIAL_CREATIVE_LOGS;
 export const initialRiders = INITIAL_STANDARD_RIDERS;
 export const initialEvents = INITIAL_SCHEDULE;
 export const initialArtists = INITIAL_ARTISTS_AVAILABILITY;
+export const initialAboutInfo = FASE_ABOUT_INFO;
 
 export const defaultUserProfile = {
   id: 'user-01',

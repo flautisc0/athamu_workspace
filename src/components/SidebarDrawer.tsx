@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Drama,
@@ -16,7 +16,8 @@ import {
   Workflow,
   X,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  User as UserIcon
 } from 'lucide-react';
 
 interface SidebarDrawerProps {
@@ -31,6 +32,7 @@ interface SidebarDrawerProps {
     events: number;
     inventory: number;
   };
+  theme?: 'terracota' | 'dia';
 }
 
 interface NavGroup {
@@ -49,46 +51,74 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   onClose,
   activeSection,
   onSelectSection,
-  counts
+  counts,
+  theme = 'terracota'
 }) => {
+  // Session data retrieved from localStorage under key 'user_session'
+  const [userName, setUserName] = useState<string>('ATHA');
+  const [userPicture, setUserPicture] = useState<string>('');
+
+  const isLight = theme === 'dia';
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('user_session');
+        if (stored) {
+          const session = JSON.parse(stored);
+          if (session?.display_name && session.display_name.trim() !== '') {
+            setUserName(session.display_name);
+          }
+          if (session?.avatar_url && session.avatar_url.trim() !== '') {
+            setUserPicture(session.avatar_url);
+          }
+        }
+      } catch {
+        // Fallback to default values
+      }
+    }
+  }, []);
+
+  const name = userName;
+  const picture = userPicture;
+
   const navGroups: NavGroup[] = [
     {
       name: 'Dirección & Creación',
       items: [
-        { id: 'inicio', label: '1. Diagrama / Inicio', icon: LayoutDashboard, accentColor: '#6ee7b7' },
-        { id: 'obras', label: '2. Catálogo de Obras', icon: Drama, badge: counts.obras, accentColor: '#6ee7b7' },
-        { id: 'id', label: '3. Proyectos I+D', icon: FlaskConical, badge: counts.rd, accentColor: '#38bdf8' }
+        { id: 'obras', label: 'Catálogo de Obras', icon: Drama, badge: counts.obras, accentColor: '#E05A47' },
+        { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd, accentColor: '#38bdf8' }
       ]
     },
     {
       name: 'Operaciones & Ensayos',
       items: [
-        { id: 'crm', label: '4. CRM / Leads', icon: Users2, badge: counts.leads, accentColor: '#fbbf24' },
-        { id: 'calendario', label: '5. Planificación / Agenda', icon: CalendarDays, badge: counts.events, accentColor: '#38bdf8' },
-        { id: 'calculadora', label: '6. Calculadora de Estrenos', icon: Calculator, badge: 'Herramienta', accentColor: '#a78bfa' },
-        { id: 'diario', label: '11. Diario de Proceso', icon: BookOpenText, accentColor: '#fbbf24' }
+        { id: 'crm', label: 'CRM / Leads de Salas', icon: Users2, badge: counts.leads, accentColor: '#fbbf24' },
+        { id: 'calendario', label: 'Planificación & Agenda', icon: CalendarDays, badge: counts.events, accentColor: '#38bdf8' },
+        { id: 'calculadora', label: 'Calculadora de Estrenos', icon: Calculator, badge: 'Herramienta', accentColor: '#a78bfa' },
+        { id: 'diario', label: 'Diario de Proceso', icon: BookOpenText, accentColor: '#fbbf24' }
       ]
     },
     {
       name: 'Técnica & Recursos',
       items: [
-        { id: 'venues', label: '8. Salas / Venues', icon: Building2, accentColor: '#38bdf8' },
-        { id: 'inventario', label: '9. Inventario & Backline', icon: PackageCheck, badge: counts.inventory, accentColor: '#6ee7b7' },
-        { id: 'finanzas', label: '10. Rendiciones / Finanzas', icon: ReceiptText, accentColor: '#fbbf24' },
-        { id: 'riders', label: '12. Riders Estándar', icon: FileSpreadsheet, accentColor: '#a78bfa' }
+        { id: 'venues', label: 'Salas / Venues', icon: Building2, accentColor: '#38bdf8' },
+        { id: 'inventario', label: 'Inventario & Backline', icon: PackageCheck, badge: counts.inventory, accentColor: '#6ee7b7' },
+        { id: 'finanzas', label: 'Rendiciones & Finanzas', icon: ReceiptText, accentColor: '#fbbf24' },
+        { id: 'riders', label: 'Riders Estándar', icon: FileSpreadsheet, accentColor: '#a78bfa' }
       ]
     },
     {
       name: 'Compañía & Equipo',
       items: [
-        { id: 'equipo', label: '7. Equipo Fundador (4)', icon: Award, accentColor: '#fbbf24' },
-        { id: 'acerca', label: '13. Contexto / Acerca ATHA', icon: Info, accentColor: '#6ee7b7' }
+        { id: 'equipo', label: 'Equipo Fundador', icon: Award, accentColor: '#fbbf24' },
+        { id: 'acerca', label: 'Identidad F.A.S.E', icon: Info, accentColor: '#E05A47' }
       ]
     },
     {
       name: 'Ecosistema',
       items: [
-        { id: 'ecosistema', label: 'Herramientas del Ecosistema', icon: Workflow, accentColor: '#6ee7b7' }
+        { id: 'ecosistema', label: 'Ecosistema ATHA Apps', icon: Workflow, accentColor: '#E05A47' }
       ]
     }
   ];
@@ -105,39 +135,86 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
 
       {/* Drawer Panel */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-50 w-80 max-w-[85vw] bg-[#161920] border-r border-white/10 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed top-0 left-0 bottom-0 z-50 w-80 max-w-[85vw] shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+          isLight
+            ? 'bg-white border-r border-[#E5DDD8] text-stone-900'
+            : 'bg-[#1C1210] border-r border-[#3E221E] text-slate-100'
+        } ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Drawer Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141a]">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#6ee7b7]/15 border border-[#6ee7b7]/30 flex items-center justify-center text-[#6ee7b7] font-bold text-sm">
-              ☰
+        <div className={`flex items-center justify-between px-6 py-4 border-b ${
+          isLight ? 'border-[#E5DDD8] bg-[#FAF7F5]' : 'border-[#3E221E] bg-[#160E0D]'
+        }`}>
+          <div
+            onClick={() => {
+              onSelectSection('inicio');
+              onClose();
+            }}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+              isLight
+                ? 'bg-[#E05A47]/10 border border-[#E05A47]/30 text-[#C84835]'
+                : 'bg-[#E05A47]/20 border border-[#E05A47]/40 text-[#FF6B4A]'
+            }`}>
+              F
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-wide font-display">
-                ATHA PRODUCCIONES
+              <h2 className={`text-sm font-bold tracking-wide font-display ${
+                isLight ? 'text-stone-900 group-hover:text-[#C84835]' : 'text-white group-hover:text-[#FF6B4A]'
+              } transition-colors`}>
+                F.A.S.E / ATHA
               </h2>
-              <span className="text-[10px] text-slate-400 font-mono">
-                Menú Central de Gestión
+              <span className={`text-[10px] font-mono ${isLight ? 'text-stone-500' : 'text-[#D4B2AD]'}`}>
+                Plataforma de Gestión Escénica
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Cerrar menú"
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              isLight
+                ? 'text-stone-400 hover:text-stone-900 hover:bg-stone-100'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Quick Link to Dashboard / Inicio */}
+        <div className="px-4 pt-3 pb-1">
+          <button
+            onClick={() => {
+              onSelectSection('inicio');
+              onClose();
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeSection === 'inicio'
+                ? isLight
+                  ? 'bg-[#E05A47] text-white shadow-sm'
+                  : 'bg-[#E05A47]/25 text-[#FF6B4A] border border-[#E05A47]/40 shadow-sm'
+                : isLight
+                  ? 'bg-stone-100 hover:bg-stone-200 text-stone-800'
+                  : 'bg-white/5 hover:bg-white/10 text-slate-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Panel de Control (Dashboard)</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
         {/* Navigation items list */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-5">
           {navGroups.map((group, groupIdx) => (
             <div key={groupIdx} className="space-y-1">
-              <div className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+              <div className={`px-3 text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${
+                isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
+              }`}>
                 {group.name}
               </div>
 
@@ -152,16 +229,22 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                         onSelectSection(item.id);
                         onClose();
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer group ${
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer group ${
                         isActive
-                          ? 'bg-[#6ee7b7]/15 text-[#6ee7b7] border border-[#6ee7b7]/30 shadow-sm font-semibold'
-                          : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
+                          ? isLight
+                            ? 'bg-[#E05A47]/10 text-[#C84835] border border-[#E05A47]/30 font-semibold shadow-xs'
+                            : 'bg-[#E05A47]/20 text-[#FF6B4A] border border-[#E05A47]/40 font-semibold shadow-sm'
+                          : isLight
+                            ? 'text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-transparent'
+                            : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon
                           className={`w-4 h-4 shrink-0 transition-colors ${
-                            isActive ? 'text-[#6ee7b7]' : 'text-slate-400 group-hover:text-slate-200'
+                            isActive
+                              ? isLight ? 'text-[#C84835]' : 'text-[#FF6B4A]'
+                              : isLight ? 'text-stone-400 group-hover:text-stone-700' : 'text-slate-400 group-hover:text-slate-200'
                           }`}
                         />
                         <span className="truncate">{item.label}</span>
@@ -172,8 +255,12 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                           <span
                             className={`px-1.5 py-0.5 rounded text-[10px] font-mono leading-none ${
                               isActive
-                                ? 'bg-[#6ee7b7] text-[#0f1115] font-bold'
-                                : 'bg-white/10 text-slate-300'
+                                ? isLight
+                                  ? 'bg-[#E05A47] text-white font-bold'
+                                  : 'bg-[#E05A47] text-white font-bold'
+                                : isLight
+                                  ? 'bg-stone-200 text-stone-700'
+                                  : 'bg-white/10 text-slate-300'
                             }`}
                           >
                             {item.badge}
@@ -181,7 +268,9 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                         )}
                         <ChevronRight
                           className={`w-3.5 h-3.5 transition-transform ${
-                            isActive ? 'text-[#6ee7b7] translate-x-0.5' : 'text-slate-400 opacity-0 group-hover:opacity-100'
+                            isActive
+                              ? isLight ? 'text-[#C84835] translate-x-0.5' : 'text-[#FF6B4A] translate-x-0.5'
+                              : 'text-stone-400 opacity-0 group-hover:opacity-100'
                           }`}
                         />
                       </div>
@@ -193,16 +282,39 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
           ))}
         </div>
 
-        {/* Drawer Footer */}
-        <div className="p-4 border-t border-white/10 bg-[#12141a]/60 text-[11px] text-slate-400 flex items-center justify-between">
-          <div>
-            <span className="text-slate-300 font-medium block">ATHA Intranet v2.5</span>
-            <span>Chile • Artes Vivas</span>
+        {/* Drawer User Profile & Footer */}
+        <div className={`p-4 border-t space-y-3 ${
+          isLight ? 'border-[#E5DDD8] bg-[#FAF7F5]' : 'border-[#3E221E] bg-[#140B0A]'
+        }`}>
+          <div className="flex items-center gap-3">
+            {picture ? (
+              <img
+                src={picture}
+                alt={name}
+                className="w-8 h-8 rounded-full object-cover border border-[#E05A47]/30 shrink-0"
+              />
+            ) : (
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs shrink-0 ${
+                isLight
+                  ? 'bg-[#E05A47]/10 text-[#C84835] border border-[#E05A47]/25'
+                  : 'bg-[#2A1816] text-[#FF6B4A] border border-[#E05A47]/40'
+              }`}>
+                {name ? name.charAt(0).toUpperCase() : <UserIcon className="w-3.5 h-3.5" />}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className={`text-xs font-semibold truncate ${isLight ? 'text-stone-900' : 'text-white'}`}>{name}</p>
+              <p className={`text-[10px] font-mono truncate ${isLight ? 'text-stone-500' : 'text-[#D4B2AD]'}`}>Sesión activa</p>
+            </div>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Sesión activa" />
           </div>
-          <span className="inline-flex items-center gap-1 text-[#6ee7b7] font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#6ee7b7] animate-pulse" />
-            Online
-          </span>
+
+          <div className={`pt-2 border-t text-[10px] flex items-center justify-between font-mono ${
+            isLight ? 'border-stone-200 text-stone-500' : 'border-white/5 text-slate-400'
+          }`}>
+            <span>F.A.S.E Escénico</span>
+            <span className="text-emerald-500 font-medium">Online</span>
+          </div>
         </div>
 
       </aside>

@@ -8,30 +8,38 @@ import {
   Users,
   CheckCircle2,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 
 interface CalendarioSectionProps {
   events: EventSchedule[];
   obras: Obra[];
   onAddEvent: (event: EventSchedule) => void;
+  onUpdateEvent: (event: EventSchedule) => void;
+  onDeleteEvent: (eventId: string) => void;
 }
 
 export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
   events,
   obras,
-  onAddEvent
+  onAddEvent,
+  onUpdateEvent,
+  onDeleteEvent
 }) => {
   const [filterType, setFilterType] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  // New Event Form State
-  const [newEvent, setNewEvent] = useState<Partial<EventSchedule>>({
+  // Form State
+  const [eventForm, setEventForm] = useState<Partial<EventSchedule>>({
     title: '',
     obraId: obras[0]?.id || '',
     obraTitle: obras[0]?.title || '',
     type: 'Ensayo',
-    date: '2025-03-16',
+    date: '2025-03-20',
     timeStart: '10:00',
     timeEnd: '14:00',
     venue: 'Centro GAM - Sala A1',
@@ -43,28 +51,68 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
     filterType === 'all' ? true : e.type === filterType
   );
 
+  const handleOpenAdd = () => {
+    setEditingEventId(null);
+    setEventForm({
+      title: '',
+      obraId: obras[0]?.id || '',
+      obraTitle: obras[0]?.title || '',
+      type: 'Ensayo',
+      date: new Date().toISOString().split('T')[0],
+      timeStart: '10:00',
+      timeEnd: '14:00',
+      venue: 'Centro GAM - Sala A1',
+      castCount: 4,
+      status: 'Confirmado'
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (evt: EventSchedule) => {
+    setEditingEventId(evt.id);
+    setEventForm({ ...evt });
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEvent.title) return;
+    if (!eventForm.title) return;
 
-    const selectedObra = obras.find(o => o.id === newEvent.obraId);
+    const selectedObra = obras.find(o => o.id === eventForm.obraId);
 
-    const created: EventSchedule = {
-      id: `evt-${Date.now()}`,
-      title: newEvent.title || 'Ensayo general',
-      obraId: newEvent.obraId || '',
-      obraTitle: selectedObra?.title || 'Producción ATHA',
-      type: newEvent.type as any || 'Ensayo',
-      date: newEvent.date || '2025-03-20',
-      timeStart: newEvent.timeStart || '10:00',
-      timeEnd: newEvent.timeEnd || '14:00',
-      venue: newEvent.venue || 'Sala de ensayos ATHA',
-      castCount: Number(newEvent.castCount) || 4,
-      status: (newEvent.status as any) || 'Confirmado'
-    };
-
-    onAddEvent(created);
+    if (editingEventId) {
+      const updated: EventSchedule = {
+        id: editingEventId,
+        title: eventForm.title || 'Evento agendado',
+        obraId: eventForm.obraId || '',
+        obraTitle: selectedObra?.title || eventForm.obraTitle || 'Producción ATHA',
+        type: (eventForm.type as any) || 'Ensayo',
+        date: eventForm.date || '2025-03-20',
+        timeStart: eventForm.timeStart || '10:00',
+        timeEnd: eventForm.timeEnd || '14:00',
+        venue: eventForm.venue || 'Sala ATHA',
+        castCount: Number(eventForm.castCount) || 4,
+        status: (eventForm.status as any) || 'Confirmado'
+      };
+      onUpdateEvent(updated);
+    } else {
+      const created: EventSchedule = {
+        id: `evt-${Date.now()}`,
+        title: eventForm.title || 'Ensayo general',
+        obraId: eventForm.obraId || '',
+        obraTitle: selectedObra?.title || 'Producción ATHA',
+        type: (eventForm.type as any) || 'Ensayo',
+        date: eventForm.date || '2025-03-20',
+        timeStart: eventForm.timeStart || '10:00',
+        timeEnd: eventForm.timeEnd || '14:00',
+        venue: eventForm.venue || 'Sala de ensayos ATHA',
+        castCount: Number(eventForm.castCount) || 4,
+        status: (eventForm.status as any) || 'Confirmado'
+      };
+      onAddEvent(created);
+    }
     setIsModalOpen(false);
+    setEditingEventId(null);
   };
 
   return (
@@ -87,7 +135,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenAdd}
           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#38bdf8] hover:bg-[#0284c7] text-[#0f1115] text-xs font-semibold rounded-xl shadow transition-all cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
@@ -117,7 +165,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
         {filteredEvents.map((evt) => (
           <div
             key={evt.id}
-            className="p-4 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
+            className="p-4 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm group"
           >
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-xl bg-[#12141a] border border-white/5 text-center shrink-0 min-w-[70px]">
@@ -159,43 +207,70 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   </span>
                   <span className="flex items-center gap-1 font-mono">
                     <Users className="w-3.5 h-3.5 text-slate-400" />
-                    {evt.castCount} personas convocadas
+                    {evt.castCount} convocados
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2">
-              <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-white/5">
+              <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border ${
+                evt.status === 'Confirmado' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                evt.status === 'Completado' ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
+                'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              }`}>
                 {evt.status}
               </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleOpenEdit(evt)}
+                  title="Editar evento"
+                  className="p-1.5 text-slate-400 hover:text-[#38bdf8] hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`¿Eliminar evento "${evt.title}" del calendario?`)) {
+                      onDeleteEvent(evt.id);
+                    }
+                  }}
+                  title="Eliminar evento"
+                  className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Modal Add Event */}
+      {/* Modal Add / Edit Event */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <div className="relative w-full max-w-lg bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
             <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white">Agendar Nuevo Hito de Producción</h2>
+              <h2 className="text-base font-semibold text-white">
+                {editingEventId ? 'Editar Evento de Producción' : 'Agendar Nuevo Hito de Producción'}
+              </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">Título del Evento *</label>
                 <input
                   type="text"
                   required
-                  value={newEvent.title}
-                  onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                  value={eventForm.title || ''}
+                  onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
                   placeholder="Ej. Ensayo general con pasada de luces"
                   className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                 />
@@ -205,10 +280,10 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Obra Asociada</label>
                   <select
-                    value={newEvent.obraId}
+                    value={eventForm.obraId || ''}
                     onChange={e => {
                       const o = obras.find(item => item.id === e.target.value);
-                      setNewEvent({ ...newEvent, obraId: e.target.value, obraTitle: o?.title || '' });
+                      setEventForm({ ...eventForm, obraId: e.target.value, obraTitle: o?.title || '' });
                     }}
                     className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   >
@@ -221,8 +296,8 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Tipo de Actividad</label>
                   <select
-                    value={newEvent.type}
-                    onChange={e => setNewEvent({ ...newEvent, type: e.target.value as any })}
+                    value={eventForm.type || 'Ensayo'}
+                    onChange={e => setEventForm({ ...eventForm, type: e.target.value as any })}
                     className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   >
                     <option value="Ensayo">Ensayo</option>
@@ -236,10 +311,23 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   <label className="block text-xs font-medium text-slate-300 mb-1">Fecha</label>
                   <input
                     type="date"
-                    value={newEvent.date}
-                    onChange={e => setNewEvent({ ...newEvent, date: e.target.value })}
+                    value={eventForm.date || ''}
+                    onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
                     className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Estado</label>
+                  <select
+                    value={eventForm.status || 'Confirmado'}
+                    onChange={e => setEventForm({ ...eventForm, status: e.target.value as any })}
+                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                  >
+                    <option value="Confirmado">Confirmado</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Completado">Completado</option>
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -247,8 +335,8 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                     <label className="block text-xs font-medium text-slate-300 mb-1">Inicio</label>
                     <input
                       type="time"
-                      value={newEvent.timeStart}
-                      onChange={e => setNewEvent({ ...newEvent, timeStart: e.target.value })}
+                      value={eventForm.timeStart || ''}
+                      onChange={e => setEventForm({ ...eventForm, timeStart: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                     />
                   </div>
@@ -256,11 +344,22 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                     <label className="block text-xs font-medium text-slate-300 mb-1">Término</label>
                     <input
                       type="time"
-                      value={newEvent.timeEnd}
-                      onChange={e => setNewEvent({ ...newEvent, timeEnd: e.target.value })}
+                      value={eventForm.timeEnd || ''}
+                      onChange={e => setEventForm({ ...eventForm, timeEnd: e.target.value })}
                       className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Personas Convocadas</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={eventForm.castCount ?? 4}
+                    onChange={e => setEventForm({ ...eventForm, castCount: Number(e.target.value) })}
+                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
                 </div>
               </div>
 
@@ -268,27 +367,45 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                 <label className="block text-xs font-medium text-slate-300 mb-1">Sala / Ubicación</label>
                 <input
                   type="text"
-                  value={newEvent.venue}
-                  onChange={e => setNewEvent({ ...newEvent, venue: e.target.value })}
+                  value={eventForm.venue || ''}
+                  onChange={e => setEventForm({ ...eventForm, venue: e.target.value })}
                   placeholder="Ej. Centro GAM - Sala A1"
                   className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                 />
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-2 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#38bdf8] hover:bg-[#0284c7] rounded-lg shadow"
-                >
-                  Guardar en Agenda
-                </button>
+              <div className="pt-4 flex items-center justify-between border-t border-white/10">
+                {editingEventId ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('¿Eliminar este evento de la agenda?')) {
+                        onDeleteEvent(editingEventId);
+                        setIsModalOpen(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar</span>
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#38bdf8] hover:bg-[#0284c7] rounded-lg shadow cursor-pointer"
+                  >
+                    {editingEventId ? 'Actualizar Evento' : 'Guardar en Agenda'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

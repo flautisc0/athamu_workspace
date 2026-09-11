@@ -10,7 +10,11 @@ import {
   CheckCircle2,
   Clock,
   Filter,
-  FileText
+  FileText,
+  Edit2,
+  Trash2,
+  X,
+  Save
 } from 'lucide-react';
 
 interface FinanzasSectionProps {
@@ -18,20 +22,25 @@ interface FinanzasSectionProps {
   obras: Obra[];
   rdProjects: ProjectRD[];
   onAddFinanceRecord: (record: FinanceRecord) => void;
+  onSaveRecord?: (record: FinanceRecord) => void;
+  onDeleteRecord?: (recordId: string) => void;
 }
 
 export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
   finances,
   obras,
   rdProjects,
-  onAddFinanceRecord
+  onAddFinanceRecord,
+  onSaveRecord,
+  onDeleteRecord
 }) => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<FinanceRecord | null>(null);
 
-  // New Record State
-  const [newRecord, setNewRecord] = useState<Partial<FinanceRecord>>({
+  // Form State
+  const [recordForm, setRecordForm] = useState<Partial<FinanceRecord>>({
     projectId: obras[0]?.id || '',
     projectName: obras[0]?.title || '',
     type: 'Gasto',
@@ -42,6 +51,68 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
     invoiceRef: 'Boleta de honorarios',
     responsible: 'Francisco Pérez'
   });
+
+  const handleOpenNew = () => {
+    setEditingRecord(null);
+    setRecordForm({
+      id: `fin-${Date.now()}`,
+      projectId: obras[0]?.id || '',
+      projectName: obras[0]?.title || '',
+      type: 'Gasto',
+      category: 'Honorarios',
+      amountCLP: 500000,
+      date: new Date().toLocaleDateString('es-CL'),
+      status: 'Pendiente',
+      invoiceRef: '',
+      responsible: 'Francisco Pérez'
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (record: FinanceRecord) => {
+    setEditingRecord(record);
+    setRecordForm({ ...record });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: string, ref: string) => {
+    if (window.confirm(`¿Confirmas eliminar el movimiento financiero "${ref}"?`)) {
+      if (onDeleteRecord) {
+        onDeleteRecord(id);
+      }
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recordForm.amountCLP) return;
+
+    const allProjects = [...obras, ...rdProjects];
+    const match = allProjects.find(p => p.id === recordForm.projectId);
+
+    const record: FinanceRecord = {
+      id: editingRecord ? editingRecord.id : recordForm.id || `fin-${Date.now()}`,
+      projectId: recordForm.projectId || 'obra-01',
+      projectName: match?.title || recordForm.projectName || 'Producción General',
+      type: (recordForm.type as any) || 'Gasto',
+      category: (recordForm.category as any) || 'Honorarios',
+      amountCLP: Number(recordForm.amountCLP) || 0,
+      date: recordForm.date || new Date().toLocaleDateString('es-CL'),
+      status: (recordForm.status as any) || 'Pendiente',
+      invoiceRef: recordForm.invoiceRef || 'Boleta/Factura',
+      responsible: recordForm.responsible || 'Francisco Pérez'
+    };
+
+    if (editingRecord && onSaveRecord) {
+      onSaveRecord(record);
+    } else if (onSaveRecord) {
+      onSaveRecord(record);
+    } else {
+      onAddFinanceRecord(record);
+    }
+
+    setIsModalOpen(false);
+  };
 
   const filteredFinances = finances.filter((f) => {
     const matchesType = filterType === 'all' || f.type === filterType;
@@ -59,30 +130,6 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
 
   const saldo = totalIngresos - totalGastos;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRecord.amountCLP) return;
-
-    const allProjects = [...obras, ...rdProjects];
-    const match = allProjects.find(p => p.id === newRecord.projectId);
-
-    const record: FinanceRecord = {
-      id: `fin-${Date.now()}`,
-      projectId: newRecord.projectId || 'obra-01',
-      projectName: match?.title || 'Producción General',
-      type: (newRecord.type as any) || 'Gasto',
-      category: (newRecord.category as any) || 'Honorarios',
-      amountCLP: Number(newRecord.amountCLP) || 0,
-      date: newRecord.date || new Date().toLocaleDateString('es-CL'),
-      status: (newRecord.status as any) || 'Pendiente',
-      invoiceRef: newRecord.invoiceRef || 'Boleta/Factura',
-      responsible: newRecord.responsible || 'Francisco Pérez'
-    };
-
-    onAddFinanceRecord(record);
-    setIsModalOpen(false);
-  };
-
   return (
     <div className="space-y-6 animate-fadeIn">
       
@@ -98,74 +145,88 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
             Presupuestos, Facturas & Rendiciones de Fondos
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Seguimiento de gastos por proyecto (FONDART, convenios de salas y venta de funciones), honorarios de elenco, arriendos y rendición de cuentas.
+            Gestión de ingresos por función/giras, rendiciones FONDART, pagos de honorarios y comprobantes de compras.
           </p>
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#fbbf24] hover:bg-[#f59e0b] text-[#0f1115] text-xs font-semibold rounded-xl shadow transition-all cursor-pointer whitespace-nowrap"
+          type="button"
+          onClick={handleOpenNew}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#fbbf24] hover:bg-[#f59e0b] text-[#0f1115] font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer self-start sm:self-auto shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Ingresar Boleta / Gasto</span>
+          <span>Nuevo Movimiento</span>
         </button>
       </div>
 
-      {/* KPI Cards */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-[#161920] border border-white/5 space-y-1">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <span>Ingresos & Cachés Percibidos</span>
-          </span>
-          <p className="text-2xl font-bold text-white font-mono">{formatCLP(totalIngresos)}</p>
+        <div className="p-5 rounded-2xl bg-[#161920] border border-white/10 flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+              <TrendingUp className="w-4 h-4 text-[#6ee7b7]" />
+              Ingresos Totales (Cachés/Fondos)
+            </span>
+            <div className="text-xl font-bold font-mono text-[#6ee7b7]">
+              {formatCLP(totalIngresos)}
+            </div>
+          </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#161920] border border-white/5 space-y-1">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <TrendingDown className="w-4 h-4 text-red-400" />
-            <span>Gastos & Honorarios Rendidos</span>
-          </span>
-          <p className="text-2xl font-bold text-white font-mono">{formatCLP(totalGastos)}</p>
+        <div className="p-5 rounded-2xl bg-[#161920] border border-white/10 flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+              <TrendingDown className="w-4 h-4 text-rose-400" />
+              Gastos & Operación
+            </span>
+            <div className="text-xl font-bold font-mono text-rose-400">
+              {formatCLP(totalGastos)}
+            </div>
+          </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#161920] border border-white/5 space-y-1">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <DollarSign className="w-4 h-4 text-[#6ee7b7]" />
-            <span>Saldo Operativo ATHA</span>
-          </span>
-          <p className={`text-2xl font-bold font-mono ${saldo >= 0 ? 'text-[#6ee7b7]' : 'text-red-400'}`}>
-            {formatCLP(saldo)}
-          </p>
+        <div className="p-5 rounded-2xl bg-[#161920] border border-white/10 flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+              <DollarSign className="w-4 h-4 text-[#fbbf24]" />
+              Saldo Contable Vigente
+            </span>
+            <div className={`text-xl font-bold font-mono ${saldo >= 0 ? 'text-[#6ee7b7]' : 'text-rose-400'}`}>
+              {formatCLP(saldo)}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="p-4 rounded-2xl bg-[#161920] border border-white/10 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Tipo:</span>
-          <select
-            value={filterType}
-            onChange={e => setFilterType(e.target.value)}
-            className="px-3 py-1.5 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#fbbf24]"
-          >
-            <option value="all">Ingresos y Gastos</option>
-            <option value="Ingreso">Solo Ingresos</option>
-            <option value="Gasto">Solo Gastos</option>
-          </select>
+      {/* Filter Row */}
+      <div className="p-4 rounded-2xl bg-[#161920] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs text-slate-300">
+          <Filter className="w-4 h-4 text-slate-400" />
+          <span>Filtrar registros por:</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Categoría:</span>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-3 py-1.5 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#fbbf24]"
+          >
+            <option value="all">Todos los Tipos</option>
+            <option value="Ingreso">Ingresos</option>
+            <option value="Gasto">Gastos</option>
+          </select>
+
           <select
             value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
+            onChange={(e) => setFilterCategory(e.target.value)}
             className="px-3 py-1.5 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#fbbf24]"
           >
             <option value="all">Todas las Categorías</option>
-            <option value="Honorarios">Honorarios Elenco/Equipo</option>
-            <option value="Traslados/Viáticos">Traslados & Viáticos</option>
-            <option value="Técnica & Arriendo">Técnica & Arriendos</option>
+            <option value="Caché Función">Caché Función</option>
+            <option value="Fondo Concursable">Fondo Concursable</option>
+            <option value="Honorarios">Honorarios</option>
+            <option value="Traslados/Viáticos">Traslados/Viáticos</option>
+            <option value="Técnica & Arriendo">Técnica & Arriendo</option>
             <option value="Escenografía & Vestuario">Escenografía & Vestuario</option>
             <option value="Difusión & Prensa">Difusión & Prensa</option>
           </select>
@@ -185,6 +246,7 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
                 <th className="py-3 px-4">Responsable</th>
                 <th className="py-3 px-4 text-right">Monto CLP</th>
                 <th className="py-3 px-4 text-center">Estado</th>
+                <th className="py-3 px-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-slate-300">
@@ -213,6 +275,26 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
                       {f.status}
                     </span>
                   </td>
+                  <td className="py-3.5 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(f)}
+                        className="p-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        title="Editar movimiento"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(f.id, f.invoiceRef || f.category)}
+                        className="p-1 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Eliminar movimiento"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -220,27 +302,33 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
         </div>
       </div>
 
-      {/* Modal Add Finance */}
+      {/* Modal Add / Edit Finance */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <div className="relative w-full max-w-lg bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
             <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white">Registrar Movimiento Financiero</h2>
+              <div className="flex items-center gap-2">
+                <ReceiptText className="w-5 h-5 text-[#fbbf24]" />
+                <h2 className="text-base font-semibold text-white">
+                  {editingRecord ? 'Editar Movimiento Financiero' : 'Registrar Movimiento Financiero'}
+                </h2>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Tipo</label>
                   <select
-                    value={newRecord.type}
-                    onChange={e => setNewRecord({ ...newRecord, type: e.target.value as any })}
+                    value={recordForm.type}
+                    onChange={e => setRecordForm({ ...recordForm, type: e.target.value as any })}
                     className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                   >
                     <option value="Gasto">Gasto / Egreso</option>
@@ -251,11 +339,13 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Categoría</label>
                   <select
-                    value={newRecord.category}
-                    onChange={e => setNewRecord({ ...newRecord, category: e.target.value as any })}
+                    value={recordForm.category}
+                    onChange={e => setRecordForm({ ...recordForm, category: e.target.value as any })}
                     className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                   >
                     <option value="Honorarios">Honorarios</option>
+                    <option value="Caché Función">Caché Función</option>
+                    <option value="Fondo Concursable">Fondo Concursable</option>
                     <option value="Traslados/Viáticos">Traslados/Viáticos</option>
                     <option value="Técnica & Arriendo">Técnica & Arriendo</option>
                     <option value="Escenografía & Vestuario">Escenografía & Vestuario</option>
@@ -265,10 +355,10 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Proyecto</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Proyecto Asignado</label>
                 <select
-                  value={newRecord.projectId}
-                  onChange={e => setNewRecord({ ...newRecord, projectId: e.target.value })}
+                  value={recordForm.projectId}
+                  onChange={e => setRecordForm({ ...recordForm, projectId: e.target.value })}
                   className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                 >
                   {obras.map(o => (
@@ -286,8 +376,8 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
                   <input
                     type="number"
                     required
-                    value={newRecord.amountCLP}
-                    onChange={e => setNewRecord({ ...newRecord, amountCLP: Number(e.target.value) })}
+                    value={recordForm.amountCLP}
+                    onChange={e => setRecordForm({ ...recordForm, amountCLP: Number(e.target.value) })}
                     className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white font-mono focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
@@ -295,8 +385,8 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Estado</label>
                   <select
-                    value={newRecord.status}
-                    onChange={e => setNewRecord({ ...newRecord, status: e.target.value as any })}
+                    value={recordForm.status}
+                    onChange={e => setRecordForm({ ...recordForm, status: e.target.value as any })}
                     className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                   >
                     <option value="Pendiente">Pendiente</option>
@@ -306,23 +396,35 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Fecha</label>
+                  <input
+                    type="text"
+                    value={recordForm.date}
+                    onChange={e => setRecordForm({ ...recordForm, date: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Responsable en ATHA</label>
+                  <input
+                    type="text"
+                    value={recordForm.responsible}
+                    onChange={e => setRecordForm({ ...recordForm, responsible: e.target.value })}
+                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">Comprobante / Glosa</label>
                 <input
                   type="text"
-                  value={newRecord.invoiceRef}
-                  onChange={e => setNewRecord({ ...newRecord, invoiceRef: e.target.value })}
+                  value={recordForm.invoiceRef}
+                  onChange={e => setRecordForm({ ...recordForm, invoiceRef: e.target.value })}
                   placeholder="Ej. Boleta de honorarios #4491 o Factura 110"
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Responsable en ATHA</label>
-                <input
-                  type="text"
-                  value={newRecord.responsible}
-                  onChange={e => setNewRecord({ ...newRecord, responsible: e.target.value })}
                   className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                 />
               </div>
@@ -331,15 +433,16 @@ export const FinanzasSection: React.FC<FinanzasSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#fbbf24] hover:bg-[#f59e0b] rounded-lg shadow cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#fbbf24] hover:bg-[#f59e0b] rounded-lg shadow cursor-pointer"
                 >
-                  Guardar Movimiento
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{editingRecord ? 'Guardar Cambios' : 'Guardar Movimiento'}</span>
                 </button>
               </div>
             </form>

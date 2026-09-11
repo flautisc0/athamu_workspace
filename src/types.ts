@@ -92,6 +92,7 @@ export interface Venue {
   stageType: string;
   contactPerson: string;
   contactEmail: string;
+  contactPhone?: string;
   status: 'Activo / Convenio' | 'En prospección' | 'Histórico' | 'Bloqueado';
   specs: string;
 }
@@ -205,3 +206,28 @@ export interface UserSession {
   avatar: string;
   provider: 'google' | 'apple' | 'atha_id';
 }
+
+export interface AboutCompanyInfo {
+  name: string;
+  legalName: string;
+  rut: string;
+  founded: string;
+  tagline: string;
+  mission: string;
+  vision: string;
+  values: string[];
+  stats: {
+    totalObras: number;
+    funcionesRealizadas: number;
+    espectadoresHistoricos: number;
+    regionesVisitadas: number;
+    premiosNacionales: number;
+  };
+  contact: {
+    address: string;
+    email: string;
+    phone: string;
+    web: string;
+  };
+}
+

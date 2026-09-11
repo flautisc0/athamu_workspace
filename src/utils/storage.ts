@@ -12,6 +12,10 @@ export const STORAGE_KEYS = {
   PROCESS_LOGS: 'process_logs',
   REMINDERS: 'reminders',
   USER_PROFILE: 'user_profile',
+  VENUES: 'venues',
+  TEAM: 'team',
+  RIDERS: 'riders',
+  ABOUT_INFO: 'about_info',
 } as const;
 
 export function loadFromStorage<T>(key: string, defaultValue: T): T {

@@ -1,0 +1,22 @@
+<svg width="120" height="120" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="faseTerracota" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#FF6B4A" />
+      <stop offset="50%" stopColor="#E05A47" />
+      <stop offset="100%" stopColor="#C84B31" />
+    </linearGradient>
+    <linearGradient id="faseAzul" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#38BDF8" />
+      <stop offset="100%" stopColor="#1E3A8A" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="96" height="96" rx="26" fill="#12151C" stroke="#E05A47" stroke-width="3" stroke-opacity="0.4"/>
+  <path d="M 50 18 A 32 32 0 0 1 82 50" stroke="url(#faseTerracota)" stroke-width="6.5" stroke-linecap="round"/>
+  <path d="M 82 58 A 32 32 0 0 1 58 82" stroke="#38BDF8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 50 82 A 32 32 0 0 1 18 50" stroke="#F59E0B" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 22 42 A 32 32 0 0 1 42 20" stroke="#10B981" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M 36 28 L 36 72" stroke="#F8FAFC" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 36 33 L 68 33" stroke="url(#faseTerracota)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 36 49 L 58 49" stroke="#38BDF8" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="72" cy="49" r="4" fill="#FF6B4A"/>
+</svg>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Obra } from '../types';
 import { formatCLP } from '../utils/storage';
 import { X, Download, Printer, Award, Calendar, Users, Sliders, DollarSign, Clock, Layers } from 'lucide-react';
+import { FaseLogo } from './FaseLogo';
 
 interface DossierModalProps {
   obra: Obra;
@@ -20,8 +21,8 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
         {/* Modal Top Bar */}
         <div className="no-print flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141a]">
           <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md bg-[#6ee7b7]/15 text-[#6ee7b7] border border-[#6ee7b7]/30">
-              Dossier Oficial ATHA
+            <span className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md bg-[#E05A47]/15 text-[#FF6B4A] border border-[#E05A47]/30">
+              Dossier Oficial F.A.S.E
             </span>
             <span className="text-xs text-slate-400">PDF / Formato Impresión A4</span>
           </div>
@@ -29,7 +30,7 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-lg transition-colors shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#E05A47] hover:bg-[#FF6B4A] rounded-lg transition-colors shadow-sm cursor-pointer"
               title="Imprimir o Guardar como PDF"
             >
               <Printer className="w-4 h-4" />
@@ -50,12 +51,10 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
           {/* Header Section */}
           <div className="border-b border-white/10 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 text-[#fbbf24] text-xs uppercase tracking-widest font-mono font-medium mb-1">
-                <span>ATHA Producciones</span>
+              <div className="flex items-center gap-2 text-[#FF6B4A] text-xs uppercase tracking-widest font-mono font-medium mb-2">
+                <FaseLogo variant="horizontal" size="xs" showTagline={false} />
                 <span>•</span>
-                <span>Chile</span>
-                <span>•</span>
-                <span>Catálogo Escénico</span>
+                <span>Catálogo Escénico Oficial</span>
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight font-display">
                 {obra.title}
@@ -200,11 +199,11 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
             </div>
           </div>
 
-          {/* Footer Contacto ATHA */}
+          {/* Footer Contacto F.A.S.E */}
           <div className="pt-6 border-t border-white/10 text-center text-xs text-slate-400 space-y-1">
-            <p className="font-medium text-slate-300">ATHA PRODUCCIONES — Santiago & Valparaíso, Chile</p>
-            <p>Contacto de Programación y Distribución: Francisco Pérez | contacto@athaproducciones.cl | +56 9 8452 1190</p>
-            <p className="text-slate-400 text-[11px]">Documento generado automáticamente desde la Intranet de ATHA Producciones.</p>
+            <p className="font-medium text-slate-300">F.A.S.E PRODUCCIONES — Plataforma de Gestión Escénica • Chile</p>
+            <p>Contacto de Programación y Distribución: Francisco Pérez | contacto@plataformafase.cl | +56 9 8452 1190</p>
+            <p className="text-slate-400 text-[11px]">Documento oficial generado automáticamente desde la Plataforma F.A.S.E.</p>
           </div>
 
         </div>

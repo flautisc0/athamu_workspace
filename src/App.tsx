@@ -17,7 +17,8 @@ import {
   TeamMember,
   TechnicalRider,
   ReminderNotification,
-  UserProfile
+  UserProfile,
+  AboutCompanyInfo
 } from './types';
 import {
   initialObras,
@@ -32,6 +33,7 @@ import {
   initialTeam,
   initialRiders,
   initialReminders,
+  initialAboutInfo,
   defaultUserProfile
 } from './data/initialData';
 import {
@@ -40,9 +42,10 @@ import {
   STORAGE_KEYS
 } from './utils/storage';
 
-// Modals
+// Modals & Navigation
 import { Navbar } from './components/Navbar';
 import { SidebarDrawer } from './components/SidebarDrawer';
+import { FaseLogo } from './components/FaseLogo';
 import { DossierModal } from './components/DossierModal';
 import { EditObraModal } from './components/EditObraModal';
 import { EditLeadModal } from './components/EditLeadModal';
@@ -65,10 +68,43 @@ import { RidersSection } from './components/sections/RidersSection';
 import { AcercaSection } from './components/sections/AcercaSection';
 import { EcosistemaSection } from './components/sections/EcosistemaSection';
 
+export type ThemeMode = 'terracota' | 'dia';
+
 export default function App() {
-  // Navigation & Drawer
+  // Navigation
   const [activeSection, setActiveSection] = useState<string>('inicio');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  // Theme: Terracota (dark) vs Día (white)
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('fase_theme');
+      if (saved === 'dia' || saved === 'terracota') return saved;
+    }
+    return 'terracota';
+  });
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+      if (theme === 'dia') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.classList.add('dark');
+      }
+    }
+    try {
+      localStorage.setItem('fase_theme', theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme(prev => (prev === 'terracota' ? 'dia' : 'terracota'));
+  };
 
   // Authentication & Settings
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() =>
@@ -117,10 +153,19 @@ export default function App() {
     loadFromStorage<ReminderNotification[]>(STORAGE_KEYS.REMINDERS, initialReminders)
   );
 
-  // Static reference data
-  const venues = initialVenues;
-  const team = initialTeam;
-  const riders = initialRiders;
+  // Entities with full CRUD and LocalStorage persistence
+  const [venues, setVenues] = useState<Venue[]>(() =>
+    loadFromStorage<Venue[]>(STORAGE_KEYS.VENUES, initialVenues)
+  );
+  const [team, setTeam] = useState<TeamMember[]>(() =>
+    loadFromStorage<TeamMember[]>(STORAGE_KEYS.TEAM, initialTeam)
+  );
+  const [riders, setRiders] = useState<TechnicalRider[]>(() =>
+    loadFromStorage<TechnicalRider[]>(STORAGE_KEYS.RIDERS, initialRiders)
+  );
+  const [aboutInfo, setAboutInfo] = useState<AboutCompanyInfo>(() =>
+    loadFromStorage<AboutCompanyInfo>(STORAGE_KEYS.ABOUT_INFO, initialAboutInfo)
+  );
 
   // Modals state
   const [dossierObra, setDossierObra] = useState<Obra | null>(null);
@@ -130,6 +175,29 @@ export default function App() {
   const [isNewLeadOpen, setIsNewLeadOpen] = useState<boolean>(false);
 
   // Persist state updates to localStorage
+  useEffect(() => {
+    // Check for user_session saved by the backend login
+    try {
+      const rawSession = localStorage.getItem('user_session');
+      if (rawSession) {
+        const session = JSON.parse(rawSession);
+        if (session && (session.display_name || session.email)) {
+          setCurrentUser(prev => ({
+            id: session.user_id || prev?.id || 'usr_fase_1',
+            name: session.display_name || prev?.name || 'ATHA',
+            email: session.email || prev?.email || '',
+            role: session.role_title || session.role || prev?.role || 'Productor',
+            avatar: session.avatar_url || prev?.avatar || '',
+            provider: session.provider || prev?.provider || 'google',
+            initials: (session.display_name || 'AT').substring(0, 2).toUpperCase()
+          }));
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }, []);
+
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.OBRAS, obras);
   }, [obras]);
@@ -170,6 +238,22 @@ export default function App() {
     saveToStorage(STORAGE_KEYS.USER_PROFILE, currentUser);
   }, [currentUser]);
 
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.VENUES, venues);
+  }, [venues]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.TEAM, team);
+  }, [team]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.RIDERS, riders);
+  }, [riders]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.ABOUT_INFO, aboutInfo);
+  }, [aboutInfo]);
+
   // Handlers for Obra CRUD
   const handleSaveObra = (savedObra: Obra) => {
     setObras(prev => {
@@ -204,40 +288,168 @@ export default function App() {
     setLeads(prev => prev.filter(l => l.id !== leadId));
   };
 
-  // Handler for R&D Progress
+  // Handler for R&D Projects CRUD
   const handleUpdateProjectProgress = (projectId: string, newProgress: number) => {
     setRdProjects(prev =>
       prev.map(p => (p.id === projectId ? { ...p, progress: newProgress, updatedAt: 'Recién' } : p))
     );
   };
 
-  // Handler for Calendar Event Add
+  const handleSaveRdProject = (savedProject: ProjectRD) => {
+    setRdProjects(prev => {
+      const exists = prev.some(p => p.id === savedProject.id);
+      if (exists) {
+        return prev.map(p => (p.id === savedProject.id ? savedProject : p));
+      }
+      return [savedProject, ...prev];
+    });
+  };
+
+  const handleDeleteRdProject = (projectId: string) => {
+    setRdProjects(prev => prev.filter(p => p.id !== projectId));
+  };
+
+  // Handler for Calendar Events CRUD
   const handleAddEvent = (newEvent: EventSchedule) => {
     setEvents(prev => [newEvent, ...prev]);
   };
 
-  // Handler for Artist Availability update
+  const handleSaveEvent = (savedEvent: EventSchedule) => {
+    setEvents(prev => {
+      const exists = prev.some(e => e.id === savedEvent.id);
+      if (exists) {
+        return prev.map(e => (e.id === savedEvent.id ? savedEvent : e));
+      }
+      return [savedEvent, ...prev];
+    });
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+  };
+
+  // Handlers for Artists CRUD
   const handleUpdateArtistAvailability = (updatedArtist: ArtistAvailability) => {
     setArtists(prev =>
       prev.map(a => (a.id === updatedArtist.id ? updatedArtist : a))
     );
   };
 
-  // Handler for Inventory status change
+  const handleAddArtist = (newArtist: ArtistAvailability) => {
+    setArtists(prev => [newArtist, ...prev]);
+  };
+
+  const handleDeleteArtist = (artistId: string) => {
+    setArtists(prev => prev.filter(a => a.id !== artistId));
+  };
+
+  // Handlers for Inventory CRUD
   const handleUpdateItemStatus = (itemId: string, newStatus: InventoryItem['status']) => {
     setInventory(prev =>
       prev.map(item => (item.id === itemId ? { ...item, status: newStatus } : item))
     );
   };
 
-  // Handler for Finance record addition
+  const handleSaveInventoryItem = (savedItem: InventoryItem) => {
+    setInventory(prev => {
+      const exists = prev.some(i => i.id === savedItem.id);
+      if (exists) {
+        return prev.map(i => (i.id === savedItem.id ? savedItem : i));
+      }
+      return [savedItem, ...prev];
+    });
+  };
+
+  const handleDeleteInventoryItem = (itemId: string) => {
+    setInventory(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  // Handlers for Finance records CRUD
   const handleAddFinanceRecord = (newRecord: FinanceRecord) => {
     setFinances(prev => [newRecord, ...prev]);
   };
 
-  // Handler for Process Log addition
+  const handleSaveFinanceRecord = (savedRecord: FinanceRecord) => {
+    setFinances(prev => {
+      const exists = prev.some(f => f.id === savedRecord.id);
+      if (exists) {
+        return prev.map(f => (f.id === savedRecord.id ? savedRecord : f));
+      }
+      return [savedRecord, ...prev];
+    });
+  };
+
+  const handleDeleteFinanceRecord = (recordId: string) => {
+    setFinances(prev => prev.filter(f => f.id !== recordId));
+  };
+
+  // Handlers for Process Logs CRUD
   const handleAddProcessLog = (newLog: ProcessLog) => {
     setProcessLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleSaveProcessLog = (savedLog: ProcessLog) => {
+    setProcessLogs(prev => {
+      const exists = prev.some(l => l.id === savedLog.id);
+      if (exists) {
+        return prev.map(l => (l.id === savedLog.id ? savedLog : l));
+      }
+      return [savedLog, ...prev];
+    });
+  };
+
+  const handleDeleteProcessLog = (logId: string) => {
+    setProcessLogs(prev => prev.filter(l => l.id !== logId));
+  };
+
+  // Handlers for Venues CRUD
+  const handleSaveVenue = (savedVenue: Venue) => {
+    setVenues(prev => {
+      const exists = prev.some(v => v.id === savedVenue.id);
+      if (exists) {
+        return prev.map(v => (v.id === savedVenue.id ? savedVenue : v));
+      }
+      return [savedVenue, ...prev];
+    });
+  };
+
+  const handleDeleteVenue = (venueId: string) => {
+    setVenues(prev => prev.filter(v => v.id !== venueId));
+  };
+
+  // Handlers for Team Members CRUD
+  const handleSaveTeamMember = (savedMember: TeamMember) => {
+    setTeam(prev => {
+      const exists = prev.some(m => m.id === savedMember.id);
+      if (exists) {
+        return prev.map(m => (m.id === savedMember.id ? savedMember : m));
+      }
+      return [savedMember, ...prev];
+    });
+  };
+
+  const handleDeleteTeamMember = (memberId: string) => {
+    setTeam(prev => prev.filter(m => m.id !== memberId));
+  };
+
+  // Handlers for Technical Riders CRUD
+  const handleSaveRider = (savedRider: TechnicalRider) => {
+    setRiders(prev => {
+      const exists = prev.some(r => r.id === savedRider.id);
+      if (exists) {
+        return prev.map(r => (r.id === savedRider.id ? savedRider : r));
+      }
+      return [savedRider, ...prev];
+    });
+  };
+
+  const handleDeleteRider = (riderId: string) => {
+    setRiders(prev => prev.filter(r => r.id !== riderId));
+  };
+
+  // Handler for About Institutional Info
+  const handleSaveAboutInfo = (newInfo: AboutCompanyInfo) => {
+    setAboutInfo(newInfo);
   };
 
   // Reminders / Push Notifications handlers
@@ -276,26 +488,40 @@ export default function App() {
   const unreadRemindersCount = reminders.filter(r => !r.read).length;
 
   return (
-    <div className={`min-h-screen flex flex-col bg-[#0f1115] text-slate-100 font-sans transition-colors duration-300 ${highContrast ? 'contrast-125' : ''}`}>
+    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
+      theme === 'dia'
+        ? 'bg-[#F8F6F4] text-stone-900 selection:bg-[#E05A47]/20 selection:text-[#C84835]'
+        : 'bg-[#140D0C] text-[#FDF5F4] selection:bg-[#E05A47]/20 selection:text-[#FF6B4A]'
+    } ${highContrast ? 'contrast-125' : ''}`}>
       
-      {/* Top Navbar */}
+      {/* Top Navigation Bar with Direct Visible Menus */}
       <Navbar
-        onToggleSidebar={() => setIsDrawerOpen(prev => !prev)}
-        isSidebarOpen={isDrawerOpen}
         currentUser={currentUser || defaultUserProfile}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
+        unreadNotificationsCount={unreadRemindersCount}
         isCloudSynced={isCloudSynced}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        onOpenDrawer={() => setIsDrawerOpen(true)}
         highContrast={highContrast}
         onToggleHighContrast={() => setHighContrast(prev => !prev)}
         obras={obras}
         leads={leads}
         venues={venues}
-        onSelectObra={(obra) => setDossierObra(obra)}
+        activeSection={activeSection}
         onNavigateSection={handleNavigateSection}
+        counts={{
+          obras: obras.length,
+          leads: leads.length,
+          rd: rdProjects.length,
+          events: events.length,
+          inventory: inventory.length
+        }}
+        onSelectObra={(obra) => setDossierObra(obra)}
       />
 
-      {/* Hamburger Sidebar Drawer */}
+      {/* Slide-out Sidebar Drawer for Complete Categorized Overview */}
       <SidebarDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
@@ -308,6 +534,7 @@ export default function App() {
           events: events.length,
           inventory: inventory.length
         }}
+        theme={theme}
       />
 
       {/* Main Content Area */}
@@ -321,6 +548,7 @@ export default function App() {
             finances={finances}
             onNavigateSection={handleNavigateSection}
             onSelectObra={handleSelectObraFromDashboard}
+            theme={theme}
           />
         )}
 
@@ -337,6 +565,8 @@ export default function App() {
           <ProyectosIDSection
             projects={rdProjects}
             onUpdateProjectProgress={handleUpdateProjectProgress}
+            onSaveProject={handleSaveRdProject}
+            onDeleteProject={handleDeleteRdProject}
           />
         )}
 
@@ -354,6 +584,8 @@ export default function App() {
             events={events}
             obras={obras}
             onAddEvent={handleAddEvent}
+            onSaveEvent={handleSaveEvent}
+            onDeleteEvent={handleDeleteEvent}
           />
         )}
 
@@ -362,21 +594,33 @@ export default function App() {
             obras={obras}
             artists={artists}
             onUpdateArtistAvailability={handleUpdateArtistAvailability}
+            onAddArtist={handleAddArtist}
+            onDeleteArtist={handleDeleteArtist}
           />
         )}
 
         {activeSection === 'equipo' && (
-          <EquipoSection team={team} />
+          <EquipoSection
+            team={team}
+            onSaveMember={handleSaveTeamMember}
+            onDeleteMember={handleDeleteTeamMember}
+          />
         )}
 
         {activeSection === 'venues' && (
-          <VenuesSection venues={venues} />
+          <VenuesSection
+            venues={venues}
+            onSaveVenue={handleSaveVenue}
+            onDeleteVenue={handleDeleteVenue}
+          />
         )}
 
         {activeSection === 'inventario' && (
           <InventarioSection
             inventory={inventory}
             onUpdateItemStatus={handleUpdateItemStatus}
+            onSaveItem={handleSaveInventoryItem}
+            onDeleteItem={handleDeleteInventoryItem}
           />
         )}
 
@@ -386,6 +630,8 @@ export default function App() {
             obras={obras}
             rdProjects={rdProjects}
             onAddFinanceRecord={handleAddFinanceRecord}
+            onSaveRecord={handleSaveFinanceRecord}
+            onDeleteRecord={handleDeleteFinanceRecord}
           />
         )}
 
@@ -394,15 +640,25 @@ export default function App() {
             logs={processLogs}
             obras={obras}
             onAddLog={handleAddProcessLog}
+            onSaveLog={handleSaveProcessLog}
+            onDeleteLog={handleDeleteProcessLog}
           />
         )}
 
         {activeSection === 'riders' && (
-          <RidersSection riders={riders} />
+          <RidersSection
+            riders={riders}
+            obras={obras}
+            onSaveRider={handleSaveRider}
+            onDeleteRider={handleDeleteRider}
+          />
         )}
 
         {activeSection === 'acerca' && (
-          <AcercaSection />
+          <AcercaSection
+            info={aboutInfo}
+            onSaveInfo={handleSaveAboutInfo}
+          />
         )}
 
         {activeSection === 'ecosistema' && (
@@ -411,37 +667,60 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-white/10 bg-[#12141a]/90 backdrop-blur-md py-6 px-4 sm:px-6 lg:px-8 text-xs text-slate-400">
+      <footer className={`mt-auto border-t py-6 px-4 sm:px-6 lg:px-8 text-xs transition-colors backdrop-blur-md ${
+        theme === 'dia'
+          ? 'bg-white/95 border-[#E5DDD8] text-stone-600'
+          : 'bg-[#140B0A]/95 border-[#3E221E] text-slate-400'
+      }`}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-white font-display tracking-wide">ATHA PRODUCCIONES</span>
-            <span>•</span>
-            <span>Intranet de Gestión Escénica v2.5</span>
+          <div className="flex items-center gap-3">
+            <FaseLogo variant="horizontal" size="xs" showTagline={false} theme={theme === 'dia' ? 'light' : 'terracota'} />
+            <span className={theme === 'dia' ? 'text-stone-300' : 'text-white/20'}>•</span>
+            <span className={`text-[11px] ${theme === 'dia' ? 'text-stone-500' : 'text-slate-400'}`}>
+              Plataforma de Gestión Escénica v3.0
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-[11px]">
-            <button onClick={() => handleNavigateSection('inicio')} className="hover:text-[#6ee7b7] cursor-pointer">
-              Diagrama
+            <button onClick={() => handleNavigateSection('inicio')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
+              Panel de Control
             </button>
-            <button onClick={() => handleNavigateSection('obras')} className="hover:text-[#6ee7b7] cursor-pointer">
+            <button onClick={() => handleNavigateSection('obras')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
               Catálogo Obras
             </button>
-            <button onClick={() => handleNavigateSection('crm')} className="hover:text-[#6ee7b7] cursor-pointer">
+            <button onClick={() => handleNavigateSection('crm')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
               CRM Salas
             </button>
-            <button onClick={() => handleNavigateSection('calculadora')} className="hover:text-[#6ee7b7] cursor-pointer">
+            <button onClick={() => handleNavigateSection('calculadora')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
               Calculadora
             </button>
-            <button onClick={() => handleNavigateSection('riders')} className="hover:text-[#6ee7b7] cursor-pointer">
-              Riders
+            <button onClick={() => handleNavigateSection('riders')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
+              Riders Técnicos
             </button>
-            <button onClick={() => handleNavigateSection('acerca')} className="hover:text-[#6ee7b7] cursor-pointer">
-              Acerca de ATHA
+            <button onClick={() => handleNavigateSection('ecosistema')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
+              Ecosistema ATHA
+            </button>
+            <button onClick={() => handleNavigateSection('acerca')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
+              Identidad F.A.S.E
             </button>
           </div>
 
-          <div className="text-[11px] text-slate-400 font-mono">
-            Santiago & Valparaíso, Chile • 2025
+          <div className={`text-[11px] font-mono ${theme === 'dia' ? 'text-stone-500' : 'text-slate-400'}`}>
+            Chile • 2025 • F.A.S.E Producciones
           </div>
         </div>
       </footer>

@@ -1,6 +1,6 @@
 {
-  "name": "ATHA Producciones - Intranet de Gestión",
-  "description": "Intranet de gestión para ATHA Producciones: productora chilena de artes escénicas y música con catálogo de obras, CRM de salas y festivales, I+D, finanzas y calculadora de estrenos.",
+  "name": "F.A.S.E - Plataforma de Gestión Escénica",
+  "description": "Plataforma integral de gestión escénica y producción F.A.S.E: catálogo de obras, CRM de salas y festivales, I+D, finanzas, calculadora de estrenos y bitácora de producción.",
   "requestFramePermissions": ["notifications"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

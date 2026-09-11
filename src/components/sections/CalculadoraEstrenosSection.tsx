@@ -13,19 +13,27 @@ import {
   Sliders,
   UserCheck,
   User,
-  Plus
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Save
 } from 'lucide-react';
 
 interface CalculadoraEstrenosSectionProps {
   obras: Obra[];
   artists: ArtistAvailability[];
   onUpdateArtistAvailability: (updatedArtist: ArtistAvailability) => void;
+  onAddArtist: (newArtist: ArtistAvailability) => void;
+  onDeleteArtist: (artistId: string) => void;
 }
 
 export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProps> = ({
   obras,
   artists,
-  onUpdateArtistAvailability
+  onUpdateArtistAvailability,
+  onAddArtist,
+  onDeleteArtist
 }) => {
   const [activeTab, setActiveTab] = useState<'calculadora' | 'disponibilidad'>('calculadora');
 
@@ -43,6 +51,10 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
 
   // Artist availability state
   const [selectedArtistId, setSelectedArtistId] = useState<string>(artists[0]?.id || '');
+
+  // Artist modal for adding/editing artist
+  const [isArtistModalOpen, setIsArtistModalOpen] = useState(false);
+  const [artistModalData, setArtistModalData] = useState<Partial<ArtistAvailability> | null>(null);
 
   // Calculate target hours based on complexity
   const targetHours =
@@ -80,6 +92,62 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
       }
     };
     onUpdateArtistAvailability(updatedArtist);
+  };
+
+  const handleOpenAddArtist = () => {
+    setArtistModalData({
+      id: `art-${Date.now()}`,
+      artistName: '',
+      role: 'Actriz / Intérprete Escénica',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+      notes: '',
+      timeSlots: {
+        lunes: ['Mañana (09:00 - 13:30)'],
+        martes: ['Tarde (14:30 - 18:30)'],
+        miercoles: ['Mañana (09:00 - 13:30)'],
+        jueves: ['Tarde (14:30 - 18:30)'],
+        viernes: ['Mañana (09:00 - 13:30)'],
+        sabado: []
+      }
+    });
+    setIsArtistModalOpen(true);
+  };
+
+  const handleOpenEditArtist = (art: ArtistAvailability) => {
+    setArtistModalData({ ...art });
+    setIsArtistModalOpen(true);
+  };
+
+  const handleSaveArtistModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!artistModalData || !artistModalData.artistName) return;
+
+    const isExisting = artists.some(a => a.id === artistModalData.id);
+    const saved: ArtistAvailability = {
+      id: artistModalData.id || `art-${Date.now()}`,
+      artistName: artistModalData.artistName,
+      role: artistModalData.role || 'Intérprete Escénico',
+      avatar: artistModalData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+      notes: artistModalData.notes || '',
+      timeSlots: artistModalData.timeSlots || {
+        lunes: [],
+        martes: [],
+        miercoles: [],
+        jueves: [],
+        viernes: [],
+        sabado: []
+      }
+    };
+
+    if (isExisting) {
+      onUpdateArtistAvailability(saved);
+    } else {
+      onAddArtist(saved);
+      setSelectedArtistId(saved.id);
+    }
+
+    setIsArtistModalOpen(false);
+    setArtistModalData(null);
   };
 
   const daysList: (keyof ArtistAvailability['timeSlots'])[] = [
@@ -406,8 +474,8 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
               </div>
             </div>
 
-            {/* Select Artist Dropdown */}
-            <div className="flex items-center gap-2">
+            {/* Select Artist Dropdown and Actions */}
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-slate-400">Seleccionar Intérprete:</span>
               <select
                 value={selectedArtistId}
@@ -420,6 +488,25 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   </option>
                 ))}
               </select>
+
+              <button
+                type="button"
+                onClick={() => handleOpenEditArtist(currentArtist)}
+                title="Editar datos del intérprete"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 bg-white/5 hover:bg-white/10 hover:text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-[#6ee7b7]" />
+                <span>Editar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenAddArtist}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-xl shadow transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Nuevo Intérprete</span>
+              </button>
             </div>
           </div>
 
@@ -504,6 +591,113 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
 
           </div>
 
+        </div>
+      )}
+
+      {/* Modal Add / Edit Artist */}
+      {isArtistModalOpen && artistModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-md bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
+            <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-[#6ee7b7]" />
+                <h3 className="text-base font-semibold text-white">
+                  {artists.some(a => a.id === artistModalData.id) ? 'Editar Intérprete' : 'Nuevo Intérprete al Elenco'}
+                </h3>
+              </div>
+              <button
+                onClick={() => { setIsArtistModalOpen(false); setArtistModalData(null); }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveArtistModal} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Nombre Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={artistModalData.artistName || ''}
+                  onChange={e => setArtistModalData(prev => ({ ...prev, artistName: e.target.value }))}
+                  placeholder="Ej. Francisca Gavilán"
+                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Rol / Personaje / Función</label>
+                <input
+                  type="text"
+                  value={artistModalData.role || ''}
+                  onChange={e => setArtistModalData(prev => ({ ...prev, role: e.target.value }))}
+                  placeholder="Ej. Actriz Principal (Protagonista)"
+                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">URL Fotografía / Avatar</label>
+                <input
+                  type="url"
+                  value={artistModalData.avatar || ''}
+                  onChange={e => setArtistModalData(prev => ({ ...prev, avatar: e.target.value }))}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Observaciones / Restricciones</label>
+                <textarea
+                  rows={3}
+                  value={artistModalData.notes || ''}
+                  onChange={e => setArtistModalData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Ej. Bloqueo fijo martes por rodaje de serie. Disponible para giras internacionales."
+                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                />
+              </div>
+
+              <div className="pt-4 flex items-center justify-between border-t border-white/10">
+                {artistModalData.id && artists.some(a => a.id === artistModalData.id) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`¿Eliminar al intérprete "${artistModalData.artistName}" del elenco?`)) {
+                        onDeleteArtist(artistModalData.id!);
+                        setIsArtistModalOpen(false);
+                        setArtistModalData(null);
+                        const remaining = artists.filter(a => a.id !== artistModalData.id);
+                        if (remaining[0]) setSelectedArtistId(remaining[0].id);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar</span>
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsArtistModalOpen(false); setArtistModalData(null); }}
+                    className="px-4 py-2 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-lg shadow cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Guardar Intérprete</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
