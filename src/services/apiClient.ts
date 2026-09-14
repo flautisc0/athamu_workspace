@@ -1,7 +1,9 @@
 /**
- * Servicio de Cliente API y Sincronización con Cloud SQL (PostgreSQL)
- * Gestiona consultas, sincronización en vivo, importación y exportación de archivos
+ * Servicio de Cliente API y Sincronización con CRM v1 (Cloud Run + Cloud SQL)
+ * Rutea a: https://crm-v1-uc-897089213264.us-central1.run.app/api/v1/crm/*
  */
+
+const CRM_BASE_URL = import.meta.env.VITE_CRM_BASE_URL || 'https://crm-v1-uc-897089213264.us-central1.run.app';
 
 export interface CloudSqlStatus {
   status: 'online' | 'offline' | 'checking';
@@ -27,54 +29,69 @@ export interface CloudSqlStatus {
 export async function checkCloudSqlStatus(): Promise<CloudSqlStatus> {
   const start = performance.now();
   try {
-    const res = await fetch('/api/status');
+    // Usar endpoint de entities del CRM v1 Cloud Run
+    const res = await fetch(`${CRM_BASE_URL}/api/v1/crm/entities`);
     const latencyMs = Math.round(performance.now() - start);
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    // Mapear entities → tables (formato CRM v1)
+    const entities = data.entities || {};
     return {
-      ...data,
+      status: 'online' as const,
+      databaseEngine: 'MySQL (Cloud SQL)',
+      host: 'crm-v1-uc-897089213264.us-central1.run.app',
+      database: 'admin_crm',
+      tables: {
+        obras: entities.projects || 0,
+        leads: entities.leads || 0,
+        rdProjects: entities.projects || 0,
+        venues: entities.venues || 0,
+        events: entities.events || 0,
+        inventory: entities.inventory || 0,
+        finances: entities.finance_records || 0,
+        processLogs: entities.process_logs || 0,
+        riders: entities.standard_riders || 0,
+        team: entities.users || 0,
+      },
       latencyMs,
-      status: 'online'
     };
   } catch (error) {
     console.warn('Cloud SQL status check failed, using local cache:', error);
     return {
-      status: 'offline',
-      databaseEngine: 'PostgreSQL (Desconectado/Modo Local)',
-      host: 'Pendiente de reconexión',
-      database: 'defaultdb',
-      tables: {
-        obras: 0,
-        leads: 0,
-        rdProjects: 0,
-        venues: 0,
-        events: 0,
-        inventory: 0,
-        finances: 0,
-        processLogs: 0,
-        riders: 0,
-        team: 0,
-      },
-      latencyMs: 0
+      status: 'offline' as const,
+      databaseEngine: 'Cloud SQL (Desconectado/Modo Fallback)',
+      host: CRM_BASE_URL,
+      database: 'admin_crm',
+      tables: { obras: 0, leads: 0, rdProjects: 0, venues: 0, events: 0, inventory: 0, finances: 0, processLogs: 0, riders: 0, team: 0 },
+      latencyMs: 0,
     };
   }
 }
 
+/**
+ * Fetch de proyectos desde el CRM v1 Cloud Run
+ */
 export async function fetchAllFromSql() {
   try {
-    const res = await fetch('/api/data');
+    const res = await fetch(`${CRM_BASE_URL}/api/v1/crm/portfolio/projects`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    return {
+      obras: data.projects || [],
+      success: true,
+      count: data.total || data.projects?.length || 0,
+    };
   } catch (error) {
-    console.warn('Error fetching all data from SQL:', error);
+    console.warn('Error fetching projects from CRM v1:', error);
     return null;
   }
 }
 
+/**
+ * Seed a Cloud SQL — ahora usa safe-seed-loader (nunca borra datos)
+ */
 export async function seedCloudSql() {
-  const res = await fetch('/api/seed', { method: 'POST' });
+  const res = await fetch(`${CRM_BASE_URL}/api/v1/crm/seed`, { method: 'POST' });
   if (!res.ok) throw new Error('Error al ejecutar el sembrador SQL');
   return await res.json();
 }

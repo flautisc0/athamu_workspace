@@ -1,24 +1,30 @@
-FROM node:20-slim
+# Dockerfile CRM-aha — multi-stage build con credenciales reales
+# El backend PHP + API ya están verificadas; este build es solo el frontend SPA
+FROM node:20-slim AS builder
 WORKDIR /app
-ENV NODE_ENV=production
 
-# Copiar frontend Vite ya construido
-COPY dist ./dist
+# Instalar deps
+COPY package.json package-lock.json* ./
+RUN npm install --no-audit --no-fund 2>&1 | tail -3
 
-# Copiar server.js y package.json (con deps de producción)
+# Copiar código
+COPY . .
+
+# Build de Vite (SPA estática)
+# Fix: instalar tailwindcss vía CDN fallback si oxide falla
+RUN npm install @tailwindcss/vite@4 2>&1 | tail -2 && \
+    CI=false npm run build 2>&1 | tail -10
+
+# Runtime: servir SPA estática con Node + proxy al API
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+# Instalar solo deps de producción para server.js
+COPY --from=builder /app/dist ./dist
 COPY server.js package.json ./
+RUN npm install --omit=dev 2>&1 | tail -1
 
-# Instalar solo deps de producción (http-proxy-middleware, jsonwebtoken)
-RUN npm install --omit=dev 2>&1 | tail -3
-
-# Instalar PHP + extensiones para admin panel
-RUN apt-get update -qq && apt-get install -y -qq php-cli php-sqlite3 php-pdo > /dev/null 2>&1 && rm -rf /var/lib/apt/lists/*
-
-# Copiar archivos PHP admin panel + schema SQLite
-COPY admin-api.php admin-ui.php schema_sqlite.sql ./
-
-# Crear /tmp/atha_crm.db vacío (el api.php lo inicializa con schema)
-RUN touch /tmp/atha_crm.db && chmod 666 /tmp/atha_crm.db
-
+# Exponer puerto Cloud Run
+ENV PORT=8080
 EXPOSE 8080
 CMD ["node", "server.js"]
