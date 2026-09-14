@@ -19,8 +19,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   onClearAll,
   onTriggerSimulatedPush
 }) => {
-  if (!isOpen) return null;
-
   const [permissionState, setPermissionState] = useState<NotificationPermission>('default');
   const [notificationSent, setNotificationSent] = useState(false);
 
@@ -29,6 +27,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       setPermissionState(Notification.permission);
     }
   }, []);
+
+  if (!isOpen) return null;
 
   const requestPermission = async () => {
     if (typeof window !== 'undefined' && 'Notification' in window) {

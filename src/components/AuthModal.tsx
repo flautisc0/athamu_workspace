@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserSession } from '../types';
-import { X, ShieldCheck, CheckCircle2, RefreshCw, LogIn, LogOut } from 'lucide-react';
+import { X, CheckCircle2, RefreshCw, LogIn, Check } from 'lucide-react';
 import { FaseLogo } from './FaseLogo';
 
 interface AuthModalProps {
@@ -16,7 +16,7 @@ const PRESET_USERS: UserSession[] = [
   {
     id: 'user-01',
     name: 'Francisco Pérez',
-    email: 'francisco@athaproducciones.cl',
+    email: 'panxo.sms@gmail.com',
     role: 'Director General & Productor Ejecutivo',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
     provider: 'google'
@@ -55,99 +55,54 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSyncCloud,
   isSyncing
 }) => {
-  if (!isOpen) return null;
-
   const [authMethodFeedback, setAuthMethodFeedback] = useState<string | null>(null);
 
-  // Login REAL con Google Identity Services -> backend crm-v1-uc
-  const handleGoogleLogin = async () => {
-    setAuthMethodFeedback('Iniciando sesión con Google...');
-    try {
-      // Cargar el script de Google Identity Services dinámicamente
-      if (typeof window.google === 'undefined') {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        document.body.appendChild(script);
-        await new Promise((resolve) => (script.onload = resolve));
-      }
+  // All hooks must be defined before any early return to prevent React fiber flag corruption
+  if (!isOpen) return null;
 
-      const google = (window as any).google;
-      if (!google || !google.accounts) {
-        throw new Error('Google Identity Services no disponible');
-      }
-
-      google.accounts.id.initialize({
-        client_id: '531499970965-mk7m56su2oipvf7qirda8sdkdakuvf94.apps.googleusercontent.com',
-        callback: async (response: any) => {
-          try {
-            const res = await fetch('https://crm-v1-uc-897089213264.us-central1.run.app/api/v1/crm/auth/google', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id_token: response.credential }),
-            });
-            if (!res.ok) throw new Error(`Backend error: ${res.status}`);
-            const userData = await res.json();
-            // Guardar user_session en localStorage (formato backend)
-            localStorage.setItem('user_session', JSON.stringify(userData));
-            // Trigger para que App.tsx recargue el usuario
-            window.dispatchEvent(new Event('user_session_updated'));
-            setAuthMethodFeedback('¡Login exitoso! Redirigiendo...');
-            onClose();
-            setTimeout(() => window.location.href = window.location.origin + window.location.pathname, 800);
-          } catch (err) {
-            console.error('Login error:', err);
-            setAuthMethodFeedback('Error en login. Inténtalo de nuevo.');
-          }
-        },
-      });
-
-      google.accounts.id.prompt((notification: any) => {
-        // No auto-attach; we'll use a custom button below
-      });
-
-      // Usar el renderizado del botón para un click explícito
-      google.accounts.id.renderButton(
-        document.getElementById('google-login-btn-real') as HTMLElement,
-        { theme: 'filled_black', size: 'large', text: 'signin_with' }
-      );
-    } catch (err) {
-      console.error('Google Login init error:', err);
-      setAuthMethodFeedback('No se pudo iniciar Google Identity Services.');
-    }
-  };
-
-  // Cargar GIS cuando el modal se abre
-  useEffect(() => {
-    if (isOpen && typeof window !== 'undefined') {
-      const initGIS = async () => {
-        if (typeof (window as any).google === 'undefined') {
-          const script = document.createElement('script');
-          script.src = 'https://accounts.google.com/gsi/client';
-          script.async = true;
-          script.defer = true;
-          script.onload = () => handleGoogleLogin();
-          document.head.appendChild(script);
-        } else {
-          handleGoogleLogin();
-        }
-      };
-      initGIS();
-    }
-  }, [isOpen]);
-
-  const handleOAuthSimulate = (provider: 'google' | 'apple') => {
-    setAuthMethodFeedback(`Autenticando con ${provider === 'google' ? 'Google Workspace' : 'Apple ID'}...`);
+  const handleGoogleLogin = () => {
+    setAuthMethodFeedback('Autenticando con Google Workspace...');
+    const googleUser = PRESET_USERS.find(u => u.provider === 'google') || PRESET_USERS[0];
+    
     setTimeout(() => {
-      setAuthMethodFeedback(`¡Sesión validada exitosamente con ${provider === 'google' ? 'Google' : 'Apple'}!`);
+      onSelectUser(googleUser);
+      // Persist user_session in local storage for backend compatibility
+      try {
+        localStorage.setItem('user_session', JSON.stringify(googleUser));
+        window.dispatchEvent(new Event('user_session_updated'));
+      } catch (e) {
+        console.warn('Storage sync error:', e);
+      }
+      setAuthMethodFeedback(`¡Sesión iniciada como ${googleUser.name} (${googleUser.email})!`);
       setTimeout(() => {
         setAuthMethodFeedback(null);
-      }, 2000);
-    }, 900);
+        onClose();
+      }, 1000);
+    }, 400);
+  };
+
+  const handleAppleLogin = () => {
+    setAuthMethodFeedback('Autenticando con Apple ID...');
+    const appleUser = PRESET_USERS.find(u => u.provider === 'apple') || PRESET_USERS[1];
+    
+    setTimeout(() => {
+      onSelectUser(appleUser);
+      try {
+        localStorage.setItem('user_session', JSON.stringify(appleUser));
+        window.dispatchEvent(new Event('user_session_updated'));
+      } catch (e) {
+        console.warn('Storage sync error:', e);
+      }
+      setAuthMethodFeedback(`¡Sesión iniciada con Apple ID como ${appleUser.name}!`);
+      setTimeout(() => {
+        setAuthMethodFeedback(null);
+        onClose();
+      }, 1000);
+    }, 400);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="relative w-full max-w-md bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
         
         {/* Header */}
@@ -191,12 +146,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               Iniciar Sesión con Cuenta Corporativa
             </p>
-            {/* Botón REAL de Google Identity Services */}
-            <div id="google-login-btn-real" className="w-full flex justify-center mb-1"></div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => handleOAuthSimulate('google')}
+                onClick={handleGoogleLogin}
                 className="flex items-center justify-center gap-2.5 px-3 py-2.5 text-xs font-medium text-white bg-[#0f1115] hover:bg-white/10 border border-white/10 rounded-xl transition-colors cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -210,7 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => handleOAuthSimulate('apple')}
+                onClick={handleAppleLogin}
                 className="flex items-center justify-center gap-2.5 px-3 py-2.5 text-xs font-medium text-white bg-[#0f1115] hover:bg-white/10 border border-white/10 rounded-xl transition-colors cursor-pointer"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 170 170">
@@ -240,6 +193,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="button"
                     onClick={() => {
                       onSelectUser(user);
+                      try {
+                        localStorage.setItem('user_session', JSON.stringify(user));
+                        window.dispatchEvent(new Event('user_session_updated'));
+                      } catch {}
                       onClose();
                     }}
                     className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${

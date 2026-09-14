@@ -19,6 +19,14 @@ import {
   getAllData
 } from '../db/queries.ts';
 import { seedDatabase } from '../db/seed.ts';
+import {
+  getTablesMetadata,
+  getTableRows,
+  upsertTableRow,
+  deleteTableRow,
+  executeRawSql,
+  getStandalonePhpManagerHtml
+} from './sqlStudioHandler.ts';
 
 // Helper to read request body as JSON
 function parseJsonBody(req: IncomingMessage): Promise<any> {
@@ -56,6 +64,17 @@ function sendJson(res: ServerResponse, statusCode: number, data: any) {
 export async function handleApiRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const url = req.url || '';
 
+  // Intercept PHP URL to provide standalone Web SQL Manager
+  if (url === '/php' || url.startsWith('/php/') || url.startsWith('/php?')) {
+    const html = getStandalonePhpManagerHtml();
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    });
+    res.end(html);
+    return true;
+  }
+
   if (!url.startsWith('/api/')) {
     return false;
   }
@@ -75,6 +94,63 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   const urlParams = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
 
   try {
+    // 0. SQL Management Studio Endpoints
+    if (cleanUrl === '/api/sql/tables') {
+      const tables = await getTablesMetadata();
+      sendJson(res, 200, { success: true, tables });
+      return true;
+    }
+
+    if (cleanUrl === '/api/sql/rows') {
+      const table = urlParams.get('table') || 'obras';
+      const page = parseInt(urlParams.get('page') || '1', 10);
+      const pageSize = parseInt(urlParams.get('pageSize') || '50', 10);
+      const search = urlParams.get('search') || '';
+      const sortCol = urlParams.get('sortCol') || undefined;
+      const sortDir = (urlParams.get('sortDir') as 'ASC' | 'DESC') || undefined;
+
+      const data = await getTableRows(table, { page, pageSize, search, sortCol, sortDir });
+      sendJson(res, 200, { success: true, ...data });
+      return true;
+    }
+
+    if (cleanUrl === '/api/sql/row') {
+      if (req.method === 'POST') {
+        const body = await parseJsonBody(req);
+        const { table, row } = body;
+        if (!table || !row) {
+          sendJson(res, 400, { success: false, error: 'Faltan parámetros "table" o "row".' });
+          return true;
+        }
+        const saved = await upsertTableRow(table, row);
+        sendJson(res, 200, { success: true, row: saved });
+        return true;
+      }
+      if (req.method === 'DELETE') {
+        const body = await parseJsonBody(req).catch(() => ({}));
+        const table = body.table || urlParams.get('table');
+        const id = body.id || urlParams.get('id');
+        if (!table || !id) {
+          sendJson(res, 400, { success: false, error: 'Faltan parámetros "table" o "id" para eliminar.' });
+          return true;
+        }
+        const result = await deleteTableRow(table, id);
+        sendJson(res, 200, result);
+        return true;
+      }
+    }
+
+    if (cleanUrl === '/api/sql/query' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const query = body.query || '';
+      try {
+        const queryResult = await executeRawSql(query);
+        sendJson(res, 200, { success: true, ...queryResult });
+      } catch (sqlErr: any) {
+        sendJson(res, 400, { success: false, error: sqlErr.message });
+      }
+      return true;
+    }
     // 1. Health & Database Status
     if (cleanUrl === '/api/status') {
       const stats = {

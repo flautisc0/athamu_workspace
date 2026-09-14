@@ -1,6 +1,6 @@
 {
   "name": "F.A.S.E - Plataforma de Gestión Escénica",
-  "description": "Plataforma integral de gestión escénica y producción F.A.S.E: catálogo de obras, CRM de salas y festivales, I+D, finanzas, calculadora de estrenos y bitácora de producción.",
+  "description": "Plataforma integral de gestión escénica y producción F.A.S.E: catálogo de obras, CRM de salas y festivales, planner de giras, arquitecto de proyectos, I+D, finanzas y administración de sitio.",
   "requestFramePermissions": ["notifications"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lead, LeadType, LeadStatus } from '../types';
 import { X, Save, UserPlus, Trash2 } from 'lucide-react';
 
@@ -17,8 +17,6 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
   onSave,
   onDelete
 }) => {
-  if (!isOpen) return null;
-
   const [formData, setFormData] = useState<Partial<Lead>>(() => {
     if (lead) {
       return { ...lead };
@@ -38,6 +36,29 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
       assignedTo: 'Francisco Pérez'
     };
   });
+
+  useEffect(() => {
+    if (lead) {
+      setFormData({ ...lead });
+    } else {
+      setFormData({
+        id: `lead-${Date.now()}`,
+        name: '',
+        organization: '',
+        type: 'sala',
+        status: 'contactado',
+        city: 'Santiago',
+        email: '',
+        phone: '',
+        notes: '',
+        lastContactDate: new Date().toLocaleDateString('es-CL'),
+        estimatedValueCLP: 3000000,
+        assignedTo: 'Francisco Pérez'
+      });
+    }
+  }, [lead, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -18,7 +18,9 @@ import {
   ChevronRight,
   ExternalLink,
   User as UserIcon,
-  Database
+  Database,
+  Compass,
+  Shield
 } from 'lucide-react';
 
 interface SidebarDrawerProps {
@@ -88,22 +90,22 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       name: 'Dirección & Creación',
       items: [
         { id: 'obras', label: 'Catálogo de Obras', icon: Drama, badge: counts.obras, accentColor: '#E05A47' },
-        { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd, accentColor: '#38bdf8' }
+        { id: 'arquitecto', label: 'Arquitecto de Proyectos', icon: Compass, accentColor: '#38bdf8' },
+        { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd, accentColor: '#a78bfa' }
       ]
     },
     {
       name: 'Operaciones & Ensayos',
       items: [
+        { id: 'planner', label: 'Planner Escénico & Giras', icon: CalendarDays, badge: 'Giras', accentColor: '#E05A47' },
         { id: 'crm', label: 'CRM / Leads de Salas', icon: Users2, badge: counts.leads, accentColor: '#fbbf24' },
         { id: 'calendario', label: 'Planificación & Agenda', icon: CalendarDays, badge: counts.events, accentColor: '#38bdf8' },
-        { id: 'calculadora', label: 'Calculadora de Estrenos', icon: Calculator, badge: 'Herramienta', accentColor: '#a78bfa' },
         { id: 'diario', label: 'Diario de Proceso', icon: BookOpenText, accentColor: '#fbbf24' }
       ]
     },
     {
       name: 'Técnica & Recursos',
       items: [
-        { id: 'sql-hub', label: 'Base de Datos SQL & Archivos (PHP)', icon: Database, badge: 'PostgreSQL', accentColor: '#34d399' },
         { id: 'venues', label: 'Salas / Venues', icon: Building2, accentColor: '#38bdf8' },
         { id: 'inventario', label: 'Inventario & Backline', icon: PackageCheck, badge: counts.inventory, accentColor: '#6ee7b7' },
         { id: 'finanzas', label: 'Rendiciones & Finanzas', icon: ReceiptText, accentColor: '#fbbf24' },
@@ -111,15 +113,17 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       ]
     },
     {
-      name: 'Compañía & Equipo',
+      name: 'Administración del Sitio',
       items: [
-        { id: 'equipo', label: 'Equipo Fundador', icon: Award, accentColor: '#fbbf24' },
-        { id: 'acerca', label: 'Identidad F.A.S.E', icon: Info, accentColor: '#E05A47' }
+        { id: 'admin', label: 'Consola de Administración', icon: Shield, badge: 'Admin', accentColor: '#E05A47' },
+        { id: 'sql-hub', label: 'Base de Datos SQL & Archivos PHP', icon: Database, badge: 'PostgreSQL', accentColor: '#34d399' },
+        { id: 'acerca', label: 'Identidad F.A.S.E (Manual de Marca)', icon: Info, accentColor: '#fbbf24' }
       ]
     },
     {
-      name: 'Ecosistema',
+      name: 'Equipo & Ecosistema',
       items: [
+        { id: 'equipo', label: 'Equipo Fundador', icon: Award, accentColor: '#fbbf24' },
         { id: 'ecosistema', label: 'Ecosistema ATHA Apps', icon: Workflow, accentColor: '#E05A47' }
       ]
     }

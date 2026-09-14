@@ -203,3 +203,129 @@ export async function uploadImportFile(file: File, targetTable: string = 'obras'
     reader.readAsText(file);
   });
 }
+
+// -------------------------------------------------------------
+// SQL Management Studio (Cloud SQL Table Editor & Console)
+// -------------------------------------------------------------
+
+export interface SqlColumnMeta {
+  name: string;
+  dataType: string;
+  isNullable: boolean;
+  columnDefault: string | null;
+  isPrimaryKey: boolean;
+}
+
+export interface SqlTableMeta {
+  name: string;
+  rowCount: number;
+  columns: SqlColumnMeta[];
+}
+
+export interface SqlTableRowsResponse {
+  success: boolean;
+  table: string;
+  rows: any[];
+  columns: string[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface SqlQueryResponse {
+  success: boolean;
+  command?: string;
+  rowCount?: number;
+  columns?: string[];
+  rows?: any[];
+  durationMs?: number;
+  error?: string;
+}
+
+/**
+ * Fetch all table metadata from PostgreSQL
+ */
+export async function fetchSqlTables(): Promise<SqlTableMeta[]> {
+  const res = await fetch('/api/sql/tables');
+  if (!res.ok) throw new Error('Error al obtener la lista de tablas SQL');
+  const data = await res.json();
+  return data.tables || [];
+}
+
+/**
+ * Fetch rows from a specific SQL table
+ */
+export async function fetchSqlTableRows(
+  table: string,
+  page: number = 1,
+  pageSize: number = 50,
+  search: string = '',
+  sortCol?: string,
+  sortDir?: 'ASC' | 'DESC'
+): Promise<SqlTableRowsResponse> {
+  const params = new URLSearchParams({
+    table,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (search) params.set('search', search);
+  if (sortCol) params.set('sortCol', sortCol);
+  if (sortDir) params.set('sortDir', sortDir);
+
+  const res = await fetch(`/api/sql/rows?${params.toString()}`);
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Error al obtener filas de la tabla');
+  }
+  return data;
+}
+
+/**
+ * Insert or update a row in a table directly in PostgreSQL
+ */
+export async function saveSqlTableRow(table: string, row: Record<string, any>): Promise<any> {
+  const res = await fetch('/api/sql/row', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table, row }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Error al guardar el registro en SQL');
+  }
+  return data.row;
+}
+
+/**
+ * Delete a row from a table directly in PostgreSQL
+ */
+export async function deleteSqlTableRow(table: string, id: string | number): Promise<boolean> {
+  const res = await fetch('/api/sql/row', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table, id }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Error al eliminar el registro en SQL');
+  }
+  return true;
+}
+
+/**
+ * Execute raw SQL query from the interactive console
+ */
+export async function executeSqlConsoleQuery(query: string): Promise<SqlQueryResponse> {
+  const res = await fetch('/api/sql/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  const data = await res.json();
+  if (!res.ok && !data.error) {
+    throw new Error('Error al ejecutar la consulta SQL');
+  }
+  return data;
+}
+

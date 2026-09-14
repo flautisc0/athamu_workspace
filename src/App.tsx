@@ -75,6 +75,9 @@ import { DiarioProcesoSection } from './components/sections/DiarioProcesoSection
 import { RidersSection } from './components/sections/RidersSection';
 import { AcercaSection } from './components/sections/AcercaSection';
 import { EcosistemaSection } from './components/sections/EcosistemaSection';
+import { PlannerSection } from './components/sections/PlannerSection';
+import { ArquitectoProyectosSection } from './components/sections/ArquitectoProyectosSection';
+import { AdminSection } from './components/sections/AdminSection';
 
 export type ThemeMode = 'terracota' | 'dia';
 
@@ -83,13 +86,13 @@ export default function App() {
   const [activeSection, setActiveSection] = useState<string>('inicio');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
-  // Theme: Terracota (dark) vs Día (white)
+  // Theme: Terracota (dark) vs Día (white) - Default: Día (Light)
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('fase_theme');
       if (saved === 'dia' || saved === 'terracota') return saved;
     }
-    return 'terracota';
+    return 'dia';
   });
 
   useEffect(() => {
@@ -587,12 +590,52 @@ export default function App() {
           />
         )}
 
+        {activeSection === 'planner' && (
+          <PlannerSection
+            obras={obras}
+            events={events}
+            venues={venues}
+            onNavigateSection={handleNavigateSection}
+            theme={theme}
+          />
+        )}
+
+        {activeSection === 'arquitecto' && (
+          <ArquitectoProyectosSection
+            obras={obras}
+            leads={leads}
+            venues={venues}
+            onNavigateSection={handleNavigateSection}
+            theme={theme}
+          />
+        )}
+
+        {activeSection === 'admin' && (
+          <AdminSection
+            aboutInfo={aboutInfo}
+            onSaveAboutInfo={handleSaveAboutInfo}
+            onOpenSqlHub={() => setIsSqlHubOpen(true)}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            theme={theme}
+            counts={{
+              obras: obras.length,
+              leads: leads.length,
+              venues: venues.length,
+              events: events.length,
+              finances: finances.length,
+              inventory: inventory.length
+            }}
+          />
+        )}
+
         {activeSection === 'obras' && (
           <CatalogoObrasSection
             obras={obras}
             onOpenDossier={(obra) => setDossierObra(obra)}
             onEditObra={(obra) => setEditingObra(obra)}
             onNewObra={() => setIsNewObraOpen(true)}
+            theme={theme}
           />
         )}
 
@@ -611,6 +654,7 @@ export default function App() {
             onOpenNewLead={() => setIsNewLeadOpen(true)}
             onEditLead={(lead) => setEditingLead(lead)}
             onDeleteLead={handleDeleteLead}
+            theme={theme}
           />
         )}
 
@@ -647,6 +691,7 @@ export default function App() {
             venues={venues}
             onSaveVenue={handleSaveVenue}
             onDeleteVenue={handleDeleteVenue}
+            theme={theme}
           />
         )}
 
@@ -722,6 +767,16 @@ export default function App() {
             }`}>
               Panel de Control
             </button>
+            <button onClick={() => handleNavigateSection('planner')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
+              Planner Escénico
+            </button>
+            <button onClick={() => handleNavigateSection('arquitecto')} className={`cursor-pointer transition-colors ${
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
+            }`}>
+              Arquitecto Proyectos
+            </button>
             <button onClick={() => handleNavigateSection('obras')} className={`cursor-pointer transition-colors ${
               theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
@@ -732,25 +787,10 @@ export default function App() {
             }`}>
               CRM Salas
             </button>
-            <button onClick={() => handleNavigateSection('calculadora')} className={`cursor-pointer transition-colors ${
+            <button onClick={() => handleNavigateSection('admin')} className={`cursor-pointer transition-colors ${
               theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
-              Calculadora
-            </button>
-            <button onClick={() => handleNavigateSection('riders')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
-            }`}>
-              Riders Técnicos
-            </button>
-            <button onClick={() => handleNavigateSection('ecosistema')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
-            }`}>
-              Ecosistema ATHA
-            </button>
-            <button onClick={() => handleNavigateSection('acerca')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
-            }`}>
-              Identidad F.A.S.E
+              Administración
             </button>
           </div>
 

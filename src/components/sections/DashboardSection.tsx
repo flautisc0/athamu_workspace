@@ -13,10 +13,9 @@ import {
   Sparkles,
   MapPin,
   DollarSign,
-  Database,
+  Compass,
   Download,
-  Upload,
-  FileCode
+  Upload
 } from 'lucide-react';
 
 interface DashboardSectionProps {
@@ -216,53 +215,76 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
         </div>
       </div>
 
-      {/* Cloud SQL PostgreSQL & PHP File Automation Bar */}
-      <div className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
-        isLight
-          ? 'bg-emerald-50/70 border-emerald-200 text-stone-900 shadow-xs'
-          : 'bg-gradient-to-r from-emerald-950/40 via-[#1C1412] to-[#221513] border-emerald-800/40 text-white shadow-sm'
-      }`}>
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center shrink-0">
-            <Database className="w-5 h-5" />
-          </div>
-          <div>
+      {/* Accesos Operativos Prioritarios: Planner & Arquitecto de Proyectos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card 1: Planner Escénico */}
+        <div
+          onClick={() => onNavigateSection('planner')}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer group flex items-start justify-between gap-4 ${
+            isLight
+              ? 'bg-gradient-to-br from-white to-[#FAF6F4] border-[#E8DDD7] hover:border-[#E05A47]/40 shadow-xs'
+              : 'bg-gradient-to-br from-[#201311] to-[#170E0D] border-[#3E221E] hover:border-[#E05A47]/40 shadow-sm'
+          }`}
+        >
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold font-mono text-emerald-500 uppercase tracking-wider">
-                Cloud SQL (PostgreSQL) Activo
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#E05A47] font-bold">
+                Operaciones & Giras
               </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-[11px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 font-mono hidden sm:inline">
-                Región us-west2
-              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E05A47] animate-pulse" />
             </div>
-            <p className={`text-xs mt-0.5 ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
-              Datos servidos dinámicamente con Drizzle ORM y automatización PHP. Descarga y sube archivos (.json, .csv, .sql).
+            <h3 className={`text-base font-bold transition-colors ${
+              isLight ? 'text-stone-900 group-hover:text-[#C84835]' : 'text-white group-hover:text-[#FF6B4A]'
+            }`}>
+              Planner Escénico & Cronograma
+            </h3>
+            <p className={`text-xs leading-relaxed max-w-md ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
+              Planificación integral de temporadas, ensayos técnicos DMX, hitos de montaje y funciones para el catálogo de obras.
             </p>
+            <div className="flex items-center gap-1 text-xs font-semibold text-[#E05A47] pt-1">
+              <span>Abrir cronograma de producción</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+            isLight ? 'bg-[#E05A47]/10 text-[#C84835]' : 'bg-[#E05A47]/20 text-[#FF6B4A]'
+          }`}>
+            <CalendarDays className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
-          <button
-            onClick={() => onNavigateSection('sql-hub')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>Gestionar SQL & Archivos</span>
-          </button>
-          <a
-            href="/php/index.php"
-            target="_blank"
-            rel="noreferrer"
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition cursor-pointer ${
-              isLight
-                ? 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200'
-                : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
-            }`}
-          >
-            <FileCode className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Ver PHP</span>
-          </a>
+        {/* Card 2: Arquitecto de Proyectos */}
+        <div
+          onClick={() => onNavigateSection('arquitecto')}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer group flex items-start justify-between gap-4 ${
+            isLight
+              ? 'bg-gradient-to-br from-white to-[#F6F9FA] border-sky-200/80 hover:border-sky-400/50 shadow-xs'
+              : 'bg-gradient-to-br from-[#121A22] to-[#0E141B] border-sky-950 hover:border-sky-500/40 shadow-sm'
+          }`}
+        >
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-sky-600 dark:text-sky-400 font-bold">
+                Creación & Fondart
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+            </div>
+            <h3 className={`text-base font-bold transition-colors ${
+              isLight ? 'text-stone-900 group-hover:text-sky-600' : 'text-white group-hover:text-sky-400'
+            }`}>
+              Arquitecto de Proyectos
+            </h3>
+            <p className={`text-xs leading-relaxed max-w-md ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
+              Diseño conceptual, desglose financiero multinivel (Fondart / Iberescena), ficha técnica y prospección para el CRM.
+            </p>
+            <div className="flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 pt-1">
+              <span>Diseñar carpetas de proyectos</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+            <Compass className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
@@ -692,17 +714,17 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
           }`}>
             <div className="flex items-center justify-between text-xs">
               <span className={`font-semibold ${isLight ? 'text-stone-800' : 'text-slate-200'}`}>
-                Disponibilidad Artística
+                Planificador de Ensayos & Montajes
               </span>
               <button
-                onClick={() => onNavigateSection('calculadora')}
-                className={`font-semibold hover:underline ${isLight ? 'text-[#C84835]' : 'text-[#FF6B4A]'}`}
+                onClick={() => onNavigateSection('planner')}
+                className={`font-semibold hover:underline cursor-pointer ${isLight ? 'text-[#C84835]' : 'text-[#FF6B4A]'}`}
               >
-                Abrir Calculadora →
+                Abrir Planner Escénico →
               </button>
             </div>
             <p className={`text-[11px] mt-1 ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
-              Cruce de horarios para programar el próximo bloque técnico de ensayos.
+              Cronograma operativo de producción, transporte técnico y funciones confirmadas.
             </p>
           </div>
 

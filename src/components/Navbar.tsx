@@ -23,7 +23,9 @@ import {
   Workflow,
   Menu,
   Sparkles,
-  Database
+  Database,
+  Compass,
+  Shield
 } from 'lucide-react';
 import { UserProfile, Obra, Lead, Venue } from '../types';
 import { FaseLogo } from './FaseLogo';
@@ -135,20 +137,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Direct visible navigation items
   const directNavItems = [
     { id: 'inicio', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'sql-hub', label: 'SQL & Archivos (PHP)', icon: Database, badge: 'PostgreSQL' },
+    { id: 'planner', label: 'Planner Escénico', icon: CalendarDays },
+    { id: 'arquitecto', label: 'Arquitecto Proyectos', icon: Compass },
     { id: 'obras', label: 'Catálogo Obras', icon: Drama, badge: counts.obras },
-    { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd },
     { id: 'crm', label: 'CRM Leads', icon: Users2, badge: counts.leads },
     { id: 'calendario', label: 'Planificación', icon: CalendarDays, badge: counts.events },
-    { id: 'calculadora', label: 'Calculadora Estrenos', icon: Calculator },
+    { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd },
     { id: 'venues', label: 'Salas & Venues', icon: Building2 },
     { id: 'inventario', label: 'Inventario Backline', icon: PackageCheck, badge: counts.inventory },
     { id: 'finanzas', label: 'Finanzas & Rendiciones', icon: ReceiptText },
     { id: 'riders', label: 'Riders Técnicos', icon: FileSpreadsheet },
     { id: 'diario', label: 'Diario Proceso', icon: BookOpenText },
-    { id: 'equipo', label: 'Equipo', icon: Award },
-    { id: 'ecosistema', label: 'Ecosistema ATHA', icon: Workflow, badge: 'Apps' },
-    { id: 'acerca', label: 'Identidad F.A.S.E', icon: Info }
+    { id: 'admin', label: 'Administración', icon: Shield }
   ];
 
   return (
@@ -379,21 +379,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="hidden sm:inline">Modo Día</span>
               </>
             )}
-          </button>
-
-          {/* SQL & Archivos Hub Trigger */}
-          <button
-            type="button"
-            onClick={onOpenSqlHub}
-            title="Base de Datos Cloud SQL, Importar/Exportar y Automatización PHP"
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-              isLight
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-xs'
-                : 'bg-emerald-950/40 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/50 shadow-xs'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-            <span className="hidden md:inline font-mono">SQL & Archivos</span>
           </button>
 
           {/* Cloud Sync Status */}

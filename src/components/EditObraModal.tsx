@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Obra, Discipline, ObraStatus } from '../types';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
 
@@ -11,8 +11,6 @@ interface EditObraModalProps {
 }
 
 export const EditObraModal: React.FC<EditObraModalProps> = ({ obra, isOpen, onClose, onSave, onDelete }) => {
-  if (!isOpen) return null;
-
   const [formData, setFormData] = useState<Partial<Obra>>(() => {
     if (obra) {
       return { ...obra };
@@ -55,6 +53,15 @@ export const EditObraModal: React.FC<EditObraModalProps> = ({ obra, isOpen, onCl
   const [castInput, setCastInput] = useState<string>(
     formData.castTeam?.cast ? formData.castTeam.cast.join(', ') : ''
   );
+
+  useEffect(() => {
+    if (obra) {
+      setFormData({ ...obra });
+      setCastInput(obra.castTeam?.cast ? obra.castTeam.cast.join(', ') : '');
+    }
+  }, [obra, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
