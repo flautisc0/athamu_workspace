@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 const distDir = path.join(__dirname, 'dist');
 
 // Middleware: JSON body
@@ -46,8 +46,8 @@ app.use('/admin-api.php', requireAdmin, createProxyMiddleware({
   },
   onProxyReq: (proxyReq, req) => {
     // Pasar query string ?a=... intacto
-    const query = require('url').parse(req.url, true).query;
-    const aParam = query.a;
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const aParam = parsedUrl.searchParams.get('a');
     if (aParam) {
       proxyReq.path = `/api.php?a=${aParam}`;
     }

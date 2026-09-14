@@ -3,7 +3,19 @@
  * Rutea a: https://crm-v1-uc-897089213264.us-central1.run.app/api/v1/crm/*
  */
 
-const CRM_BASE_URL = import.meta.env.VITE_CRM_BASE_URL || 'https://crm-v1-uc-897089213264.us-central1.run.app';
+const CRM_BASE_URL = ((import.meta as any).env?.VITE_CRM_BASE_URL as string) || 'https://crm-v1-uc-897089213264.us-central1.run.app';
+
+export interface SqlDataPayload {
+  success: boolean;
+  count?: number;
+  obras?: any[];
+  leads?: any[];
+  finances?: any[];
+  inventory?: any[];
+  venues?: any[];
+  events?: any[];
+  [key: string]: any;
+}
 
 export interface CloudSqlStatus {
   status: 'online' | 'offline' | 'checking';
@@ -71,13 +83,18 @@ export async function checkCloudSqlStatus(): Promise<CloudSqlStatus> {
 /**
  * Fetch de proyectos desde el CRM v1 Cloud Run
  */
-export async function fetchAllFromSql() {
+export async function fetchAllFromSql(): Promise<SqlDataPayload | null> {
   try {
     const res = await fetch(`${CRM_BASE_URL}/api/v1/crm/portfolio/projects`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return {
       obras: data.projects || [],
+      leads: data.leads,
+      finances: data.finances,
+      inventory: data.inventory,
+      venues: data.venues,
+      events: data.events,
       success: true,
       count: data.total || data.projects?.length || 0,
     };
