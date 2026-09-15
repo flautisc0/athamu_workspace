@@ -198,6 +198,34 @@ export interface ArtistAvailability {
   notes: string;
 }
 
+export interface ArtistPortfolioFile {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  type: string;
+  url: string;
+  uploadedAt: string;
+}
+
+export interface ArtistMilestone {
+  id: string;
+  year: string;
+  title: string;
+  category: 'Estreno' | 'Premio' | 'Residencia' | 'Gira' | 'Formación' | 'Publicación' | 'Otro';
+  description: string;
+  institution?: string;
+}
+
+export interface SocialLinks {
+  instagram?: string;
+  spotify?: string;
+  youtube?: string;
+  vimeo?: string;
+  linkedin?: string;
+  website?: string;
+  facebook?: string;
+}
+
 export interface UserSession {
   id: string;
   name: string;
@@ -205,6 +233,16 @@ export interface UserSession {
   role: string;
   avatar: string;
   provider: 'google' | 'apple' | 'atha_id';
+  artisticName?: string;
+  discipline?: string;
+  phone?: string;
+  location?: string;
+  rut?: string;
+  bioShort?: string;
+  bioFull?: string;
+  socialLinks?: SocialLinks;
+  milestones?: ArtistMilestone[];
+  files?: ArtistPortfolioFile[];
 }
 
 export interface AboutCompanyInfo {

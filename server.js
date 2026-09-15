@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import jwt from 'jsonwebtoken';
+import { spawn } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,21 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 const distDir = path.join(__dirname, 'dist');
+const PHP_PORT = process.env.PHP_PORT || 8081;
+
+// Auto-iniciar servidor PHP local si está disponible
+try {
+  const phpSrv = spawn('php', ['-S', `127.0.0.1:${PHP_PORT}`, '-t', __dirname], {
+    stdio: 'ignore',
+    detached: true
+  });
+  phpSrv.on('error', (err) => {
+    console.warn('PHP server no disponible en el entorno:', err.message);
+  });
+  phpSrv.unref();
+} catch (e) {
+  console.warn('No se pudo inicializar servidor PHP:', e);
+}
 
 // Middleware: JSON body
 app.use(express.json({ limit: '5mb' }));
@@ -36,41 +52,19 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-// Proxy: /admin-api.php → PHP backend local (localhost:8080)
-// El PHP server debe correr en paralelo (php -S 127.0.0.1:8080)
-app.use('/admin-api.php', requireAdmin, createProxyMiddleware({
-  target: 'http://127.0.0.1:8080',
+// Proxy para endpoints PHP
+const phpProxy = createProxyMiddleware({
+  target: `http://127.0.0.1:${PHP_PORT}`,
   changeOrigin: true,
-  pathRewrite: {
-    '^/admin-api.php': '/api.php'
-  },
-  onProxyReq: (proxyReq, req) => {
-    // Pasar query string ?a=... intacto
-    const parsedUrl = new URL(req.url, 'http://localhost');
-    const aParam = parsedUrl.searchParams.get('a');
-    if (aParam) {
-      proxyReq.path = `/api.php?a=${aParam}`;
-    }
-  }
-}));
+});
 
-// Proxy: /admin-ui.php → PHP frontend
-app.use('/admin-ui.php', requireAdmin, createProxyMiddleware({
-  target: 'http://127.0.0.1:8080',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/admin-ui.php': '/index.php'
-  }
-}));
-
-// Servir assets estáticos del admin (CSS, JS del PHP)
-app.use('/admin-assets', createProxyMiddleware({
-  target: 'http://127.0.0.1:8080',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/admin-assets': ''
-  }
-}));
+app.use('/admin-api.php', requireAdmin, phpProxy);
+app.use('/admin-ui.php', requireAdmin, phpProxy);
+app.use('/api.php', phpProxy);
+app.use('/index.php', phpProxy);
+app.use('/seed-sqlite.php', phpProxy);
+app.use('/php', phpProxy);
+app.use('/admin-assets', phpProxy);
 
 // Rutas del CRM (SPA)
 app.use(express.static(distDir));
@@ -82,6 +76,8 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`crm-atha sirviendo en puerto ${PORT}`);
-  console.log(`Admin panel: https://<host>/admin/index.php`);
-  console.log(`Admin API: https://<host>/admin-api.php?a=...`);
+  console.log(`PHP backend en http://127.0.0.1:${PHP_PORT}`);
+  console.log(`Admin panel: http://localhost:${PORT}/admin-ui.php`);
+  console.log(`Admin API: http://localhost:${PORT}/admin-api.php?a=meta/tables`);
 });
+

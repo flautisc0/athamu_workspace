@@ -18,6 +18,7 @@ import {
   TechnicalRider,
   ReminderNotification,
   UserProfile,
+  UserSession,
   AboutCompanyInfo
 } from './types';
 import {
@@ -78,6 +79,7 @@ import { EcosistemaSection } from './components/sections/EcosistemaSection';
 import { PlannerSection } from './components/sections/PlannerSection';
 import { ArquitectoProyectosSection } from './components/sections/ArquitectoProyectosSection';
 import { AdminSection } from './components/sections/AdminSection';
+import { PerfilPortafolioSection } from './components/sections/PerfilPortafolioSection';
 
 export type ThemeMode = 'terracota' | 'dia';
 
@@ -133,6 +135,27 @@ export default function App() {
       setIsSyncing(false);
       setIsCloudSynced(true);
     }, 1200);
+  };
+
+  const handleUpdateUserAvatar = (avatarUrl: string) => {
+    if (currentUser) {
+      const updated = { ...currentUser, avatar: avatarUrl };
+      setCurrentUser(updated);
+      saveToStorage(STORAGE_KEYS.USER_PROFILE, updated);
+      try {
+        localStorage.setItem('user_session', JSON.stringify(updated));
+        window.dispatchEvent(new Event('user_session_updated'));
+      } catch {}
+    }
+  };
+
+  const handleUpdateUser = (updatedUser: UserSession) => {
+    setCurrentUser(updatedUser);
+    saveToStorage(STORAGE_KEYS.USER_PROFILE, updatedUser);
+    try {
+      localStorage.setItem('user_session', JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event('user_session_updated'));
+    } catch {}
   };
 
   // Core Data Collections with LocalStorage Persistence
@@ -584,8 +607,18 @@ export default function App() {
             rdProjects={rdProjects}
             events={events}
             finances={finances}
+            currentUser={currentUser || defaultUserProfile}
+            onUpdateUserAvatar={handleUpdateUserAvatar}
             onNavigateSection={handleNavigateSection}
             onSelectObra={handleSelectObraFromDashboard}
+            theme={theme}
+          />
+        )}
+
+        {activeSection === 'perfil' && (
+          <PerfilPortafolioSection
+            currentUser={currentUser || defaultUserProfile}
+            onUpdateUser={handleUpdateUser}
             theme={theme}
           />
         )}

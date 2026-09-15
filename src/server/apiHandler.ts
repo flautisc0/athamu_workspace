@@ -65,7 +65,15 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   const url = req.url || '';
 
   // Intercept PHP URL to provide standalone Web SQL Manager
-  if (url === '/php' || url.startsWith('/php/') || url.startsWith('/php?')) {
+  if (
+    url === '/php' ||
+    url.startsWith('/php/') ||
+    url.startsWith('/php?') ||
+    url === '/admin-ui.php' ||
+    url.startsWith('/admin-ui.php?') ||
+    url === '/admin-ui' ||
+    url.startsWith('/admin-ui?')
+  ) {
     const html = getStandalonePhpManagerHtml();
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -73,10 +81,6 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     });
     res.end(html);
     return true;
-  }
-
-  if (!url.startsWith('/api/')) {
-    return false;
   }
 
   // Handle CORS preflight
@@ -92,6 +96,59 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
   const cleanUrl = url.split('?')[0];
   const urlParams = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
+
+  // Intercept /admin-api.php or /api.php queries
+  if (cleanUrl === '/admin-api.php' || cleanUrl === '/api.php') {
+    const aParam = urlParams.get('a') || '';
+    if (aParam === 'meta/tables' || aParam.startsWith('meta/tables')) {
+      const tables = await getTablesMetadata();
+      sendJson(res, 200, { tables });
+      return true;
+    }
+    if (aParam === 'schema-map') {
+      sendJson(res, 200, {
+        ecosystem: 'ATHA & F.A.S.E CRM',
+        modules: ['CRM-atha', 'ATHA Planner', 'Buscador de Fondos', 'Fase User Panel'],
+        database: 'SQLite 3 / Cloud SQL'
+      });
+      return true;
+    }
+    if (aParam.startsWith('data/')) {
+      const parts = aParam.replace(/^data\//, '').split('/');
+      const table = parts[0] || 'projects';
+      const id = parts[1];
+      const page = parseInt(urlParams.get('offset') || '0', 10) / parseInt(urlParams.get('limit') || '50', 10) + 1;
+      const pageSize = parseInt(urlParams.get('limit') || '50', 10);
+      const data = await getTableRows(table, { page: Math.floor(page) || 1, pageSize });
+      sendJson(res, 200, {
+        table,
+        count: data.rows.length,
+        total: data.total,
+        offset: parseInt(urlParams.get('offset') || '0', 10),
+        limit: pageSize,
+        items: data.rows
+      });
+      return true;
+    }
+    if (aParam === 'query' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      try {
+        const queryResult = await executeRawSql(body.query || '');
+        sendJson(res, 200, { success: true, ...queryResult });
+      } catch (sqlErr: any) {
+        sendJson(res, 400, { success: false, error: sqlErr.message });
+      }
+      return true;
+    }
+    // Default response for other admin-api requests
+    const tables = await getTablesMetadata();
+    sendJson(res, 200, { success: true, tables });
+    return true;
+  }
+
+  if (!url.startsWith('/api/')) {
+    return false;
+  }
 
   try {
     // 0. SQL Management Studio Endpoints

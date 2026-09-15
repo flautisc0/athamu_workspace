@@ -1,5 +1,5 @@
 import React from 'react';
-import { Obra, Lead, ProjectRD, EventSchedule, FinanceRecord } from '../../types';
+import { Obra, Lead, ProjectRD, EventSchedule, FinanceRecord, UserSession } from '../../types';
 import { formatCLP } from '../../utils/storage';
 import { FaseLogo } from '../FaseLogo';
 import {
@@ -15,7 +15,8 @@ import {
   DollarSign,
   Compass,
   Download,
-  Upload
+  Upload,
+  Camera
 } from 'lucide-react';
 
 interface DashboardSectionProps {
@@ -24,6 +25,8 @@ interface DashboardSectionProps {
   rdProjects: ProjectRD[];
   events: EventSchedule[];
   finances: FinanceRecord[];
+  currentUser?: UserSession;
+  onUpdateUserAvatar?: (url: string) => void;
   onNavigateSection: (sectionId: string) => void;
   onSelectObra: (obra: Obra) => void;
   theme?: 'terracota' | 'dia';
@@ -35,6 +38,8 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
   rdProjects,
   events,
   finances,
+  currentUser,
+  onUpdateUserAvatar,
   onNavigateSection,
   onSelectObra,
   theme = 'terracota'
@@ -75,152 +80,100 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
       }`}>
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#E05A47]/10 via-[#38BDF8]/5 to-transparent rounded-full blur-3xl pointer-events-none" />
         
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <FaseLogo variant="symbol" size="sm" theme={isLight ? 'light' : 'terracota'} />
-              <div className="flex flex-col">
-                <div className={`flex items-center gap-2 text-xs font-mono uppercase tracking-widest ${
-                  isLight ? 'text-[#C84835]' : 'text-[#FF6B4A]'
-                }`}>
-                  <span>Plataforma F.A.S.E</span>
-                  <span>•</span>
-                  <span>Gestión Escénica & Producción</span>
-                  <span>•</span>
-                  <span className={isLight ? 'text-stone-500' : 'text-slate-400'}>Chile 2025</span>
-                </div>
-                <h1 className={`text-2xl md:text-3xl font-bold tracking-tight font-display ${
+        <div className="relative z-10 flex flex-col gap-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5">
+                <FaseLogo variant="symbol" size="xs" theme={isLight ? 'light' : 'terracota'} />
+                <h1 className={`text-lg md:text-xl font-bold tracking-tight font-display ${
                   isLight ? 'text-stone-900' : 'text-white'
                 }`}>
-                  Panel Ejecutivo de Gestión Escénica
+                  Panel ejecutivo de gestión F.A.S.E
                 </h1>
               </div>
+              <p className={`text-xs max-w-xl leading-relaxed ${
+                isLight ? 'text-stone-600' : 'text-slate-300'
+              }`}>
+                Sistema operativo integral estructurado en 4 fases del ciclo escénico: Formulación e I+D, Articulación técnica, Circulación y Rendición.
+              </p>
             </div>
-            <p className={`text-sm max-w-2xl leading-relaxed pt-1 ${
-              isLight ? 'text-stone-600' : 'text-slate-300'
-            }`}>
-              Sistema operativo integral estructurado en 4 fases del ciclo escénico: Formulación e I+D, Articulación técnica de ensayos, Circulación en salas y festivales, y Rendición presupuestaria.
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <button
-              onClick={() => onNavigateSection('calculadora')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-semibold shadow-lg shadow-[#E05A47]/20 transition-all cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Calculadora de Estrenos</span>
-            </button>
-            <button
-              onClick={() => onNavigateSection('acerca')}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                isLight
-                  ? 'bg-stone-100 hover:bg-stone-200 text-stone-800 border-stone-200'
-                  : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
-              }`}
-            >
-              <span>Identidad F.A.S.E</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* 4 Phases Progress Bar / Methodology Indicator */}
-        <div className={`mt-6 pt-5 border-t grid grid-cols-2 md:grid-cols-4 gap-3 ${
-          isLight ? 'border-stone-200' : 'border-white/10'
-        }`}>
-          <div
-            onClick={() => onNavigateSection('obras')}
-            className={`p-3 rounded-xl border transition-all cursor-pointer group ${
-              isLight
-                ? 'bg-white/90 border-[#E05A47]/20 hover:border-[#E05A47]/50 shadow-xs'
-                : 'bg-black/25 border-[#E05A47]/20 hover:border-[#E05A47]/50'
-            }`}
-          >
-            <span className="text-[10px] font-mono text-[#E05A47] uppercase font-bold tracking-wider block">
-              Fase 1 • Creación
-            </span>
-            <span className={`text-xs font-medium transition-colors ${
-              isLight ? 'text-stone-900 group-hover:text-[#C84835]' : 'text-white group-hover:text-[#FF6B4A]'
+          {/* User Profile Hero Card (Primary Focus) */}
+          {currentUser && (
+            <div className={`p-5 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-6 transition-all ${
+              isLight ? 'bg-white border-[#E05A47]/30 shadow-md' : 'bg-[#180F0E] border-[#E05A47]/40 shadow-xl'
             }`}>
-              Catálogo & Dramaturgia
-            </span>
-            <span className={`text-[11px] block mt-0.5 ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
-              {totalObras} obras activas
-            </span>
-          </div>
+              <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+                <div className="relative group shrink-0">
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-[#E05A47] shadow-md"
+                    referrerPolicy="no-referrer"
+                  />
+                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center rounded-2xl transition-opacity cursor-pointer text-white text-[10px] font-medium" title="Actualizar fotografía">
+                    <Camera className="w-5 h-5 mb-0.5" />
+                    <span>Cambiar foto</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && onUpdateUserAvatar) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            onUpdateUserAvatar(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
 
-          <div
-            onClick={() => onNavigateSection('riders')}
-            className={`p-3 rounded-xl border transition-all cursor-pointer group ${
-              isLight
-                ? 'bg-white/90 border-sky-500/20 hover:border-sky-500/50 shadow-xs'
-                : 'bg-black/25 border-sky-500/20 hover:border-sky-500/50'
-            }`}
-          >
-            <span className="text-[10px] font-mono text-sky-600 dark:text-sky-400 uppercase font-bold tracking-wider block">
-              Fase 2 • Articulación
-            </span>
-            <span className={`text-xs font-medium transition-colors ${
-              isLight ? 'text-stone-900 group-hover:text-sky-600' : 'text-white group-hover:text-sky-400'
-            }`}>
-              Riders, Ensayos & Ficha
-            </span>
-            <span className={`text-[11px] block mt-0.5 ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
-              {obrasEnProduccion} en montaje
-            </span>
-          </div>
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[#E05A47]/15 text-[#E05A47] font-bold">
+                      Sesión Google Workspace Activa
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                      Verificado
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-bold font-display tracking-tight text-white dark:text-white">
+                    {currentUser.name}
+                  </h2>
+                  <p className={`text-xs ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
+                    {currentUser.role} • <span className="font-mono">{currentUser.email}</span>
+                  </p>
+                </div>
+              </div>
 
-          <div
-            onClick={() => onNavigateSection('crm')}
-            className={`p-3 rounded-xl border transition-all cursor-pointer group ${
-              isLight
-                ? 'bg-white/90 border-amber-500/20 hover:border-amber-500/50 shadow-xs'
-                : 'bg-black/25 border-amber-500/20 hover:border-amber-500/50'
-            }`}
-          >
-            <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 uppercase font-bold tracking-wider block">
-              Fase 3 • Circulación
-            </span>
-            <span className={`text-xs font-medium transition-colors ${
-              isLight ? 'text-stone-900 group-hover:text-amber-600' : 'text-white group-hover:text-amber-400'
-            }`}>
-              CRM Salas & Festivales
-            </span>
-            <span className={`text-[11px] block mt-0.5 ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
-              {obrasEnGira} en gira
-            </span>
-          </div>
-
-          <div
-            onClick={() => onNavigateSection('finanzas')}
-            className={`p-3 rounded-xl border transition-all cursor-pointer group ${
-              isLight
-                ? 'bg-white/90 border-emerald-500/20 hover:border-emerald-500/50 shadow-xs'
-                : 'bg-black/25 border-emerald-500/20 hover:border-emerald-500/50'
-            }`}
-          >
-            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider block">
-              Fase 4 • Rendición
-            </span>
-            <span className={`text-xs font-medium transition-colors ${
-              isLight ? 'text-stone-900 group-hover:text-emerald-600' : 'text-white group-hover:text-emerald-400'
-            }`}>
-              Finanzas & Sostenibilidad
-            </span>
-            <span className={`text-[11px] block mt-0.5 ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
-              {finances.length} registros
-            </span>
-          </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onNavigateSection('perfil')}
+                  className="px-4 py-2.5 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-semibold shadow-lg shadow-[#E05A47]/20 transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <span>Ver Perfil & Portafolio Completo</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Accesos Operativos Prioritarios: Planner & Arquitecto de Proyectos */}
+      {/* Accesos Operativos Prioritarios: Planner & Arquitecto de Proyectos (External App Links) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card 1: Planner Escénico */}
-        <div
-          onClick={() => onNavigateSection('planner')}
-          className={`p-5 rounded-2xl border transition-all cursor-pointer group flex items-start justify-between gap-4 ${
+        <a
+          href="https://athamu-producciones-o4pqpocl5q-uc.a.run.app/planner"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`p-5 rounded-2xl border transition-all cursor-pointer group flex items-start justify-between gap-4 block ${
             isLight
               ? 'bg-gradient-to-br from-white to-[#FAF6F4] border-[#E8DDD7] hover:border-[#E05A47]/40 shadow-xs'
               : 'bg-gradient-to-br from-[#201311] to-[#170E0D] border-[#3E221E] hover:border-[#E05A47]/40 shadow-sm'
@@ -229,7 +182,7 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#E05A47] font-bold">
-                Operaciones & Giras
+                Operaciones & Giras (App Externa)
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-[#E05A47] animate-pulse" />
             </div>
@@ -242,7 +195,7 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
               Planificación integral de temporadas, ensayos técnicos DMX, hitos de montaje y funciones para el catálogo de obras.
             </p>
             <div className="flex items-center gap-1 text-xs font-semibold text-[#E05A47] pt-1">
-              <span>Abrir cronograma de producción</span>
+              <span>Abrir app de planner escénico</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
@@ -251,12 +204,14 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
           }`}>
             <CalendarDays className="w-5 h-5" />
           </div>
-        </div>
+        </a>
 
         {/* Card 2: Arquitecto de Proyectos */}
-        <div
-          onClick={() => onNavigateSection('arquitecto')}
-          className={`p-5 rounded-2xl border transition-all cursor-pointer group flex items-start justify-between gap-4 ${
+        <a
+          href="https://athamu-producciones-o4pqpocl5q-uc.a.run.app/arquitecto"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`p-5 rounded-2xl border transition-all cursor-pointer group flex items-start justify-between gap-4 block ${
             isLight
               ? 'bg-gradient-to-br from-white to-[#F6F9FA] border-sky-200/80 hover:border-sky-400/50 shadow-xs'
               : 'bg-gradient-to-br from-[#121A22] to-[#0E141B] border-sky-950 hover:border-sky-500/40 shadow-sm'
@@ -265,7 +220,7 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase tracking-wider text-sky-600 dark:text-sky-400 font-bold">
-                Creación & Fondart
+                Creación & Fondart (App Externa)
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
             </div>
@@ -278,14 +233,14 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
               Diseño conceptual, desglose financiero multinivel (Fondart / Iberescena), ficha técnica y prospección para el CRM.
             </p>
             <div className="flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 pt-1">
-              <span>Diseñar carpetas de proyectos</span>
+              <span>Abrir app arquitecto de proyectos</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
           <div className="w-11 h-11 rounded-xl bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
             <Compass className="w-5 h-5" />
           </div>
-        </div>
+        </a>
       </div>
 
       {/* 4 Metric Cards */}

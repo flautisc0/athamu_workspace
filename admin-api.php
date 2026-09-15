@@ -26,9 +26,11 @@ $db = new PDO('sqlite:/tmp/atha_crm.db');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Self-initialize DB if empty
-if (filesize('/tmp/atha_crm.db') < 100) {
-    $schema = file_get_contents(__DIR__ . '/schema_sqlite.sql');
-    $db->exec($schema);
+if (!file_exists('/tmp/atha_crm.db') || filesize('/tmp/atha_crm.db') < 100) {
+    if (file_exists(__DIR__ . '/schema_sqlite.sql')) {
+        $schema = file_get_contents(__DIR__ . '/schema_sqlite.sql');
+        $db->exec($schema);
+    }
 }
 $aParam = $_GET['a'] ?? null;
 $method = $_SERVER['REQUEST_METHOD'];

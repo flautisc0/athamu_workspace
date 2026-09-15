@@ -137,8 +137,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Direct visible navigation items
   const directNavItems = [
     { id: 'inicio', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'planner', label: 'Planner Escénico', icon: CalendarDays },
-    { id: 'arquitecto', label: 'Arquitecto Proyectos', icon: Compass },
+    { id: 'perfil', label: 'Perfil & Portafolio', icon: Award },
     { id: 'obras', label: 'Catálogo Obras', icon: Drama, badge: counts.obras },
     { id: 'crm', label: 'CRM Leads', icon: Users2, badge: counts.leads },
     { id: 'calendario', label: 'Planificación', icon: CalendarDays, badge: counts.events },
@@ -148,6 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'finanzas', label: 'Finanzas & Rendiciones', icon: ReceiptText },
     { id: 'riders', label: 'Riders Técnicos', icon: FileSpreadsheet },
     { id: 'diario', label: 'Diario Proceso', icon: BookOpenText },
+    { id: 'ecosistema', label: 'Ecosistema ATHA', icon: Workflow },
     { id: 'admin', label: 'Administración', icon: Shield }
   ];
 

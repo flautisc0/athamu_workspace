@@ -188,29 +188,58 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
                 </div>
                 <div>
                   <h3 className={`text-base font-bold ${isLight ? 'text-stone-900' : 'text-white'}`}>
-                    Entorno PHP Web Studio (/php)
+                    Panel de Administración PHP & SQLite (/admin-ui.php)
                   </h3>
-                  <p className="text-xs text-stone-500">Servidor y scripts de automatización backend</p>
+                  <p className="text-xs text-stone-500">Consola nativa HTML/PHP con soporte para 24 tablas SQLite</p>
                 </div>
               </div>
 
               <p className={`text-xs leading-relaxed ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
-                Entorno web independiente alojado bajo la ruta <code className="font-mono text-sky-500 font-semibold">/php</code> para procesar endpoints de importación masiva, scripts cron y conectividad con servicios externos.
+                Entorno nativo PHP 8.2 con SQLite (<code className="font-mono text-sky-500 font-semibold">/tmp/atha_crm.db</code>) que permite navegar tablas, ejecutar consultas CRUD, sincronizar el catálogo cultural y gestionar los módulos del ecosistema (CRM-atha, Fase User Panel, ATHA Planner, Buscador de Fondos).
               </p>
 
-              <div className="pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                 <a
-                  href="/php"
+                  href="/admin-ui.php"
                   target="_blank"
                   rel="noreferrer"
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                    isLight
+                      ? 'bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200'
+                      : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border-sky-500/30'
+                  }`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Abrir Admin PHP</span>
+                </a>
+
+                <a
+                  href="/admin-api.php?a=meta/tables"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
                     isLight
                       ? 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-200'
                       : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
                   }`}
                 >
-                  <ExternalLink className="w-4 h-4 text-sky-400" />
-                  <span>Abrir Web Studio /php en Nueva Pestaña</span>
+                  <Terminal className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>API Tablas JSON</span>
+                </a>
+              </div>
+
+              <div className="pt-1 flex items-center justify-between text-[11px] text-stone-500">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  Motor PHP 8.2 activo en puerto 8081
+                </span>
+                <a
+                  href="/seed-sqlite.php"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-stone-600 hover:text-[#E05A47] transition underline font-mono text-[10px]"
+                >
+                  Re-sincronizar SQLite
                 </a>
               </div>
             </div>
