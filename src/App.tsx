@@ -19,8 +19,15 @@ import {
   ReminderNotification,
   UserProfile,
   UserSession,
-  AboutCompanyInfo
+  AboutCompanyInfo,
+  CompanyGroup
 } from './types';
+import {
+  CompaniasSection,
+  initialCompaniesData
+} from './components/sections/CompaniasSection';
+import { PlanificacionCalendarioSection } from './components/sections/PlanificacionCalendarioSection';
+import { VentasSection } from './components/sections/VentasSection';
 import {
   initialObras,
   initialLeads,
@@ -200,6 +207,14 @@ export default function App() {
   const [aboutInfo, setAboutInfo] = useState<AboutCompanyInfo>(() =>
     loadFromStorage<AboutCompanyInfo>(STORAGE_KEYS.ABOUT_INFO, initialAboutInfo)
   );
+  const [companies, setCompanies] = useState<CompanyGroup[]>(() =>
+    loadFromStorage<CompanyGroup[]>('companies', initialCompaniesData)
+  );
+
+  const handleUpdateCompanies = (updated: CompanyGroup[]) => {
+    setCompanies(updated);
+    saveToStorage('companies', updated);
+  };
 
   // Modals state
   const [dossierObra, setDossierObra] = useState<Obra | null>(null);
@@ -623,6 +638,32 @@ export default function App() {
           />
         )}
 
+        {activeSection === 'companias' && (
+          <CompaniasSection
+            companies={companies}
+            onUpdateCompanies={handleUpdateCompanies}
+            theme={theme}
+          />
+        )}
+
+        {activeSection === 'calendario' && (
+          <PlanificacionCalendarioSection
+            events={events}
+            obras={obras}
+            reminders={reminders}
+            onUpdateEvents={(evs) => setEvents(evs)}
+            theme={theme}
+          />
+        )}
+
+        {activeSection === 'ventas' && (
+          <VentasSection
+            obras={obras}
+            leads={leads}
+            theme={theme}
+          />
+        )}
+
         {activeSection === 'planner' && (
           <PlannerSection
             obras={obras}
@@ -678,6 +719,8 @@ export default function App() {
             onUpdateProjectProgress={handleUpdateProjectProgress}
             onSaveProject={handleSaveRdProject}
             onDeleteProject={handleDeleteRdProject}
+            onNavigateSection={handleNavigateSection}
+            theme={theme}
           />
         )}
 

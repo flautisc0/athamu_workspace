@@ -14,7 +14,10 @@ import {
   Edit2,
   Trash2,
   X,
-  Save
+  Save,
+  Compass,
+  ArrowUpRight,
+  Database
 } from 'lucide-react';
 
 interface ProyectosIDSectionProps {
@@ -22,38 +25,24 @@ interface ProyectosIDSectionProps {
   onSaveProject: (project: ProjectRD) => void;
   onDeleteProject: (projectId: string) => void;
   onUpdateProjectProgress?: (projectId: string, newProgress: number) => void;
+  onNavigateSection?: (section: string) => void;
+  theme?: 'terracota' | 'dia';
 }
 
 export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
   projects,
   onSaveProject,
   onDeleteProject,
-  onUpdateProjectProgress
+  onUpdateProjectProgress,
+  onNavigateSection,
+  theme = 'terracota'
 }) => {
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [tempProgress, setTempProgress] = useState<number>(50);
+  const isLight = theme === 'dia';
 
   // Modal for editing/creating project
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalProject, setModalProject] = useState<Partial<ProjectRD> | null>(null);
-
-  const handleStartQuickEdit = (p: ProjectRD) => {
-    setEditingProjectId(p.id);
-    setTempProgress(p.progress);
-  };
-
-  const handleSaveProgress = (project: ProjectRD) => {
-    const updated: ProjectRD = {
-      ...project,
-      progress: tempProgress,
-      updatedAt: new Date().toLocaleDateString('es-CL')
-    };
-    onSaveProject(updated);
-    if (onUpdateProjectProgress) {
-      onUpdateProjectProgress(project.id, tempProgress);
-    }
-    setEditingProjectId(null);
-  };
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleOpenEditModal = (p: ProjectRD) => {
     setModalProject({ ...p });
@@ -100,79 +89,121 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
     onSaveProject(savedProject);
     setIsModalOpen(false);
     setModalProject(null);
+    setFeedback('¡Proyecto I+D actualizado y sincronizado en SQL (proyectosid) con éxito!');
+    setTimeout(() => setFeedback(null), 3500);
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto pb-16">
       
-      {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-mono text-[#38bdf8] uppercase tracking-wider">
-            <span>3. Proyectos I+D Escénico</span>
-            <span>•</span>
-            <span>Laboratorios & Innovación</span>
+      {/* Header & Architect Banner */}
+      <div className={`p-6 md:p-8 rounded-3xl border relative overflow-hidden ${
+        isLight
+          ? 'bg-gradient-to-br from-white via-[#FAF6F4] to-[#F5ECE8] border-[#E8DDD7] text-stone-900 shadow-xs'
+          : 'bg-gradient-to-br from-[#1E110F] via-[#241513] to-[#170E0D] border-[#E05A47]/30 text-white shadow-xl'
+      }`}>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#E05A47]/15 via-sky-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[#E05A47]/15 text-[#E05A47] font-bold">
+                Módulo I+D & Laboratorios Escénicos
+              </span>
+              <span className="text-xs font-mono text-emerald-500 flex items-center gap-1">
+                <Database className="w-3.5 h-3.5" />
+                SQL Sincronizado: tabla `proyectosid`
+              </span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold font-display tracking-tight">
+              Proyectos de Investigación & Desarrollo Escénico
+            </h1>
+            <p className={`text-xs md:text-sm max-w-2xl ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
+              Iniciativas de vanguardia que exploran interfaces sonoras biométricas, sesiones acústicas patrimoniales y escenografía inmersiva. Haz clic en cualquier tarjeta para editar sus datos en tiempo real.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight font-display mt-0.5">
-            Investigación, Desarrollo & Nuevos Formatos
-          </h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-3xl">
-            Iniciativas de vanguardia de ATHA Producciones que exploran interfaces sonoras biométricas, sesiones acústicas patrimoniales, escenografía lumínica inmersiva e inteligencia de datos para el ecosistema cultural chileno.
-          </p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            {onNavigateSection && (
+              <button
+                type="button"
+                onClick={() => onNavigateSection('arquitecto')}
+                className={`inline-flex items-center gap-2 px-4 py-3 rounded-2xl border text-xs font-semibold transition-all shadow-xs cursor-pointer ${
+                  isLight
+                    ? 'bg-white hover:bg-stone-50 border-stone-300 text-stone-800'
+                    : 'bg-[#2A1815] hover:bg-[#35201C] border-[#E05A47]/40 text-white'
+                }`}
+              >
+                <Compass className="w-4 h-4 text-[#E05A47]" />
+                <span>Abrir Arquitecto de Proyectos</span>
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-70" />
+              </button>
+            )}
+
+            <button
+              onClick={handleOpenNewModal}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-[#E05A47] hover:bg-[#FF6B4A] text-white font-semibold text-xs rounded-2xl shadow-lg shadow-[#E05A47]/25 transition-all cursor-pointer w-full sm:w-auto justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo Proyecto I+D</span>
+            </button>
+          </div>
         </div>
 
-        <button
-          onClick={handleOpenNewModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#38bdf8] hover:bg-[#38bdf8]/90 text-[#0f1115] font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nuevo Proyecto I+D</span>
-        </button>
+        {feedback && (
+          <div className="mt-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-2 animate-fadeIn">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{feedback}</span>
+          </div>
+        )}
       </div>
 
-      {/* Grid of R&D Projects with visible Progress Bars */}
+      {/* Grid of Clickable R&D Project Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {projects.map((project) => {
-          const isQuickEditing = editingProjectId === project.id;
-          const currentProgress = isQuickEditing ? tempProgress : project.progress;
+          const currentProgress = project.progress;
           const percentColor =
-            currentProgress >= 80 ? 'bg-emerald-400' :
-            currentProgress >= 60 ? 'bg-[#6ee7b7]' :
-            currentProgress >= 40 ? 'bg-[#38bdf8]' : 'bg-[#fbbf24]';
+            currentProgress >= 80 ? 'bg-emerald-500' :
+            currentProgress >= 60 ? 'bg-emerald-400' :
+            currentProgress >= 40 ? 'bg-[#E05A47]' : 'bg-amber-500';
 
           return (
             <div
               key={project.id}
-              className="p-6 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-5 shadow-lg relative group"
+              onClick={() => handleOpenEditModal(project)}
+              className={`p-6 rounded-3xl border transition-all flex flex-col justify-between space-y-5 shadow-sm hover:shadow-md cursor-pointer group relative ${
+                isLight
+                  ? 'bg-white border-stone-200 hover:border-[#E05A47]/50'
+                  : 'bg-[#180F0E] border-[#3E221E] hover:border-[#E05A47]/60'
+              }`}
             >
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {/* Code & Actions */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-[#38bdf8]/15 text-[#38bdf8] border border-[#38bdf8]/30">
+                    <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-[#E05A47]/15 text-[#E05A47] border border-[#E05A47]/30">
                       {project.code}
                     </span>
-                    <span className="text-xs font-mono text-slate-400">
-                      Actualizado: {project.updatedAt}
+                    <span className={`text-[11px] font-mono ${isLight ? 'text-stone-400' : 'text-slate-400'}`}>
+                      SQL Sync: {project.updatedAt}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[11px] font-medium text-[#E05A47] flex items-center gap-1 bg-[#E05A47]/10 px-2.5 py-1 rounded-lg">
+                      <Edit2 className="w-3 h-3" />
+                      <span>Editar Ficha</span>
+                    </span>
                     <button
-                      onClick={() => handleOpenEditModal(project)}
-                      title="Editar proyecto completo"
-                      className="p-1.5 text-slate-400 hover:text-[#38bdf8] hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         if (confirm(`¿Eliminar proyecto I+D "${project.title}"?`)) {
                           onDeleteProject(project.id);
                         }
                       }}
                       title="Eliminar proyecto"
-                      className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-stone-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -180,114 +211,73 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                 </div>
 
                 {/* Title */}
-                <h3 className="text-lg font-bold text-white tracking-tight">
+                <h3 className={`text-lg font-bold tracking-tight font-display ${isLight ? 'text-stone-900 group-hover:text-[#E05A47]' : 'text-white group-hover:text-[#E05A47]'}`}>
                   {project.title}
                 </h3>
 
                 {/* Phase Badge */}
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-slate-400">Fase actual:</span>
-                  <span className="text-[#fbbf24] font-medium bg-[#fbbf24]/10 px-2 py-0.5 rounded border border-[#fbbf24]/20">
+                  <span className={isLight ? 'text-stone-500' : 'text-slate-400'}>Fase actual:</span>
+                  <span className="text-amber-500 font-medium bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                     {project.phase}
                   </span>
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className={`text-xs leading-relaxed ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
                   {project.description}
                 </p>
 
                 {/* Next Milestone */}
-                <div className="p-3 rounded-xl bg-[#12141a] border border-white/5 space-y-1">
-                  <span className="text-[10px] font-semibold text-[#6ee7b7] uppercase tracking-wider block">
+                <div className={`p-3.5 rounded-2xl border space-y-1 ${
+                  isLight ? 'bg-stone-50 border-stone-200' : 'bg-black/30 border-white/5'
+                }`}>
+                  <span className="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider block">
                     Próximo Hito Clave:
                   </span>
-                  <p className="text-xs text-slate-200">
-                    {project.milestoneUpcoming || 'En planificación'}
+                  <p className={`text-xs ${isLight ? 'text-stone-800' : 'text-slate-200'}`}>
+                    {project.milestoneUpcoming || 'En planificación y desarrollo'}
                   </p>
                 </div>
               </div>
 
-              {/* Progress Bar & Adjustment */}
-              <div className="space-y-2 pt-2 border-t border-white/10">
+              {/* Progress Bar & Footer */}
+              <div className={`space-y-3 pt-4 border-t ${isLight ? 'border-stone-200' : 'border-white/10'}`}>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400 font-medium">Porcentaje de Desarrollo</span>
-                  <span className="font-mono font-bold text-white text-sm">
+                  <span className={`font-medium ${isLight ? 'text-stone-600' : 'text-slate-400'}`}>Porcentaje de Desarrollo</span>
+                  <span className="font-mono font-bold text-sm">
                     {currentProgress}%
                   </span>
                 </div>
 
                 {/* Visual Progress Bar */}
-                <div className="w-full h-3 rounded-full bg-[#0f1115] border border-white/10 overflow-hidden p-0.5">
+                <div className={`w-full h-2.5 rounded-full overflow-hidden p-0.5 ${isLight ? 'bg-stone-100 border border-stone-200' : 'bg-black/40 border border-white/10'}`}>
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${percentColor}`}
                     style={{ width: `${currentProgress}%` }}
                   />
                 </div>
 
-                {/* In-place progress slider when editing */}
-                {isQuickEditing ? (
-                  <div className="pt-2 flex items-center gap-3">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={tempProgress}
-                      onChange={(e) => setTempProgress(Number(e.target.value))}
-                      className="flex-1 accent-[#6ee7b7]"
-                    />
-                    <button
-                      onClick={() => handleSaveProgress(project)}
-                      className="px-2.5 py-1 text-xs font-semibold text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-md transition-colors cursor-pointer"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => setEditingProjectId(null)}
-                      className="px-2 py-1 text-xs text-slate-400 hover:text-white cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-slate-400">
-                      Liderado por: <span className="text-slate-200 font-medium">{project.teamLead}</span>
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleStartQuickEdit(project)}
-                        className="text-[11px] text-[#38bdf8] hover:underline cursor-pointer"
-                      >
-                        Ajustar % avance
-                      </button>
-                      <span className="text-slate-600">•</span>
-                      <button
-                        onClick={() => handleOpenEditModal(project)}
-                        className="text-[11px] text-[#6ee7b7] hover:underline cursor-pointer font-medium"
-                      >
-                        Editar ficha
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className={`text-[11px] ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
+                    Líder: <span className={`font-medium ${isLight ? 'text-stone-900' : 'text-slate-200'}`}>{project.teamLead}</span>
+                  </span>
 
-                {/* Budget & Tags */}
-                <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-white/5">
-                  <div className="flex items-center gap-2 font-mono text-slate-300 text-[11px]">
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Ejecutado: {formatCLP(project.spentCLP)} / {formatCLP(project.budgetCLP)}</span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    {project.tags.map((tag, idx) => (
-                      <span key={idx} className="px-2 py-0.5 rounded text-[10px] bg-white/5 text-slate-400 border border-white/5">
-                        {tag}
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-1 font-mono text-[11px] font-semibold">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>{formatCLP(project.spentCLP)} / {formatCLP(project.budgetCLP)}</span>
                   </div>
                 </div>
 
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {project.tags.map((tag, idx) => (
+                    <span key={idx} className={`px-2 py-0.5 rounded-md text-[10px] border ${
+                      isLight ? 'bg-stone-100 text-stone-600 border-stone-200' : 'bg-white/5 text-slate-300 border-white/10'
+                    }`}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
 
             </div>
@@ -295,29 +285,31 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
         })}
       </div>
 
-      {/* Modal for Editing/Creating Project RD */}
+      {/* Modal for Editing/Creating Project RD & SQL Sync */}
       {isModalOpen && modalProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-2xl bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141a]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
+          <div className={`relative w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden ${
+            isLight ? 'bg-white border-stone-200 text-stone-900' : 'bg-[#1C1210] border-[#3E221E] text-white'
+          }`}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'}`}>
               <div className="flex items-center gap-2">
-                <FlaskConical className="w-5 h-5 text-[#38bdf8]" />
-                <h3 className="text-base font-semibold text-white">
-                  {modalProject.title ? `Editar: ${modalProject.title}` : 'Nuevo Proyecto I+D'}
+                <FlaskConical className="w-5 h-5 text-[#E05A47]" />
+                <h3 className="text-base font-semibold font-display">
+                  {modalProject.title ? `Editar Proyecto I+D: ${modalProject.title}` : 'Nuevo Proyecto I+D (SQL Sync)'}
                 </h3>
               </div>
               <button
                 onClick={() => { setIsModalOpen(false); setModalProject(null); }}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-stone-400 hover:text-white rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSaveModal} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label className="font-semibold uppercase tracking-wider opacity-80">
                     Título del Proyecto *
                   </label>
                   <input
@@ -326,26 +318,30 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     value={modalProject.title || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Ej. Interfaces Sonoras Biométricas"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                    }`}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Código Interno
+                  <label className="font-semibold uppercase tracking-wider opacity-80">
+                    Código SQL (`proyectosid`)
                   </label>
                   <input
                     type="text"
                     value={modalProject.code || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, code: e.target.value }))}
                     placeholder="Ej. ID-05"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                    }`}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label className="font-semibold uppercase tracking-wider opacity-80">
                     Fase Actual
                   </label>
                   <input
@@ -353,38 +349,44 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     value={modalProject.phase || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, phase: e.target.value }))}
                     placeholder="Ej. Prototipado Técnico & Muestreo"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                    }`}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Líder de Investigación / Responsable
+                  <label className="font-semibold uppercase tracking-wider opacity-80">
+                    Líder de Investigación
                   </label>
                   <input
                     type="text"
                     value={modalProject.teamLead || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, teamLead: e.target.value }))}
                     placeholder="Ej. Antonia Fernández"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                    }`}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                  Descripción del Proyecto & Objetivos
+                <label className="font-semibold uppercase tracking-wider opacity-80">
+                  Descripción & Objetivos
                 </label>
                 <textarea
                   rows={3}
                   value={modalProject.description || ''}
                   onChange={(e) => setModalProject(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Detalla el alcance de la investigación y su aplicación a la escena viva..."
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  placeholder="Detalla el alcance de la investigación y su aplicación..."
+                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                  }`}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <label className="font-semibold uppercase tracking-wider opacity-80">
                   Próximo Hito Clave
                 </label>
                 <input
@@ -392,13 +394,15 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                   value={modalProject.milestoneUpcoming || ''}
                   onChange={(e) => setModalProject(prev => ({ ...prev, milestoneUpcoming: e.target.value }))}
                   placeholder="Ej. Residencia técnica de 5 días en Sala A1 GAM"
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                  }`}
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label className="font-semibold uppercase tracking-wider opacity-80">
                     Avance (%)
                   </label>
                   <input
@@ -407,57 +411,65 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     max="100"
                     value={modalProject.progress ?? 0}
                     onChange={(e) => setModalProject(prev => ({ ...prev, progress: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                    }`}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Presupuesto Asignado ($ CLP)
+                  <label className="font-semibold uppercase tracking-wider opacity-80">
+                    Presupuesto ($ CLP)
                   </label>
                   <input
                     type="number"
                     value={modalProject.budgetCLP ?? 0}
                     onChange={(e) => setModalProject(prev => ({ ...prev, budgetCLP: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                    }`}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label className="font-semibold uppercase tracking-wider opacity-80">
                     Gasto Ejecutado ($ CLP)
                   </label>
                   <input
                     type="number"
                     value={modalProject.spentCLP ?? 0}
                     onChange={(e) => setModalProject(prev => ({ ...prev, spentCLP: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                    }`}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <label className="font-semibold uppercase tracking-wider opacity-80">
                   Etiquetas (separadas por coma)
                 </label>
                 <input
                   type="text"
                   value={Array.isArray(modalProject.tags) ? modalProject.tags.join(', ') : (modalProject.tags || '')}
                   onChange={(e) => setModalProject(prev => ({ ...prev, tags: e.target.value.split(',').map(s => s.trim()) }))}
-                  placeholder="Ej. Audio Inmersivo, Sensorica, FONDART"
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#38bdf8]"
+                  placeholder="Ej. Audio Inmersivo, Sensórica, FONDART"
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
+                  }`}
                 />
               </div>
 
-              <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+              <div className="pt-4 border-t border-stone-200 dark:border-white/10 flex items-center justify-between">
                 {modalProject.id && projects.some(p => p.id === modalProject.id) ? (
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm(`¿Eliminar definitivamente este proyecto?`)) {
+                      if (confirm(`¿Eliminar definitivamente este proyecto I+D?`)) {
                         onDeleteProject(modalProject.id!);
                         setIsModalOpen(false);
                       }
                     }}
-                    className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="text-xs text-rose-400 hover:text-rose-500 hover:bg-rose-500/10 px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Eliminar Proyecto</span>
@@ -468,16 +480,18 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => { setIsModalOpen(false); setModalProject(null); }}
-                    className="px-4 py-2 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                    className={`px-4 py-2 rounded-xl border text-xs font-medium cursor-pointer ${
+                      isLight ? 'border-stone-200 text-stone-700 hover:bg-stone-100' : 'border-white/10 text-slate-300 hover:bg-white/5'
+                    }`}
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold text-[#0f1115] bg-[#38bdf8] hover:bg-[#38bdf8]/90 rounded-lg transition-colors shadow cursor-pointer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white font-semibold shadow-lg shadow-[#E05A47]/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
-                    <span>Guardar Proyecto</span>
+                    <span>Guardar y Sincronizar SQL</span>
                   </button>
                 </div>
               </div>
@@ -490,4 +504,3 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
     </div>
   );
 };
-

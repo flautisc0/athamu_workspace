@@ -157,24 +157,24 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
                 <div className="grid grid-cols-2 gap-2 pb-2 border-b border-white/5">
                   <div>
                     <span className="text-slate-400 block">Dimensiones mínimas:</span>
-                    <span className="text-white font-medium">{obra.technicalRider.minStageWidthMeters}m ancho x {obra.technicalRider.minStageDepthMeters}m fondo</span>
+                    <span className="text-white font-medium">{obra.technicalRider?.minStageWidthMeters || 10}m ancho x {obra.technicalRider?.minStageDepthMeters || 8}m fondo</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block">Tiempo de montaje:</span>
-                    <span className="text-white font-medium">{obra.technicalRider.loadInHours} horas previas</span>
+                    <span className="text-white font-medium">{obra.technicalRider?.loadInHours || 4} horas previas</span>
                   </div>
                 </div>
                 <div>
                   <span className="text-slate-400 block">Iluminación:</span>
-                  <p className="text-slate-300 text-xs mt-0.5">{obra.technicalRider.lighting}</p>
+                  <p className="text-slate-300 text-xs mt-0.5">{obra.technicalRider?.lighting || 'Planta estándar LED y convencionales'}</p>
                 </div>
                 <div>
                   <span className="text-slate-400 block">Audio & Microfonía:</span>
-                  <p className="text-slate-300 text-xs mt-0.5">{obra.technicalRider.sound}</p>
+                  <p className="text-slate-300 text-xs mt-0.5">{obra.technicalRider?.sound || 'Sistema PA y monitores de escenario'}</p>
                 </div>
                 <div>
                   <span className="text-slate-400 block">Equipo en gira:</span>
-                  <span className="text-white font-medium">{obra.technicalRider.crewRequired} técnicos + elenco</span>
+                  <span className="text-white font-medium">{obra.technicalRider?.crewRequired || 3} técnicos + elenco</span>
                 </div>
               </div>
             </div>

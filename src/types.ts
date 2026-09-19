@@ -245,6 +245,21 @@ export interface UserSession {
   files?: ArtistPortfolioFile[];
 }
 
+export interface CompanyGroup {
+  id: string;
+  name: string;
+  discipline: string;
+  description: string;
+  members: string[]; // e.g. ['Anto', 'Jo', 'Tucu', 'Nico', 'Pancho']
+  sqlTag: string; // e.g. 'atha_core_sql'
+  materialCount: number;
+  activeProjects: string[];
+  avatar: string;
+  contactEmail: string;
+  createdDate: string;
+  portfolioFiles: ArtistPortfolioFile[];
+}
+
 export interface AboutCompanyInfo {
   name: string;
   legalName: string;

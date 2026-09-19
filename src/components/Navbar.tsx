@@ -25,7 +25,9 @@ import {
   Sparkles,
   Database,
   Compass,
-  Shield
+  Shield,
+  Users,
+  Send
 } from 'lucide-react';
 import { UserProfile, Obra, Lead, Venue } from '../types';
 import { FaseLogo } from './FaseLogo';
@@ -138,9 +140,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const directNavItems = [
     { id: 'inicio', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'perfil', label: 'Perfil & Portafolio', icon: Award },
+    { id: 'companias', label: 'Compañías / Agrupaciones', icon: Users },
     { id: 'obras', label: 'Catálogo Obras', icon: Drama, badge: counts.obras },
     { id: 'crm', label: 'CRM Leads', icon: Users2, badge: counts.leads },
     { id: 'calendario', label: 'Planificación', icon: CalendarDays, badge: counts.events },
+    { id: 'ventas', label: 'Ventas & Pitching', icon: Send },
     { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd },
     { id: 'venues', label: 'Salas & Venues', icon: Building2 },
     { id: 'inventario', label: 'Inventario Backline', icon: PackageCheck, badge: counts.inventory },
