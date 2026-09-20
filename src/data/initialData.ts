@@ -1133,18 +1133,42 @@ export const initialReminders = [
   {
     id: 'rem-1',
     title: 'Ensayo General Mañana',
-    message: 'Pasada técnica completa en GAM Sala A1 a las 10:00 hrs.',
+    message: 'Pasada técnica completa en GAM Sala A1 a las 10:00 hrs. Elenco y jefatura técnica confirmados.',
     type: 'ensayo',
-    date: '2025-03-16',
+    date: '2025-03-24',
     read: false
   },
   {
     id: 'rem-2',
     title: 'Rendición FONDART Línea Circulación',
-    message: 'Vence plazo de carga de boletas de honorarios en plataforma MINCAP.',
+    message: 'Vence plazo de carga de boletas de honorarios y comprobantes de traslado en plataforma MINCAP.',
     type: 'finanzas',
-    date: '2025-03-22',
+    date: '2025-03-28',
     read: false
+  },
+  {
+    id: 'rem-3',
+    title: 'Aprobación Rider Teatro Biobío',
+    message: 'Dirección técnica de Teatro Biobío aprobó la planta de iluminación y rider de sonido para gira.',
+    type: 'tecnica',
+    date: '2025-04-02',
+    read: false
+  },
+  {
+    id: 'rem-4',
+    title: 'Seguimiento Lead: Teatro Municipal de Las Condes',
+    message: 'Programador solicitó dossier actualizado y propuesta económica para temporada de invierno.',
+    type: 'ventas',
+    date: '2025-04-05',
+    read: false
+  },
+  {
+    id: 'rem-5',
+    title: 'Inspección de Inventario Técnico',
+    message: 'Revisión periódica de consolas DMX, dimers y microfonía inalámbrica en bodega central.',
+    type: 'inventario',
+    date: '2025-04-10',
+    read: true
   }
 ];
 

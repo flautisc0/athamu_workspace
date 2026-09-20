@@ -27,7 +27,9 @@ import {
   Compass,
   Shield,
   Users,
-  Send
+  Send,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
 import { UserProfile, Obra, Lead, Venue } from '../types';
 import { FaseLogo } from './FaseLogo';
@@ -41,7 +43,7 @@ export interface NavbarCounts {
 }
 
 export interface NavbarProps {
-  currentUser: UserProfile;
+  currentUser?: UserProfile | null;
   onOpenAuth: () => void;
   onOpenNotifications: () => void;
   onOpenSqlHub?: () => void;
@@ -415,37 +417,55 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
-          {/* User Profile Pill */}
+          {/* Login / Registro Button */}
           <button
             type="button"
             onClick={onOpenAuth}
-            className={`flex items-center gap-2 p-1 sm:pr-2.5 rounded-xl border transition-colors cursor-pointer group text-left ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-sm ${
               isLight
-                ? 'bg-stone-50 border-stone-200 hover:border-[#C84835]/50'
-                : 'bg-[#1E110F] border-[#3E221E] hover:border-[#E05A47]/50'
+                ? 'bg-white hover:bg-stone-50 border-[#C84835]/30 text-[#C84835] hover:border-[#C84835]'
+                : 'bg-[#1E110F] hover:bg-[#2A1714] border-[#E05A47]/40 text-[#FF6B4A] hover:border-[#E05A47]'
             }`}
+            title="Gestión de Login, Registro y Cuentas de Socios"
           >
-            <img
-              src={currentUser.avatar}
-              alt={currentUser.name}
-              className={`w-7 h-7 rounded-lg object-cover border ${
-                isLight ? 'border-stone-200' : 'border-[#3E221E]'
-              }`}
-              referrerPolicy="no-referrer"
-            />
-            <div className="hidden xl:flex flex-col">
-              <span className={`text-xs font-semibold leading-tight ${
-                isLight ? 'text-stone-900 group-hover:text-[#C84835]' : 'text-white group-hover:text-[#FF6B4A]'
-              } transition-colors`}>
-                {currentUser.name}
-              </span>
-              <span className={`text-[10px] font-mono leading-tight ${
-                isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
-              }`}>
-                {currentUser.role || 'Socio'}
-              </span>
-            </div>
+            <LogIn className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Login / Registro</span>
+            <span className="sm:hidden">Acceso</span>
           </button>
+
+          {/* User Profile Pill */}
+          {currentUser && (
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className={`flex items-center gap-2 p-1 sm:pr-2.5 rounded-xl border transition-colors cursor-pointer group text-left ${
+                isLight
+                  ? 'bg-stone-50 border-stone-200 hover:border-[#C84835]/50'
+                  : 'bg-[#1E110F] border-[#3E221E] hover:border-[#E05A47]/50'
+              }`}
+            >
+              <img
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                className={`w-7 h-7 rounded-lg object-cover border ${
+                  isLight ? 'border-stone-200' : 'border-[#3E221E]'
+                }`}
+                referrerPolicy="no-referrer"
+              />
+              <div className="hidden xl:flex flex-col">
+                <span className={`text-xs font-semibold leading-tight ${
+                  isLight ? 'text-stone-900 group-hover:text-[#C84835]' : 'text-white group-hover:text-[#FF6B4A]'
+                } transition-colors`}>
+                  {currentUser.name}
+                </span>
+                <span className={`text-[10px] font-mono leading-tight ${
+                  isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
+                }`}>
+                  {currentUser.role || 'Socio'}
+                </span>
+              </div>
+            </button>
+          )}
 
         </div>
       </div>

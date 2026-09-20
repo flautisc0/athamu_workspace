@@ -128,13 +128,23 @@ export default function App() {
 
   // Authentication & Settings
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() =>
-    loadFromStorage<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, defaultUserProfile)
+    loadFromStorage<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null)
   );
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState<boolean>(false);
   const [highContrast, setHighContrast] = useState<boolean>(false);
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem(`atha_${STORAGE_KEYS.USER_PROFILE}`);
+      localStorage.removeItem('user_session');
+      window.dispatchEvent(new Event('user_session_updated'));
+    } catch {}
+    setIsAuthModalOpen(false);
+  };
 
   const handleSyncCloud = () => {
     setIsSyncing(true);
@@ -562,7 +572,21 @@ export default function App() {
 
   const unreadRemindersCount = reminders.filter(r => !r.read).length;
 
-  return (
+  return !currentUser ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+      <AuthModal
+        isOpen={true}
+        currentUser={null}
+        onSelectUser={(profile) => {
+          setCurrentUser(profile);
+          saveToStorage(STORAGE_KEYS.USER_PROFILE, profile);
+        }}
+        onSyncCloud={handleSyncCloud}
+        isSyncing={isSyncing}
+        theme={theme}
+      />
+    </div>
+  ) : (
     <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
       theme === 'dia'
         ? 'bg-[#F8F6F4] text-stone-900 selection:bg-[#E05A47]/20 selection:text-[#C84835]'
@@ -571,7 +595,7 @@ export default function App() {
       
       {/* Top Navigation Bar with Direct Visible Menus */}
       <Navbar
-        currentUser={currentUser || defaultUserProfile}
+        currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
         onOpenSqlHub={() => setIsSqlHubOpen(true)}
@@ -622,7 +646,7 @@ export default function App() {
             rdProjects={rdProjects}
             events={events}
             finances={finances}
-            currentUser={currentUser || defaultUserProfile}
+            currentUser={currentUser}
             onUpdateUserAvatar={handleUpdateUserAvatar}
             onNavigateSection={handleNavigateSection}
             onSelectObra={handleSelectObraFromDashboard}
@@ -632,7 +656,7 @@ export default function App() {
 
         {activeSection === 'perfil' && (
           <PerfilPortafolioSection
-            currentUser={currentUser || defaultUserProfile}
+            currentUser={currentUser}
             onUpdateUser={handleUpdateUser}
             theme={theme}
           />
@@ -918,10 +942,12 @@ export default function App() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        currentUser={currentUser || defaultUserProfile}
+        currentUser={currentUser}
         onSelectUser={(profile) => setCurrentUser(profile)}
+        onLogout={handleLogout}
         onSyncCloud={handleSyncCloud}
         isSyncing={isSyncing}
+        theme={theme}
       />
 
       {/* 5. Notifications / Push Modal */}
@@ -931,7 +957,10 @@ export default function App() {
         reminders={reminders}
         onMarkAsRead={handleMarkAsRead}
         onClearAll={handleClearAllReminders}
+        onDeleteReminder={(id) => setReminders(prev => prev.filter(r => r.id !== id))}
+        onAddReminder={(newRem) => setReminders(prev => [newRem, ...prev])}
         onTriggerSimulatedPush={handleTriggerSimulatedPush}
+        theme={theme}
       />
 
       {/* 6. Cloud SQL Database & File Import/Export Modal */}
