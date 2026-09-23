@@ -58,12 +58,15 @@ import { DossierModal } from './components/DossierModal';
 import { EditObraModal } from './components/EditObraModal';
 import { EditLeadModal } from './components/EditLeadModal';
 import { AuthModal } from './components/AuthModal';
+import { guardarSesionCompartida } from './utils/sesionEcosistema';
 import { NotificationsModal } from './components/NotificationsModal';
 import { SqlDataHubModal } from './components/SqlDataHubModal';
 import {
   fetchAllFromSql,
   saveObraToSql,
+  deleteObraFromSql,
   saveLeadToSql,
+  deleteLeadFromSql,
   saveFinanceToSql,
   saveInventoryToSql
 } from './services/apiClient';
@@ -133,8 +136,6 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState<boolean>(false);
   const [highContrast, setHighContrast] = useState<boolean>(false);
-  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(true);
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -146,33 +147,21 @@ export default function App() {
     setIsAuthModalOpen(false);
   };
 
-  const handleSyncCloud = () => {
-    setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      setIsCloudSynced(true);
-    }, 1200);
-  };
+
 
   const handleUpdateUserAvatar = (avatarUrl: string) => {
     if (currentUser) {
       const updated = { ...currentUser, avatar: avatarUrl };
       setCurrentUser(updated);
       saveToStorage(STORAGE_KEYS.USER_PROFILE, updated);
-      try {
-        localStorage.setItem('user_session', JSON.stringify(updated));
-        window.dispatchEvent(new Event('user_session_updated'));
-      } catch {}
+      guardarSesionCompartida(updated);
     }
   };
 
   const handleUpdateUser = (updatedUser: UserSession) => {
     setCurrentUser(updatedUser);
     saveToStorage(STORAGE_KEYS.USER_PROFILE, updatedUser);
-    try {
-      localStorage.setItem('user_session', JSON.stringify(updatedUser));
-      window.dispatchEvent(new Event('user_session_updated'));
-    } catch {}
+    guardarSesionCompartida(updatedUser);
   };
 
   // Core Data Collections with LocalStorage Persistence
@@ -208,9 +197,18 @@ export default function App() {
   const [venues, setVenues] = useState<Venue[]>(() =>
     loadFromStorage<Venue[]>(STORAGE_KEYS.VENUES, initialVenues)
   );
-  const [team, setTeam] = useState<TeamMember[]>(() =>
-    loadFromStorage<TeamMember[]>(STORAGE_KEYS.TEAM, initialTeam)
-  );
+  const [team, setTeam] = useState<TeamMember[]>(() => {
+    const stored = loadFromStorage<TeamMember[]>(STORAGE_KEYS.TEAM, initialTeam);
+    // Refresca las fotos reales del equipo: si el navegador tenia cacheada una
+    // imagen generada (unsplash) y ya existe la foto real, se usa la real.
+    return (stored || []).map((m) => {
+      const real = initialTeam.find((t) => t.name === m.name);
+      if (real && real.image && (!m.image || m.image.includes('unsplash.com'))) {
+        return { ...m, image: real.image };
+      }
+      return m;
+    });
+  });
   const [riders, setRiders] = useState<TechnicalRider[]>(() =>
     loadFromStorage<TechnicalRider[]>(STORAGE_KEYS.RIDERS, initialRiders)
   );
@@ -345,6 +343,7 @@ export default function App() {
   };
 
   const handleDeleteObra = (obraId: string) => {
+    deleteObraFromSql(obraId);
     setObras(prev => prev.filter(o => o.id !== obraId));
   };
 
@@ -363,6 +362,7 @@ export default function App() {
   };
 
   const handleDeleteLead = (leadId: string) => {
+    deleteLeadFromSql(leadId);
     setLeads(prev => prev.filter(l => l.id !== leadId));
   };
 
@@ -581,8 +581,6 @@ export default function App() {
           setCurrentUser(profile);
           saveToStorage(STORAGE_KEYS.USER_PROFILE, profile);
         }}
-        onSyncCloud={handleSyncCloud}
-        isSyncing={isSyncing}
         theme={theme}
       />
     </div>
@@ -600,7 +598,6 @@ export default function App() {
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
         onOpenSqlHub={() => setIsSqlHubOpen(true)}
         unreadNotificationsCount={unreadRemindersCount}
-        isCloudSynced={isCloudSynced}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenDrawer={() => setIsDrawerOpen(true)}
@@ -670,7 +667,7 @@ export default function App() {
           />
         )}
 
-        {activeSection === 'calendario' && (
+        {activeSection === 'calendario-planificacion' && (
           <PlanificacionCalendarioSection
             events={events}
             obras={obras}
@@ -758,7 +755,7 @@ export default function App() {
           />
         )}
 
-        {activeSection === 'calendario' && (
+        {activeSection === 'calendario-planificacion' && (
           <CalendarioSection
             events={events}
             obras={obras}
@@ -796,12 +793,10 @@ export default function App() {
         )}
 
         {activeSection === 'inventario' && (
-          <InventarioSection
-            inventory={inventory}
-            onUpdateItemStatus={handleUpdateItemStatus}
-            onSaveItem={handleSaveInventoryItem}
-            onDeleteItem={handleDeleteInventoryItem}
-          />
+          // Sección autocontenida: lee y escribe en el hub del CRM por su cuenta
+          // (/api/v1/crm/inventario). Antes recibía datos demo y no el tema, por
+          // eso quedaba con letras blancas sobre fondo claro.
+          <InventarioSection theme={theme} />
         )}
 
         {activeSection === 'finanzas' && (
@@ -945,8 +940,6 @@ export default function App() {
         currentUser={currentUser}
         onSelectUser={(profile) => setCurrentUser(profile)}
         onLogout={handleLogout}
-        onSyncCloud={handleSyncCloud}
-        isSyncing={isSyncing}
         theme={theme}
       />
 
