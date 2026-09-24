@@ -41,6 +41,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regRole, setRegRole] = useState('Artista');
   const [regEmail, setRegEmail] = useState('');
   const [regProvider, setRegProvider] = useState<'google' | 'apple' | 'email'>('google');
+  // Evita el doble clic y el "botón pegado" mientras carga la librería de Google.
+  const [cargandoGoogle, setCargandoGoogle] = useState(false);
 
   const isLight = theme === 'dia';
 
@@ -61,40 +63,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setTimeout(() => setAuthMethodFeedback(null), 7000);
       return;
     }
+    // Guarda contra doble clic: el botón se quedaba "pegado" sin salida.
+    if (cargandoGoogle) return;
     setAuthMethodFeedback('Conectando con Google Workspace...');
-    
+
     try {
-      // Cargar la librería Google Identity Services dinámicamente
       if (!window.google?.accounts?.id) {
-        // Insertar el script de GIS si no existe
         if (!document.getElementById('gis-script')) {
+          setCargandoGoogle(true);
           const script = document.createElement('script');
           script.id = 'gis-script';
           script.src = 'https://accounts.google.com/gsi/client';
           script.async = true;
           script.defer = true;
-          script.onload = () => performGoogleLogin();
+          script.onload = () => { setCargandoGoogle(false); performGoogleLogin(); };
+          // ANTES: script.onerror → setTimeout(handleGoogleLogin, 1500) en bucle
+          // infinito → el cartel quedaba en "Conectando…" para siempre sin decir
+          // nada. Ahora: un aviso claro y una salida.
           script.onerror = () => {
-            setAuthMethodFeedback('Error al cargar Google. Reintentando...');
-            setTimeout(() => handleGoogleLogin(), 1500);
+            setCargandoGoogle(false);
+            setAuthMethodFeedback('Google no cargó (bloqueado o sin conexión). Probá abrir esta página en Safari o Chrome.');
           };
           document.head.appendChild(script);
+          // Tope duro: si el script no responde en 8 s, se avisa y se corta.
+          setTimeout(() => {
+            setCargandoGoogle(false);
+            if (!window.google?.accounts?.id) {
+              setAuthMethodFeedback('Google no respondió. Recargá la página (Ctrl+Shift+R) o abrila en Safari/Chrome.');
+            }
+          }, 8000);
           return;
         }
-      } else {
-        performGoogleLogin();
+        setAuthMethodFeedback('La librería de Google no cargó. Recargá la página (Ctrl+Shift+R).');
+        return;
       }
+      performGoogleLogin();
     } catch (e: any) {
       console.error('Google login error:', e);
+      setCargandoGoogle(false);
       setAuthMethodFeedback('Error en la autenticación. Intentá de nuevo.');
-      setTimeout(() => setAuthMethodFeedback(null), 3000);
     }
   };
 
   const performGoogleLogin = () => {
     try {
       const clientId = '897089213264-sg7hr4e5g269u1lirj19r349ahaheftr.apps.googleusercontent.com';
-      
+
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: (response: any) => {
@@ -103,26 +117,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         auto_select: false,
         cancel_on_tap_outside: true,
       });
-      
-      // Mostrar el botón One Tap o el modal de selección de cuenta
-      window.google.accounts.id.prompt((notification: any) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Fallback: abrir popup de selección de cuenta
-          window.google.accounts.id.renderButton(
-            document.getElementById('google-btn'),
-            { theme: 'outline', size: 'large', width: '100%' }
-          );
-          setTimeout(() => {
-            const btn = document.getElementById('google-btn') as HTMLButtonElement;
-            if (btn) btn.click();
-          }, 300);
+
+      // One Tap es frágil (se bloquea sin avisar si el origen no está autorizado
+      // o si el navegador lo corta). Se pide, pero con red de seguridad: si en
+      // 2,5 s no pasó nada, se pinta el botón REAL de Google para poder entrar.
+      let respondio = false;
+      const marcar = () => { respondio = true; };
+      try {
+        window.google.accounts.id.prompt((notification: any) => {
+          marcar();
+          if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+            pintarBotonGoogle();
+          }
+        });
+      } catch { /* One Tap no disponible */ }
+
+      setTimeout(() => {
+        if (!respondio) {
+          setAuthMethodFeedback('Tocá el botón de Google para continuar.');
+          pintarBotonGoogle();
         }
-      });
+      }, 2500);
     } catch (e: any) {
       console.error('Google init error:', e);
-      setAuthMethodFeedback('Error al inicializar Google. Usando login alternativo.');
       setAuthMethodFeedback('No se pudo iniciar con Google. Revisá tu conexión y reintentá.');
-      setTimeout(() => setAuthMethodFeedback(null), 4000);
+    }
+  };
+
+  /** Pinta el botón nativo de Google en el mismo lugar del botón propio. */
+  const pintarBotonGoogle = () => {
+    try {
+      const cont = document.getElementById('google-btn');
+      if (!cont || cont.dataset.googleListo === '1') return;
+      cont.dataset.googleListo = '1';
+      cont.innerHTML = '';
+      window.google.accounts.id.renderButton(cont, {
+        theme: 'outline', size: 'large', width: '100%', text: 'signin_with', locale: 'es',
+      });
+    } catch (e) {
+      console.error('renderButton error:', e);
+      setAuthMethodFeedback('Google bloqueó el botón. Abrí esta página en Safari o Chrome.');
     }
   };
 
@@ -146,43 +180,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         id: userId,
         name: userName,
         email: userEmail,
-        role: 'Director General & Productor Ejecutivo',
+        role: 'Sin asignar',
         avatar: userPicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(userName)}`,
         provider: 'google'
       };
 
+      // El TOKEN del hub es lo que autoriza. Sin token, esta sesión no sirve para
+      // llamar la API, así que no se inventa una: si el hub rechaza, se avisa.
+      let token = '';
       try {
-        const resp = await fetch('/php/api.php?action=auth_google', {
+        const resp = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id_token: response.credential,
-            email: userEmail,
-            name: userName,
-            picture: userPicture,
-            sub: userId
-          })
+          body: JSON.stringify({ id_token: response.credential })
         });
-        
+
         const data = await resp.json();
-        if (data.success) {
-          if (data.data?.role) {
-            userSession.role = data.data.role;
-          }
-          setAuthMethodFeedback(`¡Sesión iniciada como ${userName}!`);
-        } else {
-          console.warn('Auth server response:', data);
-          setAuthMethodFeedback(`¡Sesión iniciada como ${userName}! (validación pendiente)`);
+        if (!resp.ok || !data?.success) {
+          setAuthMethodFeedback(
+            `No se pudo iniciar sesión: ${data?.error || `HTTP ${resp.status}`}`
+          );
+          return;
         }
+        token = data.data?.token || '';
+        if (data.data?.role) userSession.role = data.data.role;
+        if (data.data?.role_title) userSession.roleTitle = data.data.role_title;
+        setAuthMethodFeedback(data.message || `¡Sesión iniciada como ${userName}!`);
       } catch (e: any) {
-        console.warn('Backend auth not available:', e);
-        setAuthMethodFeedback(`¡Sesión iniciada como ${userName}! (modo local)`);
+        // Sin backend no hay identidad verificada: no se entra "en modo local".
+        console.warn('Auth backend not available:', e);
+        setAuthMethodFeedback('No se pudo contactar al CRM. Reintentá en unos segundos.');
+        return;
       }
 
       onSelectUser(userSession);
-      // Guarda en la clave COMPARTIDA del ecosistema (atha_user_session), que es
-      // la que leen el Planner, el Arquitecto y el Buscador.
-      guardarSesionCompartida(userSession);
+      // Guarda la sesión Y el token en la clave COMPARTIDA del ecosistema
+      // (`atha_user_session` + `atha_auth_token`): es lo que leen el Planner,
+      // el Arquitecto, el Buscador y el puente del hub.
+      guardarSesionCompartida(userSession, token);
 
       setTimeout(() => {
         setAuthMethodFeedback(null);
@@ -197,55 +232,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
 
+  /**
+   * REGISTRO = SOLICITUD DE ACCESO (ya no abre sesión).
+   *
+   * Antes esto entraba con el rol que eligiera el usuario en el formulario, y si
+   * el correo ya existía entraba directo a ESA cuenta. Ahora sólo queda anotada
+   * la solicitud: para entrar hay que pasar por Google (que verifica el correo)
+   * y el rol y la compañía los asigna un administrador en Administración.
+   */
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim() || !regEmail.trim()) return;
 
-    setAuthMethodFeedback('Creando cuenta...');
-
-    const newUser: UserSession = {
-      id: `user-${Date.now()}`,
-      name: regName.trim(),
-      email: regEmail.trim(),
-      role: regRole || 'Artista',
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(regName.trim())}`,
-      provider: 'email'
-    };
+    setAuthMethodFeedback('Enviando solicitud...');
 
     try {
       const resp = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newUser.name,
-          email: newUser.email,
+          name: regName.trim(),
+          email: regEmail.trim(),
           role: regRole || 'Artista',
-          provider: regProvider,
         }),
       });
       const data = await resp.json();
-      if (data && data.success && data.data) {
-        if (data.data.id) newUser.id = data.data.id;
-        if (data.data.role_title) newUser.role = data.data.role_title;
-        setAuthMethodFeedback(data.message || 'Cuenta creada');
-      } else {
-        setAuthMethodFeedback('No se pudo crear la cuenta. Revisá los datos.');
-        setTimeout(() => setAuthMethodFeedback(null), 4000);
+      if (!resp.ok || !data?.success) {
+        setAuthMethodFeedback(data?.error || 'No se pudo registrar la solicitud.');
         return;
       }
+      setAuthMethodFeedback(data.message || 'Solicitud registrada. Un administrador te habilita.');
     } catch (err) {
       console.warn('Registro sin backend:', err);
-      setAuthMethodFeedback('Cuenta creada en modo local (sin conexión al CRM).');
+      setAuthMethodFeedback('No se pudo contactar al CRM. Reintentá en unos segundos.');
     }
-
-    setTimeout(() => {
-      onSelectUser(newUser);
-      guardarSesionCompartida(newUser);
-      setTimeout(() => {
-        setAuthMethodFeedback(null);
-        onClose?.();
-      }, 800);
-    }, 500);
   };
 
   return (
@@ -534,7 +554,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     isLight ? 'text-stone-600' : 'text-[var(--text-secondary)]'
                   }`}
                 >
-                  Tipo de cuenta *
+                  Rol solicitado *
                 </label>
                 <select
                   required
@@ -608,7 +628,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
-                <span>Crear cuenta y entrar</span>
+                <span>Solicitar acceso</span>
               </button>
             </form>
           )}

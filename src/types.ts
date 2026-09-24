@@ -233,6 +233,8 @@ export interface UserSession {
   name: string;
   email: string;
   role: string;
+  /** Cargo real (`users.role_title`) que devuelve el hub al loguear. */
+  roleTitle?: string;
   avatar: string;
   provider: 'google' | 'apple' | 'atha_id';
   artisticName?: string;

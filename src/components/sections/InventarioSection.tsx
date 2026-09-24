@@ -14,6 +14,7 @@
  * fondo claro en modo día → el título era invisible).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cabeceraToken } from '../../utils/sesionEcosistema';
 import {
   Box, Boxes, Camera, Check, ChevronRight, Edit3, Filter, ImageOff, Loader2, Lock, MapPin,
   Package, Plus, RefreshCw, Search, ShieldCheck, Tag, Trash2, Truck, X,
@@ -67,9 +68,27 @@ function emailSesion(): string {
   return '';
 }
 
-/** Cabeceras de las llamadas al hub: llevan la identidad (para los permisos). */
+/** Token de sesión del hub (lo que autoriza de verdad las llamadas). */
+function tokenSesion(): string {
+  try {
+    return localStorage.getItem('atha_auth_token') || '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Cabeceras de las llamadas al hub: llevan la identidad (para los permisos).
+ * El `Authorization: Bearer` es lo que autoriza; el `x-atha-email` es sólo la
+ * compatibilidad de transición mientras el hub corre en AUTH_MODO=mixto.
+ */
 function cabeceras(): Record<string, string> {
-  return { 'Content-Type': 'application/json', 'x-atha-email': emailSesion() };
+  const t = tokenSesion();
+  return {
+    'Content-Type': 'application/json',
+    'x-atha-email': emailSesion(),
+    ...(t ? { Authorization: `Bearer ${t}` } : {}),
+  };
 }
 
 interface Alcance {
@@ -154,7 +173,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
     try {
       const base = companyId ? `${API}?company_id=${encodeURIComponent(companyId)}` : API;
       const r = await fetch(base, {
-        headers: { Accept: 'application/json', 'x-atha-email': emailSesion() },
+        headers: { Accept: 'application/json', 'x-atha-email': emailSesion(), ...cabeceraToken() },
       });
       const d = await r.json();
       if (d.alcance) setAlcance(d.alcance);

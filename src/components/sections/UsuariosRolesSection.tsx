@@ -19,7 +19,7 @@ import {
   Users, RefreshCw, Check, ShieldAlert, Loader2, Building2, UserCog,
   Search, X, Plus, Trash2, Save, AlertTriangle, Music, Theater, Sparkles, HelpCircle,
 } from 'lucide-react';
-import { leerSesionCrm } from '../../utils/sesionEcosistema';
+import { leerSesionCrm, cabeceraToken } from '../../utils/sesionEcosistema';
 
 interface Rol { id: string; descripcion: string }
 interface Disciplina { id: string; label: string }
@@ -37,7 +37,11 @@ interface Persona {
 
 const cabeceras = (): Record<string, string> => {
   const s = leerSesionCrm() as any;
-  return { 'Content-Type': 'application/json', 'x-atha-email': String(s?.email || '') };
+  return {
+    'Content-Type': 'application/json',
+    'x-atha-email': String(s?.email || ''),
+    ...cabeceraToken(),
+  };
 };
 
 const ICONO_DISCIPLINA: Record<string, any> = {

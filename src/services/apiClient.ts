@@ -5,17 +5,26 @@
 
 // El CRM lo sirve el HUB: las rutas relativas van al hub (misma base y misma sesión).
 // Antes apuntaba a crm-v1-uc, un servicio aparte: los datos se duplicaban.
-import { leerSesionCrm } from '../utils/sesionEcosistema';
+import { leerSesionCrm, cabeceraToken } from '../utils/sesionEcosistema';
 
 const CRM_BASE_URL = '';
 
-/** Cabeceras de escritura: incluye la identidad del ecosistema (el hub la exige). */
+/**
+ * Cabeceras de escritura.
+ *
+ * El `Authorization: Bearer <token del hub>` es lo que AUTORIZA. El `x-atha-email`
+ * queda sólo como compatibilidad de transición (el hub lo ignora cuando
+ * AUTH_MODO=estricto). Si no hay token, la llamada no lleva identidad y el hub
+ * responde 401/403 — que es lo correcto.
+ */
 export function cabecerasSesion(): Record<string, string> {
   const sesion = leerSesionCrm() as any;
   const correo = String(sesion?.email || '').trim();
-  return correo
-    ? { 'Content-Type': 'application/json', 'x-atha-email': correo }
-    : { 'Content-Type': 'application/json' };
+  return {
+    'Content-Type': 'application/json',
+    ...(correo ? { 'x-atha-email': correo } : {}),
+    ...cabeceraToken(),
+  };
 }
 
 export interface SqlDataPayload {

@@ -90,6 +90,27 @@ export function limpiarSesionCompartida(): void {
   }
 }
 
+/**
+ * TOKEN DE SESIÓN DEL HUB.
+ *
+ * Es la credencial de verdad: el hub lo firma al loguear con Google y lo exige
+ * en cada llamada (`Authorization: Bearer`). El correo en localStorage es sólo
+ * para pintar la interfaz — no autoriza nada por sí solo.
+ */
+export function leerTokenCrm(): string {
+  try {
+    return localStorage.getItem(CLAVE_TOKEN) || '';
+  } catch {
+    return '';
+  }
+}
+
+/** Cabecera de autorización lista para pegar en un fetch (o {} si no hay sesión). */
+export function cabeceraToken(): Record<string, string> {
+  const t = leerTokenCrm();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 /** Rol normalizado para los artefactos (ellos distinguen dirección de artista). */
 export function rolParaArtefacto(u: SesionCrm): string {
   const r = String(u.role || '').toLowerCase();

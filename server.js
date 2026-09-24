@@ -5,7 +5,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import jwt from 'jsonwebtoken';
 import { spawn } from 'child_process';
 import mysql from 'mysql2/promise';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,32 +79,24 @@ async function handleGoogleAuth(req, res) {
       return res.status(400).json({ success: false, error: 'Falta id_token' });
     }
 
-    const payload = decodeJwtPayload(idToken);
+    const payload = await verificarTokenGoogle(idToken);
     if (!payload || !payload.email) {
-      return res.status(400).json({ success: false, error: 'Token sin datos validos' });
-    }
-
-    if (payload.exp && Date.now() / 1000 > Number(payload.exp)) {
-      return res.status(401).json({ success: false, error: 'Token expirado' });
-    }
-
-    if (GOOGLE_CLIENT_ID && payload.aud && payload.aud !== GOOGLE_CLIENT_ID) {
-      console.warn('[auth] aud inesperado:', payload.aud);
+      return res.status(401).json({ success: false, error: 'Token de Google inválido' });
     }
 
     const email = String(payload.email).toLowerCase().trim();
-    const name = body.name || payload.name || email;
-    const picture = body.picture || payload.picture || '';
+    // El nombre y la foto salen del TOKEN verificado, no del body del cliente.
+    const name = payload.name || email;
+    const picture = payload.picture || '';
     const googleSub = payload.sub || email;
 
     const isOwner = OWNER_EMAILS.includes(email);
-    const userRole = isOwner ? 'admin' : (body.role || 'artist');
-    const companyRole = isOwner ? 'owner' : 'artist';
-    let roleTitle = isOwner ? 'Direccion General & Produccion Ejecutiva' : 'Artista / Elenco';
-
     let persisted = false;
     let userId = null;
     let dbError = null;
+    let esNuevo = false;
+    let rol = isOwner ? 'admin' : ROL_ENTRADA;
+    let roleTitle = isOwner ? 'Direccion General & Produccion Ejecutiva' : '';
 
     try {
       const db = getPool();
@@ -115,41 +107,56 @@ async function handleGoogleAuth(req, res) {
 
       if (rows && rows.length) {
         userId = rows[0].id;
-        if (rows[0].role_title) roleTitle = rows[0].role_title;
+        // El ROL y el CARGO son de la base: NO se pisan con lo que mande el cliente.
+        rol = rows[0].role || ROL_ENTRADA;
+        roleTitle = rows[0].role_title || '';
         await db.execute(
           `UPDATE users SET display_name = ?, picture = ?, provider = 'google',
              google_id = COALESCE(google_id, ?), google_email = COALESCE(google_email, ?),
              google_name = COALESCE(google_name, ?), google_picture = COALESCE(google_picture, ?),
-             role = ?, updated_at = NOW()
+             updated_at = NOW()
            WHERE id = ?`,
-          [name, picture, googleSub, email, name, picture, userRole, userId]
+          [name, picture, googleSub, email, name, picture, userId]
         );
+        if (isOwner && rol !== 'admin') {
+          await db.execute("UPDATE users SET role = 'admin' WHERE id = ?", [userId]);
+          rol = 'admin';
+        }
       } else {
+        // ALTA NUEVA: rol mínimo y SIN pertenencia a compañía.
+        // Antes el alta insertaba en `company_members` de la compañía por defecto
+        // con rol `coordinator` ⇒ `alcanceInventario` daba `puedeEscribir: true`
+        // y un recién registrado editaba el inventario (reportado 2026-09-24).
+        // El rol y la compañía los asigna un admin en Administración.
+        esNuevo = true;
         userId = randomUUID();
         await db.execute(
           `INSERT INTO users (id, email, display_name, role, role_title, picture, provider,
              google_id, google_email, google_name, google_picture, public_profile, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, 'google', ?, ?, ?, ?, 0, NOW(), NOW())`,
-          [userId, email, name, userRole, roleTitle, picture, googleSub, email, name, picture]
+          [userId, email, name, rol, roleTitle, picture, googleSub, email, name, picture]
         );
       }
 
-      const [member] = await db.execute(
-        'SELECT id, role_in_company FROM company_members WHERE user_id = ? AND company_id = ? LIMIT 1',
-        [userId, DEFAULT_COMPANY_ID]
-      );
-
-      if (member && member.length) {
-        if (isOwner && member[0].role_in_company !== 'owner') {
-          await db.execute('UPDATE company_members SET role_in_company = ? WHERE id = ?',
-            ['owner', member[0].id]);
-        }
-      } else {
-        const memberId = 'm_' + randomUUID().replace(/-/g, '').slice(0, 12);
-        await db.execute(
-          'INSERT INTO company_members (id, company_id, user_id, role_in_company, joined_at) VALUES (?, ?, ?, ?, NOW())',
-          [memberId, DEFAULT_COMPANY_ID, userId, companyRole]
+      // La pertenencia `owner` del dueño se asegura sola (idempotente).
+      // Para el resto, la pertenencia la administra el panel, no el login.
+      if (isOwner) {
+        const [member] = await db.execute(
+          'SELECT id, role_in_company FROM company_members WHERE user_id = ? AND company_id = ? LIMIT 1',
+          [userId, DEFAULT_COMPANY_ID]
         );
+        if (member && member.length) {
+          if (member[0].role_in_company !== 'owner') {
+            await db.execute('UPDATE company_members SET role_in_company = ? WHERE id = ?',
+              ['owner', member[0].id]);
+          }
+        } else {
+          const memberId = 'm_' + randomUUID().replace(/-/g, '').slice(0, 12);
+          await db.execute(
+            'INSERT INTO company_members (id, company_id, user_id, role_in_company, joined_at) VALUES (?, ?, ?, ?, NOW())',
+            [memberId, DEFAULT_COMPANY_ID, userId, 'owner']
+          );
+        }
       }
 
       persisted = true;
@@ -158,20 +165,27 @@ async function handleGoogleAuth(req, res) {
       console.warn('[auth] BD no disponible, se continua con sesion local:', e.message);
     }
 
+    // TOKEN DE SESIÓN DEL HUB: es la única credencial que sirve para llamar la API.
+    const token = firmarSesion({
+      email, name, display_name: name, role: rol, role_title: roleTitle, picture,
+    });
+
     return res.json({
       success: true,
       data: {
         id: userId || googleSub,
         name,
         email,
-        role: companyRole,
+        role: rol,
         role_title: roleTitle,
         picture,
         persisted,
+        nuevo: esNuevo,
+        token,
       },
-      message: persisted
-        ? 'Sesion iniciada y registrada en el CRM'
-        : 'Sesion local (base de datos no disponible)',
+      message: esNuevo
+        ? 'Cuenta creada. Un administrador te asigna rol y compañía.'
+        : (persisted ? 'Sesion iniciada' : 'Sesion local (base de datos no disponible)'),
       db_error: dbError || undefined,
     });
   } catch (e) {
@@ -200,26 +214,157 @@ try {
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-// JWT secret para validar token GIS
+// JWT secret: firma el TOKEN DE SESIÓN del hub (no sólo el viejo token admin).
 const JWT_SECRET = process.env.JWT_SECRET_KEY || 'atha-crm-admin-secret-key';
 
-// Middleware: autenticacion admin (valida token)
-const requireAdmin = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1] || req.query.token;
-  if (token) {
+// ---------------------------------------------------------------
+// IDENTIDAD DEL ECOSISTEMA · Tanda A (2026-09-24)
+//
+// ANTES: la identidad era un string que el cliente mandaba (`x-atha-email` o
+// `?email=`) y el servidor creía a ciegas → `curl -H 'x-atha-email: <admin>'`
+// era admin completo. Además `handleGoogleAuth` decodificaba el id_token SIN
+// verificar la firma. Auditoría completa:
+//   skills/atha-prod-hardening/references/auth-audit-and-single-use-ticket.md
+//
+// AHORA: el hub emite y verifica su PROPIO token (JWT firmado con JWT_SECRET).
+// La identidad verificada se inyecta en `x-atha-email`, así que las ~25 guardias
+// que ya existen (permisoAdmin, alcanceInventario, …) quedan correctas sin tocarlas.
+//
+// AUTH_MODO:
+//   'estricto' → SÓLO token del hub (o ticket canjeado). Es el objetivo.
+//   'mixto'    → acepta además el header/query viejo. Transición para no dejar
+//                afuera a los artefactos que todavía no canjean ticket.
+// ---------------------------------------------------------------
+const AUTH_MODO = String(process.env.AUTH_MODO || 'mixto').toLowerCase();
+const AUTH_ESTRICTO = AUTH_MODO === 'estricto';
+const SESION_TTL = process.env.SESION_TTL || '7d';
+const TICKET_TTL_SEG = Number(process.env.TICKET_TTL_SEG || 120);
+// Rol con el que ENTRA alguien nuevo: mínimo, sin compañía, sin permisos.
+// El rol real lo asigna un admin (o un director) en Administración.
+const ROL_ENTRADA = process.env.ROL_ENTRADA || 'explorador';
+
+/** Firma el token de sesión del hub para un usuario. */
+function firmarSesion(u) {
+  return jwt.sign(
+    {
+      email: String(u.email || '').toLowerCase(),
+      name: u.display_name || u.name || '',
+      role: u.role || ROL_ENTRADA,
+      role_title: u.role_title || '',
+      picture: u.picture || '',
+    },
+    JWT_SECRET,
+    { expiresIn: SESION_TTL }
+  );
+}
+
+/** Identidad VERIFICADA de la petición (token del hub), o null. */
+function identidadDe(req) {
+  const cab = String((req.headers && req.headers.authorization) || '');
+  if (cab.startsWith('Bearer ')) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      if (decoded && decoded.admin === true) {
-        req.user = decoded;
-        return next();
+      const d = jwt.verify(cab.slice(7).trim(), JWT_SECRET);
+      if (d && d.email) {
+        return { email: String(d.email).toLowerCase(), role: d.role || '', conToken: true };
       }
     } catch (e) {
-      // token invalido
+      /* token inválido o vencido: se sigue (si el modo lo permite) */
     }
   }
-  // Modo demo publico si no hay token
+  if (!AUTH_ESTRICTO) {
+    const correo = String(
+      (req.headers && req.headers['x-atha-email']) || (req.query && req.query.email) || ''
+    ).trim().toLowerCase();
+    if (correo) return { email: correo, role: '', conToken: false };
+  }
+  return null;
+}
+
+/** Email verificado de la sesión. Es lo que deben usar TODAS las guardias. */
+function emailDeSesion(req) {
+  if (req.identidad !== undefined) return req.identidad ? req.identidad.email : '';
+  const s = identidadDe(req);
+  return s ? s.email : '';
+}
+
+// Middleware de identidad: normaliza los DOS canales de identidad con el valor
+// verificado (o los borra). No toca `req.body`: hay entidades cuyo campo `email`
+// es un DATO del registro, no la identidad de quien llama.
+app.use((req, res, next) => {
+  const s = identidadDe(req);
+  req.identidad = s;
+  if (s) {
+    req.headers['x-atha-email'] = s.email;
+    if (req.query) req.query.email = s.email;
+  } else {
+    delete req.headers['x-atha-email'];
+    if (req.query && req.query.email !== undefined) req.query.email = '';
+  }
   next();
+});
+
+// Middleware: autenticación de administración. FALLA CERRADO.
+// Antes llamaba `next()` siempre ("modo demo público") → no protegía nada.
+const requireAdmin = async (req, res, next) => {
+  const correo = emailDeSesion(req);
+  if (!correo) return res.status(401).json({ success: false, error: 'Sesión requerida' });
+  try {
+    const [filas] = await getPool().execute(
+      'SELECT role FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [correo]
+    );
+    const rol = String((filas[0] && filas[0].role) || '').toLowerCase();
+    if (!filas.length || !['admin', 'director'].includes(rol)) {
+      return res.status(403).json({ success: false, error: 'Sólo administración' });
+    }
+    req.user = { email: correo, role: rol };
+    return next();
+  } catch (e) {
+    return res.status(503).json({ success: false, error: e.message });
+  }
 };
+
+/**
+ * Verifica un ID token de Google de verdad: firma + `aud` + `exp`.
+ *
+ * Antes sólo se hacía base64 del payload (`decodeJwtPayload`), así que un token
+ * con payload inventado entraba. Se usa el endpoint `tokeninfo` de Google, que
+ * valida la firma contra las claves públicas y devuelve el payload canónico:
+ * cero dependencias nuevas (el runtime instala con `--omit=dev`).
+ */
+async function verificarTokenGoogle(idToken) {
+  if (process.env.AUTH_VERIFICAR_GOOGLE === '0') {
+    console.warn('[auth] AUTH_VERIFICAR_GOOGLE=0 → token SIN verificar. NO usar en producción.');
+    return decodeJwtPayload(idToken);
+  }
+  try {
+    const r = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!r.ok) {
+      console.warn('[auth] tokeninfo rechazó el token:', r.status);
+      return null;
+    }
+    const p = await r.json();
+    if (GOOGLE_CLIENT_ID && p.aud !== GOOGLE_CLIENT_ID) {
+      console.warn('[auth] aud inesperado (no es nuestro cliente):', p.aud);
+      return null;
+    }
+    if (String(p.email_verified) === 'false') {
+      console.warn('[auth] email no verificado por Google:', p.email);
+      return null;
+    }
+    if (!p.exp || Date.now() / 1000 > Number(p.exp)) {
+      console.warn('[auth] token vencido');
+      return null;
+    }
+    return p;
+  } catch (e) {
+    console.warn('[auth] no se pudo verificar el token con Google:', e.message);
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------
 // AUTH (antes del proxy PHP, para que no lo intercepte)
@@ -232,15 +377,14 @@ app.post('/php/api.php', (req, res, next) => {
 app.post('/api/auth/google', handleGoogleAuth);
 
 app.get('/api/auth/me', async (req, res) => {
-  const email = String(req.query.email || '').toLowerCase().trim();
-  if (!email) return res.status(400).json({ success: false, error: 'Falta email' });
+  const email = emailDeSesion(req);
+  if (!email) return res.status(401).json({ success: false, error: 'Sesión requerida' });
   try {
     const db = getPool();
     const [rows] = await db.execute(
-      `SELECT u.id, u.email, u.display_name, u.picture, u.role_title, u.provider,
-              cm.role_in_company, cm.company_id
+      `SELECT u.id, u.email, u.display_name, u.picture, u.role, u.role_title, u.provider,
+              u.artist_kind
          FROM users u
-         LEFT JOIN company_members cm ON cm.user_id = u.id
         WHERE u.email = ? LIMIT 1`,
       [email]
     );
@@ -251,7 +395,98 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
-// Registro publico: SIEMPRE rol no-admin. Nadie puede auto-asignarse admin/owner.
+// ---------------------------------------------------------------------------
+// PERFIL Y PERMISOS DEL USUARIO DE LA SESIÓN
+//
+// Antes no existía: `/api/auth/me` devolvía 6 campos y UNA compañía (LIMIT 1),
+// así que no se podía pintar una pantalla de perfil. Acá va todo junto (usuario,
+// compañías por pertenencia y por nómina, disciplina, preferencias y capacidades).
+// La identidad es SIEMPRE la de la sesión: no hay `?email=` que pedir.
+// ---------------------------------------------------------------------------
+async function perfilDeSesion(req) {
+  const email = emailDeSesion(req);
+  if (!email) return null;
+  const db = getPool();
+  const [filas] = await db.execute(
+    `SELECT id, email, display_name, picture, role, role_title, artist_kind, provider, phone, bio_short
+       FROM users WHERE LOWER(email) = ? LIMIT 1`,
+    [email]
+  );
+  if (!filas.length) return null;
+  const u = filas[0];
+
+  let companias = [];
+  try {
+    const [mem] = await db.execute(
+      `SELECT cm.company_id, cm.role_in_company AS rol, c.name AS nombre
+         FROM company_members cm LEFT JOIN companies c ON c.id = cm.company_id
+        WHERE cm.user_id = ?`,
+      [u.id]
+    );
+    companias = companias.concat(mem.map((m) => ({
+      company_id: m.company_id, nombre: m.nombre || m.company_id,
+      rol: m.rol, origen: 'miembro',
+    })));
+  } catch { /* la tabla puede no estar */ }
+
+  try {
+    const [nom] = await db.execute(
+      `SELECT cp.company_id, cp.role_title AS cargo, cp.kind AS tipo, c.name AS nombre
+         FROM company_people cp LEFT JOIN companies c ON c.id = cp.company_id
+        WHERE LOWER(cp.email) = ?`,
+      [email]
+    );
+    companias = companias.concat(nom.map((n) => ({
+      company_id: n.company_id, nombre: n.nombre || n.company_id,
+      cargo: n.cargo, tipo: n.tipo, origen: 'nómina',
+    })));
+  } catch { /* la tabla puede existir sin columnas nuevas */ }
+
+  let preferencias = null;
+  try {
+    const [pref] = await db.execute(
+      'SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1',
+      [u.id]
+    );
+    if (pref.length && pref[0].preferences_json) {
+      preferencias = typeof pref[0].preferences_json === 'string'
+        ? JSON.parse(pref[0].preferences_json) : pref[0].preferences_json;
+    }
+  } catch { /* sin preferencias guardadas */ }
+
+  const alcance = await alcanceInventario(email);
+  const rol = String(u.role || '').toLowerCase();
+  return {
+    usuario: {
+      id: u.id, email: u.email, nombre: u.display_name, foto: u.picture,
+      rol, cargo: u.role_title, disciplina: u.artist_kind || null,
+      telefono: u.phone || null, bio: u.bio_short || null, proveedor: u.provider,
+    },
+    companias,
+    preferencias,
+    permisos: {
+      administracion: ['admin', 'director'].includes(rol),
+      inventario_total: !!alcance.total,
+      inventario_companias: alcance.companies || [],
+      puede_escribir_inventario: !!alcance.puedeEscribir,
+      motivo: alcance.motivo || '',
+    },
+  };
+}
+
+app.get('/api/v1/perfil', async (req, res) => {
+  try {
+    const email = emailDeSesion(req);
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+    const perfil = await perfilDeSesion(req);
+    if (!perfil) return res.status(404).json({ ok: false, error: 'Usuario no encontrado en el CRM' });
+    return res.json({ ok: true, ...perfil });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Registro público: SIEMPRE rol no-admin. Nadie puede auto-asignarse admin/owner.
 const REGISTER_ROLES = {
   artista: { user: 'artist', company: 'artist', label: 'Artista / Elenco' },
   productor: { user: 'producer', company: 'coordinator', label: 'Productor / Produccion' },
@@ -259,89 +494,207 @@ const REGISTER_ROLES = {
   cliente: { user: 'client', company: 'viewer', label: 'Cliente / Programador' },
 };
 
+/**
+ * SOLICITUD DE ACCESO · reemplaza al registro que daba sesión.
+ *
+ * El registro viejo era una escalada de privilegios: no pedía ninguna credencial
+ * (la tabla `users` no tiene password), y si el correo YA existía devolvía sesión
+ * de esa cuenta y le pisaba `display_name`, `role` y `role_title`. Escribir el
+ * correo del owner alcanzaba para entrar como admin.
+ *
+ * Ahora: se anota la solicitud y NO se otorga sesión, NO se crea usuario con rol,
+ * NO se toca ninguna fila existente. Para entrar hay que pasar por Google (que sí
+ * verifica el correo); el rol y la compañía los asigna un administrador.
+ */
+let tablaSolicitudesLista = false;
+async function asegurarTablaSolicitudes(db) {
+  if (tablaSolicitudesLista) return;
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS access_requests (
+       id          VARCHAR(40) PRIMARY KEY,
+       email       VARCHAR(255) NOT NULL,
+       display_name VARCHAR(255),
+       rol_pedido  VARCHAR(40),
+       estado      VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+       created_at  DATETIME NOT NULL,
+       KEY idx_access_requests_email (email)
+     )`
+  );
+  tablaSolicitudesLista = true;
+}
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const body = req.body || {};
     const email = String(body.email || '').toLowerCase().trim();
     const name = String(body.name || '').trim();
-    const requestedRole = String(body.role || 'Artista').trim();
-    const rawRole = requestedRole.toLowerCase();
+    const rolPedido = String(body.role || 'Artista').trim();
 
     if (!email || !name) {
       return res.status(400).json({ success: false, error: 'Faltan nombre o email' });
     }
-
-    const isOwner = OWNER_EMAILS.includes(email);
-    const map = REGISTER_ROLES[rawRole] || REGISTER_ROLES.artista;
-    const userRole = isOwner ? 'admin' : map.user;
-    const companyRole = isOwner ? 'owner' : map.company;
-    const roleTitle = isOwner ? 'Direccion General & Produccion Ejecutiva' : map.label;
-
-    let userId = null;
-    let persisted = false;
-    let existed = false;
-    let dbError = null;
-
-    try {
-      const db = getPool();
-      const [rows] = await db.execute('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
-
-      if (rows.length) {
-        userId = rows[0].id;
-        existed = true;
-        await db.execute(
-          'UPDATE users SET display_name = ?, role = ?, role_title = ?, updated_at = NOW() WHERE id = ?',
-          [name, userRole, roleTitle, userId]
-        );
-      } else {
-        userId = randomUUID();
-        await db.execute(
-          `INSERT INTO users (id, email, display_name, role, role_title, provider, public_profile, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, 0, NOW(), NOW())`,
-          [userId, email, name, userRole, roleTitle, body.provider || 'email']
-        );
-      }
-
-      const [member] = await db.execute(
-        'SELECT id, role_in_company FROM company_members WHERE user_id = ? AND company_id = ? LIMIT 1',
-        [userId, DEFAULT_COMPANY_ID]
-      );
-      if (member.length) {
-        if (isOwner && member[0].role_in_company !== 'owner') {
-          await db.execute('UPDATE company_members SET role_in_company = ? WHERE id = ?',
-            ['owner', member[0].id]);
-        }
-      } else {
-        const memberId = 'm_' + randomUUID().replace(/-/g, '').slice(0, 12);
-        await db.execute(
-          'INSERT INTO company_members (id, company_id, user_id, role_in_company, joined_at) VALUES (?, ?, ?, ?, NOW())',
-          [memberId, DEFAULT_COMPANY_ID, userId, companyRole]
-        );
-      }
-      persisted = true;
-    } catch (e) {
-      dbError = e.message;
-      console.warn('[register] BD no disponible:', e.message);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Email inválido' });
     }
 
+    const db = getPool();
+    const [existe] = await db.execute('SELECT id, role FROM users WHERE email = ? LIMIT 1', [email]);
+
+    await asegurarTablaSolicitudes(db);
+    await db.execute(
+      `INSERT INTO access_requests (id, email, display_name, rol_pedido, estado, created_at)
+       VALUES (?, ?, ?, ?, 'pendiente', NOW())`,
+      [`sol_${randomUUID().replace(/-/g, '').slice(0, 16)}`, email, name, rolPedido]
+    );
+
+    // NO se devuelve sesión y NO se modifica la cuenta existente (ni su rol).
     return res.json({
       success: true,
-      data: {
-        id: userId,
-        name,
-        email,
-        role: userRole,
-        role_title: roleTitle,
-        company_role: companyRole,
-        persisted,
-        existed,
-      },
-      message: existed ? 'Cuenta existente: sesion iniciada' : 'Cuenta creada',
-      db_error: dbError || undefined,
+      data: { solicitud: true, ya_existe: existe.length > 0 },
+      message: existe.length
+        ? 'Esa cuenta ya existe. Entrá con Google y un administrador ajusta tu rol.'
+        : 'Solicitud registrada. Entrá con Google; un administrador te habilita el rol.',
     });
   } catch (e) {
     console.error('[register] error:', e);
     return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// LA LLAVE · ticket de un solo uso (Tanda B)
+//
+// Reemplaza el SSO por query (`?auth=1&email=…&role=…`), que exponía la identidad
+// en la URL, el history, los logs y el Referer — y que además ya no funcionaba
+// porque cada artefacto leía una clave distinta (Planner: `fase_current_user`;
+// Ticketer: ninguna).
+//
+// Flujo:
+//   1. El CRM (mismo origen que el usuario) pide el ticket: POST /api/auth/ticket
+//      con la sesión puesta (Bearer). Vuelve un opaco de 32 bytes.
+//   2. El navegador abre el artefacto con `?t=<ticket>`. Nada más viaja en la URL.
+//   3. El artefacto lo canjea server-side: POST /api/auth/exchange { ticket }.
+//      El hub valida, QUEMA el ticket y devuelve el usuario + un TOKEN del hub.
+//   4. El artefacto usa ese token como `Authorization: Bearer` en sus llamadas.
+//
+// Propiedades: TTL corto, un solo uso, atado al destino, y el rol sale del hub
+// (nunca de un `?role=` que el usuario pueda editar).
+// ---------------------------------------------------------------------------
+let tablaTicketsLista = false;
+async function asegurarTablaTickets(db) {
+  if (tablaTicketsLista) return;
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS auth_tickets (
+       ticket    VARCHAR(64) PRIMARY KEY,
+       email     VARCHAR(255) NOT NULL,
+       destino   VARCHAR(40) NOT NULL,
+       emitido   DATETIME NOT NULL,
+       expira    DATETIME NOT NULL,
+       usado     TINYINT NOT NULL DEFAULT 0,
+       usado_en  DATETIME NULL,
+       KEY idx_auth_tickets_expira (expira)
+     )`
+  );
+  tablaTicketsLista = true;
+}
+
+// Los artefactos son OTRO origen: necesitan CORS en estos dos endpoints (y sólo
+// en éstos). El ticket es opaco, de un solo uso y de TTL corto: por eso `*` es
+// aceptable acá y no en el resto de la API.
+function corsArtefactos(res) {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Cache-Control', 'no-store');
+}
+app.options('/api/auth/ticket', (req, res) => { corsArtefactos(res); res.status(204).end(); });
+app.options('/api/auth/exchange', (req, res) => { corsArtefactos(res); res.status(204).end(); });
+
+/** Emite un ticket para un destino. Requiere sesión válida del hub. */
+app.post('/api/auth/ticket', async (req, res) => {
+  corsArtefactos(res);
+  try {
+    const email = emailDeSesion(req);
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+    const destino = String((req.body && req.body.destino) || req.query.destino || '')
+      .toLowerCase().trim();
+    if (!destino) return res.status(400).json({ ok: false, error: 'Falta destino' });
+
+    const db = getPool();
+    const [u] = await db.execute('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+    if (!u.length) return res.status(404).json({ ok: false, error: 'Usuario no registrado en el CRM' });
+
+    await asegurarTablaTickets(db);
+    try { await db.execute('DELETE FROM auth_tickets WHERE expira < NOW()'); } catch { /* limpieza oportunista */ }
+
+    const ticket = randomBytes(32).toString('hex');
+    await db.execute(
+      `INSERT INTO auth_tickets (ticket, email, destino, emitido, expira, usado)
+       VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? SECOND), 0)`,
+      [ticket, email, destino, TICKET_TTL_SEG]
+    );
+    return res.json({ ok: true, ticket, destino, expires_in: TICKET_TTL_SEG });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/** Canjea un ticket: un solo uso, atado al destino, TTL corto. */
+app.post('/api/auth/exchange', async (req, res) => {
+  corsArtefactos(res);
+  try {
+    const ticket = String((req.body && req.body.ticket) || req.query.t || '').trim();
+    const destino = String((req.body && req.body.destino) || req.query.destino || '')
+      .toLowerCase().trim();
+    if (!ticket) return res.status(400).json({ ok: false, error: 'Falta ticket' });
+
+    const db = getPool();
+    await asegurarTablaTickets(db);
+    const [rows] = await db.execute(
+      'SELECT ticket, email, destino, expira, usado FROM auth_tickets WHERE ticket = ? LIMIT 1',
+      [ticket]
+    );
+    if (!rows.length) return res.status(401).json({ ok: false, error: 'Ticket inexistente' });
+    const t = rows[0];
+    if (Number(t.usado) === 1) return res.status(401).json({ ok: false, error: 'Ticket ya usado' });
+    if (new Date(t.expira).getTime() < Date.now()) {
+      return res.status(401).json({ ok: false, error: 'Ticket vencido' });
+    }
+    if (destino && String(t.destino).toLowerCase() !== destino) {
+      return res.status(401).json({ ok: false, error: 'Ticket emitido para otro destino' });
+    }
+
+    // Se quema ANTES de entregar nada: si el UPDATE no afecta filas, otro canje
+    // ganó la carrera y este no entrega.
+    const [upd] = await db.execute(
+      'UPDATE auth_tickets SET usado = 1, usado_en = NOW() WHERE ticket = ? AND usado = 0',
+      [ticket]
+    );
+    if (!upd.affectedRows) return res.status(401).json({ ok: false, error: 'Ticket ya usado' });
+
+    const [filas] = await db.execute(
+      `SELECT id, email, display_name, picture, role, role_title, artist_kind
+         FROM users WHERE LOWER(email) = ? LIMIT 1`,
+      [String(t.email).toLowerCase()]
+    );
+    if (!filas.length) {
+      return res.status(404).json({ ok: false, error: 'El usuario del ticket no está en el CRM' });
+    }
+    const u = filas[0];
+    const token = firmarSesion({
+      email: u.email, display_name: u.display_name, role: u.role,
+      role_title: u.role_title, picture: u.picture,
+    });
+    return res.json({
+      ok: true,
+      token,
+      usuario: {
+        id: u.id, email: u.email, nombre: u.display_name, foto: u.picture,
+        rol: u.role, cargo: u.role_title, disciplina: u.artist_kind || null,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
@@ -2873,10 +3226,27 @@ const DESTINOS_PUENTE = {
   app: 'https://fase-mobile-897089213264.us-central1.run.app',
 };
 
+// ---------------------------------------------------------------------------
+// ¿QUÉ DESTINOS YA HABLAN LA LLAVE?
+//
+// El puente pasa a mandar `?t=<ticket>` en vez de `?auth=1&email=…&role=…`.
+// Un artefacto que todavía no sabe canjear el ticket NO puede recibir la URL
+// nueva: se quedaría sin sesión. Por eso la migración es por lista:
+// `DESTINOS_LLAVE=arquitecto,buscador` activa la llave sólo para ésos; el resto
+// sigue entrando por query mientras se los parchea, uno por uno.
+//
+// Vacío = nadie (comportamiento viejo intacto).
+// ---------------------------------------------------------------------------
+const DESTINOS_LLAVE = new Set(
+  String(process.env.DESTINOS_LLAVE || '')
+    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+);
+
 app.get('/puente', (req, res) => {
   const clave = String(req.query.destino || '').toLowerCase();
   const destino = DESTINOS_PUENTE[clave] || '/';
   const nombre = clave || 'el CRM';
+  const usarLlave = DESTINOS_LLAVE.has(clave);
   res.type('html').send(`<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -2895,9 +3265,55 @@ app.get('/puente', (req, res) => {
   <p>Usando tu sesión del CRM ATHA.</p>
 </div>
 <script>
-  var destino = ${JSON.stringify(destino)};
-  // Lee la sesión del CRM sea cual sea la clave usada y normaliza el formato.
-  function sesion() {
+  var URL_DESTINO = ${JSON.stringify(destino)};
+  var NOMBRE = ${nombre ? JSON.stringify(nombre) : '""'};
+  var DESTINO = ${JSON.stringify(clave)};
+  var USAR_LLAVE = ${usarLlave ? 'true' : 'false'};
+
+  function aviso(html) {
+    var c = document.getElementById('caja');
+    if (c) c.innerHTML = html;
+  }
+  function sinSesion() {
+    aviso('<h1>Necesitás iniciar sesión</h1>' +
+      '<p>Entrá al CRM ATHA con tu cuenta y esta página te lleva a ' + NOMBRE + ' automáticamente. ' +
+      'Si ya iniciaste sesión en otra pestaña, esperá unos segundos.</p>' +
+      '<a class="boton" href="/">Iniciar sesión en el CRM</a>');
+    var n = 0;
+    var t = setInterval(function () { if (intentar() || ++n > 150) clearInterval(t); }, 2000);
+  }
+  function abrirConTicket(ticket) {
+    location.replace(URL_DESTINO + (URL_DESTINO.indexOf('?') >= 0 ? '&' : '?') +
+      't=' + encodeURIComponent(ticket));
+  }
+
+  /* LLAVE: el token del hub vive en este mismo origen (lo dejó el login), así que
+     acá se pide un ticket de un solo uso y se viaja con eso. Nada de correo, rol
+     ni nombre en la URL. */
+  function tokenHub() {
+    try { return localStorage.getItem('atha_auth_token') || ''; } catch (e) { return ''; }
+  }
+  function irConLlave() {
+    var t = tokenHub();
+    if (!t) return false;
+    fetch('/api/auth/ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t },
+      body: JSON.stringify({ destino: DESTINO })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.ok && d.ticket) { abrirConTicket(d.ticket); return; }
+      aviso('<h1>No se pudo abrir</h1><p>' + ((d && d.error) || 'El hub rechazó la llave.') +
+        '</p><a class="boton" href="/">Volver al CRM</a>');
+    }).catch(function (e) {
+      aviso('<h1>No se pudo abrir</h1><p>' + e.message +
+        '</p><a class="boton" href="/">Volver al CRM</a>');
+    });
+    return true;
+  }
+
+  /* COMPATIBILIDAD: artefactos que todavía no canjean ticket. Lee la sesión del
+     CRM sea cual sea la clave usada y la reenvía por query (como antes). */
+  function sesionLegacy() {
     var claves = ['atha_user_session', 'user_session', 'user_profile'];
     for (var i = 0; i < claves.length; i++) {
       try {
@@ -2909,7 +3325,9 @@ app.get('/puente', (req, res) => {
     }
     return null;
   }
-  function ir(u) {
+  function irLegacy() {
+    var u = sesionLegacy();
+    if (!u || !u.email) return false;
     var q = new URLSearchParams();
     q.set('auth', '1');
     q.set('email', u.email || '');
@@ -2920,22 +3338,14 @@ app.get('/puente', (req, res) => {
     })(u.role));
     q.set('roleTitle', u.roleTitle || u.role_title || u.role || '');
     q.set('picture', u.avatar || u.picture || u.google_picture || '');
-    location.replace(destino + (destino.indexOf('?') >= 0 ? '&' : '?') + q.toString());
+    location.replace(URL_DESTINO + (URL_DESTINO.indexOf('?') >= 0 ? '&' : '?') + q.toString());
+    return true;
   }
+
   function intentar() {
-    var u = sesion();
-    if (u && u.email) { ir(u); return true; }
-    return false;
+    return USAR_LLAVE ? irConLlave() : irLegacy();
   }
-  if (!intentar()) {
-    document.getElementById('caja').innerHTML =
-      '<h1>Necesitás iniciar sesión</h1>' +
-      '<p>Entrá al CRM ATHA con tu cuenta y esta página te lleva a ${nombre} automáticamente. ' +
-      'Si ya iniciaste sesión en otra pestaña, esperá unos segundos.</p>' +
-      '<a class="boton" href="/">Iniciar sesión en el CRM</a>';
-    var n = 0;
-    var t = setInterval(function () { if (intentar() || ++n > 150) clearInterval(t); }, 2000);
-  }
+  if (!intentar()) sinSesion();
 </script></body></html>`);
 });
 
