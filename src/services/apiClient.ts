@@ -1,9 +1,22 @@
 /**
  * Servicio de Cliente API y Sincronización con CRM v1 (Cloud Run + Cloud SQL)
- * Rutea a: https://crm-v1-uc-897089213264.us-central1.run.app/api/v1/crm/*
+ * Rutea al HUB del CRM (atha-crm-web-frontend) por rutas relativas:
  */
 
-const CRM_BASE_URL = ((import.meta as any).env?.VITE_CRM_BASE_URL as string) || 'https://crm-v1-uc-897089213264.us-central1.run.app';
+// El CRM lo sirve el HUB: las rutas relativas van al hub (misma base y misma sesión).
+// Antes apuntaba a crm-v1-uc, un servicio aparte: los datos se duplicaban.
+import { leerSesionCrm } from '../utils/sesionEcosistema';
+
+const CRM_BASE_URL = '';
+
+/** Cabeceras de escritura: incluye la identidad del ecosistema (el hub la exige). */
+export function cabecerasSesion(): Record<string, string> {
+  const sesion = leerSesionCrm() as any;
+  const correo = String(sesion?.email || '').trim();
+  return correo
+    ? { 'Content-Type': 'application/json', 'x-atha-email': correo }
+    : { 'Content-Type': 'application/json' };
+}
 
 export interface SqlDataPayload {
   success: boolean;
@@ -41,29 +54,33 @@ export interface CloudSqlStatus {
 export async function checkCloudSqlStatus(): Promise<CloudSqlStatus> {
   const start = performance.now();
   try {
-    // Usar endpoint de entities del CRM v1 Cloud Run
-    const res = await fetch(`${CRM_BASE_URL}/api/v1/crm/entities`);
+    // Lee los endpoints REALES del hub (misma base que todo el ecosistema)
+    const [rp, rl, ri] = await Promise.all([
+      fetch(`${CRM_BASE_URL}/api/v1/crm/portfolio/projects`),
+      fetch(`${CRM_BASE_URL}/api/v1/crm/leads`),
+      fetch(`${CRM_BASE_URL}/api/v1/crm/inventario`),
+    ]);
     const latencyMs = Math.round(performance.now() - start);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    // Mapear entities → tables (formato CRM v1)
-    const entities = data.entities || {};
+    if (!rp.ok) throw new Error(`HTTP ${rp.status}`);
+    const dp = await rp.json();
+    const dl = rl.ok ? await rl.json() : {};
+    const di = ri.ok ? await ri.json() : {};
     return {
       status: 'online' as const,
       databaseEngine: 'MySQL (Cloud SQL)',
-      host: 'crm-v1-uc-897089213264.us-central1.run.app',
+      host: 'hub del CRM (atha-crm-web-frontend)',
       database: 'admin_crm',
       tables: {
-        obras: entities.projects || 0,
-        leads: entities.leads || 0,
-        rdProjects: entities.projects || 0,
-        venues: entities.venues || 0,
-        events: entities.events || 0,
-        inventory: entities.inventory || 0,
-        finances: entities.finance_records || 0,
-        processLogs: entities.process_logs || 0,
-        riders: entities.standard_riders || 0,
-        team: entities.users || 0,
+        obras: dp.total || (dp.projects || []).length,
+        leads: dl.total || (dl.leads || []).length,
+        rdProjects: dp.total || 0,
+        venues: 0,
+        events: 0,
+        inventory: di.total || 0,
+        finances: 0,
+        processLogs: 0,
+        riders: 0,
+        team: 0,
       },
       latencyMs,
     };
@@ -167,16 +184,16 @@ export async function fetchAllFromSql(): Promise<SqlDataPayload | null> {
  * Seed a Cloud SQL — ahora usa safe-seed-loader (nunca borra datos)
  */
 export async function seedCloudSql() {
-  const res = await fetch(`${CRM_BASE_URL}/api/v1/crm/seed`, { method: 'POST' });
-  if (!res.ok) throw new Error('Error al ejecutar el sembrador SQL');
-  return await res.json();
+  // El sembrador automático se retiró: los datos ahora se cargan desde el CRM
+  // (importación CSV/JSON en el propio hub) para no volver a meter datos inventados.
+  throw new Error('El sembrador se retiró: usá la importación del CRM o cargá los datos a mano.');
 }
 
 export async function saveObraToSql(obra: any) {
   try {
-    const res = await fetch('/api/obras', {
+    const res = await fetch('/api/v1/crm/portfolio/projects', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecerasSesion(),
       body: JSON.stringify(obra)
     });
     return await res.json();
@@ -187,9 +204,9 @@ export async function saveObraToSql(obra: any) {
 
 export async function saveLeadToSql(lead: any) {
   try {
-    const res = await fetch('/api/leads', {
+    const res = await fetch('/api/v1/crm/leads', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecerasSesion(),
       body: JSON.stringify(lead)
     });
     return await res.json();
@@ -201,7 +218,7 @@ export async function saveLeadToSql(lead: any) {
 /** Borra una obra del CRM (persistente) */
 export async function deleteObraFromSql(obraId: string) {
   try {
-    const res = await fetch(`/api/obras/${encodeURIComponent(obraId)}`, { method: 'DELETE' });
+    const res = await fetch(`/api/v1/crm/portfolio/projects/${encodeURIComponent(obraId)}`, { method: 'DELETE' });
     return await res.json();
   } catch (err) {
     console.warn('Could not delete obra from SQL:', err);
@@ -211,7 +228,7 @@ export async function deleteObraFromSql(obraId: string) {
 /** Borra un lead del CRM (persistente) */
 export async function deleteLeadFromSql(leadId: string) {
   try {
-    const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}`, { method: 'DELETE' });
+    const res = await fetch(`/api/v1/crm/leads/${encodeURIComponent(leadId)}`, { method: 'DELETE' });
     return await res.json();
   } catch (err) {
     console.warn('Could not delete lead from SQL:', err);
@@ -220,9 +237,9 @@ export async function deleteLeadFromSql(leadId: string) {
 
 export async function saveFinanceToSql(record: any) {
   try {
-    const res = await fetch('/api/finances', {
+    const res = await fetch('/api/v1/crm/finances', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecerasSesion(),
       body: JSON.stringify(record)
     });
     return await res.json();
@@ -233,9 +250,9 @@ export async function saveFinanceToSql(record: any) {
 
 export async function saveInventoryToSql(item: any) {
   try {
-    const res = await fetch('/api/inventory', {
+    const res = await fetch('/api/v1/crm/inventario/items', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cabecerasSesion(),
       body: JSON.stringify(item)
     });
     return await res.json();
@@ -276,7 +293,7 @@ export async function uploadImportFile(file: File, targetTable: string = 'obras'
           const parsed = JSON.parse(text);
           const res = await fetch(`/api/import?table=${encodeURIComponent(targetTable)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: cabecerasSesion(),
             body: JSON.stringify(parsed)
           });
           const result = await res.json();
@@ -300,7 +317,7 @@ export async function uploadImportFile(file: File, targetTable: string = 'obras'
 
           const res = await fetch(`/api/import?table=${encodeURIComponent(targetTable)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: cabecerasSesion(),
             body: JSON.stringify({ targetTable, items })
           });
           const result = await res.json();
@@ -400,7 +417,7 @@ export async function fetchSqlTableRows(
 export async function saveSqlTableRow(table: string, row: Record<string, any>): Promise<any> {
   const res = await fetch('/api/sql/row', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: cabecerasSesion(),
     body: JSON.stringify({ table, row }),
   });
   const data = await res.json();
@@ -416,7 +433,7 @@ export async function saveSqlTableRow(table: string, row: Record<string, any>): 
 export async function deleteSqlTableRow(table: string, id: string | number): Promise<boolean> {
   const res = await fetch('/api/sql/row', {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
+    headers: cabecerasSesion(),
     body: JSON.stringify({ table, id }),
   });
   const data = await res.json();
@@ -432,7 +449,7 @@ export async function deleteSqlTableRow(table: string, id: string | number): Pro
 export async function executeSqlConsoleQuery(query: string): Promise<SqlQueryResponse> {
   const res = await fetch('/api/sql/query', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: cabecerasSesion(),
     body: JSON.stringify({ query }),
   });
   const data = await res.json();

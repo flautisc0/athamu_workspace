@@ -26,7 +26,6 @@ import {
   CompaniasSection,
   initialCompaniesData
 } from './components/sections/CompaniasSection';
-import { PlanificacionCalendarioSection } from './components/sections/PlanificacionCalendarioSection';
 import { VentasSection } from './components/sections/VentasSection';
 import {
   initialObras,
@@ -76,28 +75,58 @@ import {
 // Sections
 import { DashboardSection } from './components/sections/DashboardSection';
 import { CatalogoObrasSection } from './components/sections/CatalogoObrasSection';
-import { ProyectosIDSection } from './components/sections/ProyectosIDSection';
 import { CrmLeadsSection } from './components/sections/CrmLeadsSection';
-import { CalendarioSection } from './components/sections/CalendarioSection';
-import { CalculadoraEstrenosSection } from './components/sections/CalculadoraEstrenosSection';
 import { EquipoSection } from './components/sections/EquipoSection';
 import { VenuesSection } from './components/sections/VenuesSection';
 import { InventarioSection } from './components/sections/InventarioSection';
 import { FinanzasSection } from './components/sections/FinanzasSection';
-import { DiarioProcesoSection } from './components/sections/DiarioProcesoSection';
 import { RidersSection } from './components/sections/RidersSection';
-import { AcercaSection } from './components/sections/AcercaSection';
 import { EcosistemaSection } from './components/sections/EcosistemaSection';
-import { PlannerSection } from './components/sections/PlannerSection';
+import { AccesoAppReal } from './components/sections/AccesoAppReal';
 import { ArquitectoProyectosSection } from './components/sections/ArquitectoProyectosSection';
 import { AdminSection } from './components/sections/AdminSection';
-import { PerfilPortafolioSection } from './components/sections/PerfilPortafolioSection';
 
 export type ThemeMode = 'terracota' | 'dia';
 
 export default function App() {
   // Navigation
   const [activeSection, setActiveSection] = useState<string>('inicio');
+
+  // ── ACCESOS DESDE LA APP MÓVIL ──────────────────────────────────────────────
+  // ?ir=<seccion> abre directo esa sección y ?email= adopta la identidad del
+  // explorador, así se entra al CRM ya logueado (un solo login en el ecosistema).
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const ir = String(q.get('ir') || '').trim();
+      const seccionesValidas = ['inicio', 'companias', 'obras', 'crm', 'ventas',
+        'venues', 'inventario', 'finanzas', 'riders', 'equipo',
+        'planner', 'arquitecto', 'ecosistema', 'admin'];
+      if (ir && seccionesValidas.includes(ir)) setActiveSection(ir);
+      const email = String(q.get('email') || '').trim();
+      if (email.includes('@')) {
+        const actual = loadFromStorage<any>(STORAGE_KEYS.USER_PROFILE, null);
+        if (!actual || String(actual.email || '').toLowerCase() !== email.toLowerCase()) {
+          const usuario = {
+            id: String(q.get('id') || ''),
+            email: email.toLowerCase(),
+            name: String(q.get('nombre') || email.split('@')[0]),
+            role: String(q.get('rol') || 'cliente'),
+            role_title: String(q.get('cargo') || ''),
+            avatar: String(q.get('foto') || ''),
+            provider: 'google' as const,
+          };
+          saveToStorage(STORAGE_KEYS.USER_PROFILE, usuario);
+          guardarSesionCompartida(usuario);
+        }
+      }
+      if (ir || email) window.history.replaceState({}, '', window.location.pathname);
+    } catch (e) {
+      console.warn('No se pudo aplicar el acceso directo:', e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   // Theme: Terracota (dark) vs Día (white) - Default: Día (Light)
@@ -238,12 +267,12 @@ export default function App() {
   useEffect(() => {
     fetchAllFromSql().then(res => {
       if (res && res.success) {
-        if (res.obras && res.obras.length > 0) setObras(res.obras);
-        if (res.leads && res.leads.length > 0) setLeads(res.leads);
-        if (res.finances && res.finances.length > 0) setFinances(res.finances);
-        if (res.inventory && res.inventory.length > 0) setInventory(res.inventory);
-        if (res.venues && res.venues.length > 0) setVenues(res.venues);
-        if (res.events && res.events.length > 0) setEvents(res.events);
+        setObras(res.obras || []);          // lo real manda, aunque venga vacío
+        setLeads(res.leads || []);
+        setFinances(res.finances || []);
+        setInventory(res.inventory || []);
+        setVenues(res.venues || []);
+        setEvents(res.events || []);
       }
     }).catch(err => {
       console.warn('Initial SQL fetch skipped:', err);
@@ -655,28 +684,10 @@ export default function App() {
           />
         )}
 
-        {activeSection === 'perfil' && (
-          <PerfilPortafolioSection
-            currentUser={currentUser}
-            onUpdateUser={handleUpdateUser}
-            theme={theme}
-          />
-        )}
-
         {activeSection === 'companias' && (
           <CompaniasSection
             companies={companies}
             onUpdateCompanies={handleUpdateCompanies}
-            theme={theme}
-          />
-        )}
-
-        {activeSection === 'calendario-planificacion' && (
-          <PlanificacionCalendarioSection
-            events={events}
-            obras={obras}
-            reminders={reminders}
-            onUpdateEvents={(evs) => setEvents(evs)}
             theme={theme}
           />
         )}
@@ -689,25 +700,9 @@ export default function App() {
           />
         )}
 
-        {activeSection === 'planner' && (
-          <PlannerSection
-            obras={obras}
-            events={events}
-            venues={venues}
-            onNavigateSection={handleNavigateSection}
-            theme={theme}
-          />
-        )}
+        {activeSection === 'planner' && (<AccesoAppReal destino="planner" theme={theme} />)}
 
-        {activeSection === 'arquitecto' && (
-          <ArquitectoProyectosSection
-            obras={obras}
-            leads={leads}
-            venues={venues}
-            onNavigateSection={handleNavigateSection}
-            theme={theme}
-          />
-        )}
+        {activeSection === 'arquitecto' && (<AccesoAppReal destino="arquitecto" theme={theme} />)}
 
         {activeSection === 'admin' && (
           <AdminSection
@@ -738,17 +733,6 @@ export default function App() {
           />
         )}
 
-        {activeSection === 'id' && (
-          <ProyectosIDSection
-            projects={rdProjects}
-            onUpdateProjectProgress={handleUpdateProjectProgress}
-            onSaveProject={handleSaveRdProject}
-            onDeleteProject={handleDeleteRdProject}
-            onNavigateSection={handleNavigateSection}
-            theme={theme}
-          />
-        )}
-
         {activeSection === 'crm' && (
           <CrmLeadsSection
             leads={leads}
@@ -756,26 +740,6 @@ export default function App() {
             onEditLead={(lead) => setEditingLead(lead)}
             onDeleteLead={handleDeleteLead}
             theme={theme}
-          />
-        )}
-
-        {activeSection === 'calendario-planificacion' && (
-          <CalendarioSection
-            events={events}
-            obras={obras}
-            onAddEvent={handleAddEvent}
-            onSaveEvent={handleSaveEvent}
-            onDeleteEvent={handleDeleteEvent}
-          />
-        )}
-
-        {activeSection === 'calculadora' && (
-          <CalculadoraEstrenosSection
-            obras={obras}
-            artists={artists}
-            onUpdateArtistAvailability={handleUpdateArtistAvailability}
-            onAddArtist={handleAddArtist}
-            onDeleteArtist={handleDeleteArtist}
           />
         )}
 
@@ -814,29 +778,12 @@ export default function App() {
           />
         )}
 
-        {activeSection === 'diario' && (
-          <DiarioProcesoSection
-            logs={processLogs}
-            obras={obras}
-            onAddLog={handleAddProcessLog}
-            onSaveLog={handleSaveProcessLog}
-            onDeleteLog={handleDeleteProcessLog}
-          />
-        )}
-
         {activeSection === 'riders' && (
           <RidersSection
             riders={riders}
             obras={obras}
             onSaveRider={handleSaveRider}
             onDeleteRider={handleDeleteRider}
-          />
-        )}
-
-        {activeSection === 'acerca' && (
-          <AcercaSection
-            info={aboutInfo}
-            onSaveInfo={handleSaveAboutInfo}
           />
         )}
 

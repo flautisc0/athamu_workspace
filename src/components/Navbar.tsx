@@ -143,18 +143,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Direct visible navigation items
   const directNavItems = [
     { id: 'inicio', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'perfil', label: 'Perfil & Portafolio', icon: Award },
     { id: 'companias', label: 'Compañías / Agrupaciones', icon: Users },
     { id: 'obras', label: 'Catálogo Obras', icon: Drama, badge: counts.obras },
     { id: 'crm', label: 'CRM Leads', icon: Users2, badge: counts.leads },
-    { id: 'calendario', label: 'Planificación', icon: CalendarDays, badge: counts.events },
     { id: 'ventas', label: 'Ventas & Pitching', icon: Send },
-    { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd },
     { id: 'venues', label: 'Salas & Venues', icon: Building2 },
     { id: 'inventario', label: 'Inventario Backline', icon: PackageCheck, badge: counts.inventory },
     { id: 'finanzas', label: 'Finanzas & Rendiciones', icon: ReceiptText },
     { id: 'riders', label: 'Riders Técnicos', icon: FileSpreadsheet },
-    { id: 'diario', label: 'Diario Proceso', icon: BookOpenText },
+    { id: 'planner', label: 'Planner', icon: CalendarDays, badge: 'App' },
+    { id: 'arquitecto', label: 'Arquitecto', icon: FlaskConical, badge: 'App' },
     { id: 'ecosistema', label: 'Ecosistema ATHA', icon: Workflow },
     { id: 'admin', label: 'Administración', icon: Shield }
   ];

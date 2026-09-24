@@ -55,6 +55,34 @@ navegador de ese usuario). Hay datos reales (los que sí devuelve la API) mezcla
 4. **Aviso honesto al fallar un guardado**: hoy falla en silencio (`console.warn`); debe
    mostrar el error al usuario (regla: persistencia con confirmación visible).
 
+## DECISIÓN (2026-09-24): de 20 secciones a 14
+
+Criterio acordado con Francisco: **menos es más**, un sistema compacto y funcional entre sí.
+
+**Se eliminaron 6** (por solapamiento con apps reales o por ser pantallas duplicadas):
+
+| Sección eliminada | Motivo | Queda cubierta por |
+|---|---|---|
+| Calendario / Planificación | Es la función del **Planner** | acceso al Planner (app real) |
+| Calculadora de estrenos | Solapa con Arquitecto y Finanzas | Arquitecto (app real) / Finanzas |
+| Proyectos I+D | Es postulación a fondos | Buscador de Fondos (app real) |
+| Acerca (identidad de marca) | Duplicaba Administración | Administración |
+| Perfil / Portafolio | Duplica la persona en Equipo | Equipo |
+| Diario de proceso | Bitácora sin uso | — |
+
+**Se convirtieron en ACCESO a las apps reales** (no se eliminan): **Planner** y **Arquitecto**
+(se entra con la sesión puesta, indicando que son aplicaciones aparte con su propio repo).
+
+**Quedan 14 secciones:**
+
+- **Núcleo (se conectan al hub)**: Inicio · Compañías · Obras · Leads · Ventas · Salas ·
+  Inventario · Finanzas · Riders · Equipo
+- **Servicios**: Ecosistema (lanzador de artefactos) · Administración
+- **Accesos a apps reales**: Planner · Arquitecto
+
+**Pendiente**: Inicio (Dashboard) todavía muestra métricas mezcladas (localStorage/mock):
+hay que conectarlo al hub igual que las demás antes de darlo por cerrado.
+
 ## Orden sugerido (por valor y esfuerzo)
 
 1. `obras` + `crm` (leads) → **arreglar las escrituras** a las rutas reales del hub (rápido, alto valor).

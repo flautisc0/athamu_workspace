@@ -90,17 +90,14 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       name: 'Dirección & Creación',
       items: [
         { id: 'obras', label: 'Catálogo de Obras', icon: Drama, badge: counts.obras, accentColor: 'var(--accent-terracota)' },
-        { id: 'arquitecto', label: 'Arquitecto de Proyectos', icon: Compass, accentColor: '#38bdf8' },
-        { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd, accentColor: '#a78bfa' }
+        { id: 'arquitecto', label: 'Arquitecto de Proyectos', icon: Compass, accentColor: '#38bdf8' }
       ]
     },
     {
       name: 'Operaciones & Ensayos',
       items: [
         { id: 'planner', label: 'Planner Escénico & Giras', icon: CalendarDays, badge: 'Giras', accentColor: 'var(--accent-terracota)' },
-        { id: 'crm', label: 'CRM / Leads de Salas', icon: Users2, badge: counts.leads, accentColor: '#fbbf24' },
-        { id: 'calendario', label: 'Planificación & Agenda', icon: CalendarDays, badge: counts.events, accentColor: '#38bdf8' },
-        { id: 'diario', label: 'Diario de Proceso', icon: BookOpenText, accentColor: '#fbbf24' }
+        { id: 'crm', label: 'CRM / Leads de Salas', icon: Users2, badge: counts.leads, accentColor: '#fbbf24' }
       ]
     },
     {
@@ -116,8 +113,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       name: 'Administración del Sitio',
       items: [
         { id: 'admin', label: 'Consola de Administración', icon: Shield, badge: 'Admin', accentColor: 'var(--accent-terracota)' },
-        { id: 'sql-hub', label: 'Base de Datos SQL & Archivos PHP', icon: Database, badge: 'PostgreSQL', accentColor: '#34d399' },
-        { id: 'acerca', label: 'Identidad F.A.S.E (Manual de Marca)', icon: Info, accentColor: '#fbbf24' }
+        { id: 'sql-hub', label: 'Base de Datos SQL & Archivos PHP', icon: Database, badge: 'PostgreSQL', accentColor: '#34d399' }
       ]
     },
     {

@@ -155,10 +155,10 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   type="button"
-                  onClick={() => onNavigateSection('perfil')}
+                  onClick={() => onNavigateSection('obras')}
                   className="px-4 py-2.5 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-semibold shadow-lg shadow-[var(--accent-terracota)]/20 transition-all cursor-pointer flex items-center gap-2"
                 >
-                  <span>Ver Perfil & Portafolio Completo</span>
+                  <span>Ver Catálogo de Obras</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -284,9 +284,9 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
           </div>
         </div>
 
-        {/* Metric 2: Proyectos I+D */}
+        {/* Metric 2: Finanzas */}
         <div
-          onClick={() => onNavigateSection('id')}
+          onClick={() => onNavigateSection('finanzas')}
           className={`p-5 rounded-2xl border transition-all cursor-pointer group ${
             isLight
               ? 'bg-white border-[var(--border-color)] hover:border-sky-500/40 shadow-xs'
