@@ -1369,6 +1369,12 @@ app.post('/api/v1/crm/radar/descubrimientos', async (req, res) => {
       [userId, `FASE-EXP-${Math.floor(Math.random() * 9000) + 1000}`, RADAR_XP_DESCUBRIR, nivelPorXp(RADAR_XP_DESCUBRIR)]
     );
     const [desc] = await db.execute('SELECT * FROM radar_discoveries WHERE id = ? LIMIT 1', [id]);
+    const insignias = await otorgarInsignias(userId);
+    // en vivo: el mapa de todos muestra el nodo recién descubierto
+    radarEmitir('descubrimiento', {
+      node_id: nodeId, user_id: userId, discovery_number: numero,
+      xp: RADAR_XP_DESCUBRIR, insignias: insignias.map((b) => b.name),
+    });
     return res.json({
       ok: true,
       repetido: false,
@@ -1490,6 +1496,57 @@ app.post('/api/v1/crm/radar/rutas', async (req, res) => {
 // por usuario y objetivo.
 // ---------------------------------------------------------------------------
 const REACCIONES = ['like', 'inspire', 'fire', 'star', 'clap'];
+
+/* ---------------------------------------------------------------------------
+   RADAR EN VIVO · canal de eventos (Server-Sent Events)
+   El hub empuja cada cambio del radar a todos los conectados: así el feed, los
+   contadores de reacciones y los descubrimientos se actualizan sin recargar.
+   La app se suscribe con EventSource y reconecta sola si se corta.
+--------------------------------------------------------------------------- */
+const radarSuscriptores = new Set();
+
+function radarEmitir(tipo, datos) {
+  if (!radarSuscriptores.size) return;
+  const payload = `event: ${tipo}\ndata: ${JSON.stringify({ tipo, datos, ts: Date.now() })}\n\n`;
+  for (const cliente of [...radarSuscriptores]) {
+    try {
+      cliente.write(payload);
+    } catch (e) {
+      radarSuscriptores.delete(cliente);
+    }
+  }
+}
+
+app.get('/api/v1/crm/radar/stream', (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  if (res.flushHeaders) res.flushHeaders();
+  // saludo inicial: el cliente sabe que quedó conectado
+  res.write(`event: conectado\ndata: ${JSON.stringify({ ok: true, ts: Date.now() })}\n\n`);
+  radarSuscriptores.add(res);
+  // latido para que proxies y móviles no cierren la conexión
+  const latido = setInterval(() => {
+    try {
+      res.write(': latido\n\n');
+    } catch (e) {
+      clearInterval(latido);
+      radarSuscriptores.delete(res);
+    }
+  }, 25000);
+  req.on('close', () => {
+    clearInterval(latido);
+    radarSuscriptores.delete(res);
+  });
+});
+
+// Estado del canal (útil para diagnóstico y para la app)
+app.get('/api/v1/crm/radar/stream/estado', (req, res) => {
+  res.json({ ok: true, conectados: radarSuscriptores.size });
+});
 
 /** Otorga las insignias que correspondan según la actividad del explorador. */
 async function otorgarInsignias(userId) {
@@ -1637,6 +1694,11 @@ app.post('/api/v1/crm/radar/posts', async (req, res) => {
       [id, userId, b.node_id || b.nodeId || null, b.type || (media ? 'photo' : 'text'), media, b.caption || null, status]
     );
     const insignias = await otorgarInsignias(userId);
+    // en vivo: el feed de todos los conectados recibe la publicación
+    radarEmitir('post_nuevo', {
+      id, node_id: b.node_id || b.nodeId || null, caption: b.caption || null,
+      media_url: media, status, autor: { id: userId, name: b.name || null },
+    });
     return res.json({ ok: true, id, status, media_url: media, insignias });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
@@ -1659,13 +1721,13 @@ app.post('/api/v1/crm/radar/posts/:id/comentarios', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, 'approved')`,
       [id, userId, post[0].node_id, req.params.id, String(b.content).slice(0, 2000)]
     );
-    return res.json({
-      ok: true,
-      comentario: {
-        id, content: String(b.content), created_at: new Date().toISOString(),
-        autor: { id: userId, name: b.name || email.split('@')[0], avatar: null },
-      },
-    });
+    const comentario = {
+      id, content: String(b.content), created_at: new Date().toISOString(),
+      autor: { id: userId, name: b.name || email.split('@')[0], avatar: null },
+    };
+    // en vivo: aparece el comentario en el feed de todos
+    radarEmitir('comentario', { post_id: req.params.id, node_id: post[0].node_id, ...comentario });
+    return res.json({ ok: true, comentario });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
   }
@@ -1688,16 +1750,19 @@ app.post('/api/v1/crm/radar/reacciones', async (req, res) => {
     );
     if (ya.length && ya[0].reaction_type === tipo) {
       await db.execute('DELETE FROM radar_reactions WHERE id = ?', [ya[0].id]);
+      radarEmitir('reaccion', { target_type: targetType, target_id: target, accion: 'quitada', reaction_type: null });
       return res.json({ ok: true, accion: 'quitada', reaction_type: null });
     }
     if (ya.length) {
       await db.execute('UPDATE radar_reactions SET reaction_type = ? WHERE id = ?', [tipo, ya[0].id]);
+      radarEmitir('reaccion', { target_type: targetType, target_id: target, accion: 'cambiada', reaction_type: tipo });
       return res.json({ ok: true, accion: 'cambiada', reaction_type: tipo });
     }
     await db.execute(
       'INSERT INTO radar_reactions (id, user_id, target_type, target_id, reaction_type) VALUES (?, ?, ?, ?, ?)',
       [`rx_${randomUUID().slice(0, 8)}`, userId, targetType, target, tipo]
     );
+    radarEmitir('reaccion', { target_type: targetType, target_id: target, accion: 'puesta', reaction_type: tipo });
     return res.json({ ok: true, accion: 'puesta', reaction_type: tipo });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
