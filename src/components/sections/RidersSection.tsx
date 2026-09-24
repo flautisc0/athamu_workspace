@@ -150,7 +150,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
           <button
             type="button"
             onClick={handleOpenNew}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#a78bfa] hover:bg-[#9061f9] text-[#0f1115] font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#a78bfa] hover:bg-[#9061f9] text-[var(--bg-base)] font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Nuevo Rider</span>
@@ -172,7 +172,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
         {riders.map((rider) => (
           <div
             key={rider.id}
-            className="p-6 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-5 shadow-lg group relative"
+            className="p-6 rounded-2xl bg-[var(--bg-surface)] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-5 shadow-lg group relative"
           >
             <div className="space-y-4">
               
@@ -214,14 +214,14 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
               </p>
 
               {/* Key Specs list */}
-              <div className="p-3.5 rounded-xl bg-[#12141a] border border-white/5 space-y-2">
-                <span className="text-[10px] uppercase font-semibold text-[#6ee7b7] block font-mono">
+              <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-white/5 space-y-2">
+                <span className="text-[10px] uppercase font-semibold text-[var(--accent-2)] block font-mono">
                   Especificaciones Técnicas Clave:
                 </span>
                 <ul className="space-y-1.5 text-xs text-slate-300">
                   {rider.keySpecs.map((spec, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#6ee7b7] shrink-0 mt-1.5" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-2)] shrink-0 mt-1.5" />
                       <span className="leading-relaxed">{spec}</span>
                     </li>
                   ))}
@@ -266,8 +266,8 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
       {/* Modal Crear / Editar Rider */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-2xl bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
-            <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
+          <div className="relative w-full max-w-2xl bg-[var(--bg-surface)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
+            <div className="px-6 py-4 border-b border-white/10 bg-[var(--bg-surface)] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#a78bfa]" />
                 <h3 className="text-base font-semibold text-white">
@@ -295,7 +295,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                     value={formData.title || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Ej: Rider Estándar Teatro de Sala"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
                   />
                 </div>
 
@@ -306,7 +306,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                   <select
                     value={formData.category || 'Teatro de Sala'}
                     onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
                   >
                     <option value="Teatro de Sala">Teatro de Sala</option>
                     <option value="Danza & Performance">Danza & Performance</option>
@@ -327,7 +327,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                     value={formData.version || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                     placeholder="2025.2"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa] font-mono"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa] font-mono"
                   />
                 </div>
 
@@ -340,7 +340,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                     value={formData.pdfFileTitle || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, pdfFileTitle: e.target.value }))}
                     placeholder="RIDER_SALA_2025.pdf"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa] font-mono text-xs"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa] font-mono text-xs"
                   />
                 </div>
 
@@ -353,7 +353,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                     value={formData.technicalDirector || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, technicalDirector: e.target.value }))}
                     placeholder="Rodrigo Astudillo"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
                   />
                 </div>
               </div>
@@ -367,7 +367,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                   value={formData.description || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Resumen del montaje técnico y condiciones indispensables del recinto..."
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
+                  className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#a78bfa]"
                 />
               </div>
 
@@ -380,7 +380,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                   value={specsText}
                   onChange={(e) => setSpecsText(e.target.value)}
                   placeholder="Escenario mínimo: 10m boca x 8m fondo.&#10;Consola digital de al menos 32 canales.&#10;Piso de madera sin clavos ni desniveles."
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-[#a78bfa] font-mono leading-relaxed"
+                  className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-[#a78bfa] font-mono leading-relaxed"
                 />
               </div>
 
@@ -394,7 +394,7 @@ Contacto Técnico ATHA: contacto@athaproducciones.cl | +56 9 8456 1120
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#a78bfa] hover:bg-[#9061f9] rounded-lg shadow cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[#a78bfa] hover:bg-[#9061f9] rounded-lg shadow cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{editingRider ? 'Guardar Cambios' : 'Crear Rider'}</span>

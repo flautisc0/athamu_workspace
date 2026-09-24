@@ -16,21 +16,33 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-4xl max-h-[92vh] bg-[#161920] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200 my-auto">
+      <div className="relative w-full max-w-4xl max-h-[92vh] bg-[var(--bg-surface)] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200 my-auto">
         
         {/* Modal Top Bar */}
-        <div className="no-print flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141a]">
+        <div className="no-print flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[var(--bg-surface)]">
           <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md bg-[#E05A47]/15 text-[#FF6B4A] border border-[#E05A47]/30">
+            <span className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md bg-[var(--accent-terracota)]/15 text-[var(--accent-glow)] border border-[var(--accent-terracota)]/30">
               Dossier Oficial F.A.S.E
             </span>
             <span className="text-xs text-slate-400">PDF / Formato Impresión A4</span>
           </div>
 
           <div className="flex items-center gap-2">
+            {obra.dossierPdf && (
+              <a
+                href={obra.dossierPdf}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-200 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors"
+                title="Abrir el dossier PDF completo"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Dossier PDF</span>
+              </a>
+            )}
             <button
               onClick={handlePrint}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#E05A47] hover:bg-[#FF6B4A] rounded-lg transition-colors shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] rounded-lg transition-colors shadow-sm cursor-pointer"
               title="Imprimir o Guardar como PDF"
             >
               <Printer className="w-4 h-4" />
@@ -46,12 +58,12 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
         </div>
 
         {/* Printable Content Body */}
-        <div className="p-6 md:p-10 overflow-y-auto space-y-8 bg-[#161920]">
+        <div className="p-6 md:p-10 overflow-y-auto space-y-8 bg-[var(--bg-surface)]">
           
           {/* Header Section */}
           <div className="border-b border-white/10 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 text-[#FF6B4A] text-xs uppercase tracking-widest font-mono font-medium mb-2">
+              <div className="flex items-center gap-2 text-[var(--accent-glow)] text-xs uppercase tracking-widest font-mono font-medium mb-2">
                 <FaseLogo variant="horizontal" size="xs" showTagline={false} />
                 <span>•</span>
                 <span>Catálogo Escénico Oficial</span>
@@ -103,7 +115,7 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
                   <ul className="space-y-1.5 text-xs text-slate-300">
                     {obra.dossierHighlights.map((hl, i) => (
                       <li key={i} className="flex items-start gap-2">
-                        <span className="text-[#6ee7b7]">•</span>
+                        <span className="text-[var(--accent-2)]">•</span>
                         <span>{hl}</span>
                       </li>
                     ))}
@@ -116,8 +128,8 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
           {/* Ficha Artística y Técnica en 2 Columnas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/10">
             {/* Ficha Artística */}
-            <div className="p-5 rounded-xl bg-[#12141a] border border-white/5 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#6ee7b7]">
+            <div className="p-5 rounded-xl bg-[var(--bg-surface)] border border-white/5 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-2)]">
                 <Users className="w-4 h-4" />
                 <span>Equipo Artístico & Elenco</span>
               </div>
@@ -148,7 +160,7 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
             </div>
 
             {/* Rider & Especificaciones Técnicas */}
-            <div className="p-5 rounded-xl bg-[#12141a] border border-white/5 space-y-3">
+            <div className="p-5 rounded-xl bg-[var(--bg-surface)] border border-white/5 space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-[#38bdf8]">
                 <Sliders className="w-4 h-4" />
                 <span>Requerimientos Técnicos Básicos</span>
@@ -181,7 +193,7 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
           </div>
 
           {/* Economía y Condiciones de Contratación */}
-          <div className="p-5 rounded-xl bg-gradient-to-r from-emerald-950/20 to-cyan-950/20 border border-[#6ee7b7]/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="p-5 rounded-xl bg-gradient-to-r from-emerald-950/20 to-cyan-950/20 border border-[var(--accent-2)]/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[#fbbf24]">
                 <DollarSign className="w-4 h-4" />
@@ -193,7 +205,7 @@ export const DossierModal: React.FC<DossierModalProps> = ({ obra, onClose }) => 
             </div>
             <div className="text-right whitespace-nowrap">
               <span className="text-xs text-slate-400 block">Caché función única:</span>
-              <span className="text-xl font-bold text-[#6ee7b7] font-mono">
+              <span className="text-xl font-bold text-[var(--accent-2)] font-mono">
                 {formatCLP(obra.economics.feeCLP)} + IVA
               </span>
             </div>

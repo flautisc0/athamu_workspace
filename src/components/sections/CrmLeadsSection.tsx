@@ -62,7 +62,7 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className={`flex items-center gap-2 text-xs font-mono uppercase tracking-wider ${
-            isDia ? 'text-[#C84835]' : 'text-[#fbbf24]'
+            isDia ? 'text-[var(--accent-terracota)]' : 'text-[#fbbf24]'
           }`}>
             <span>4. CRM / Leads Escénicos</span>
             <span>•</span>
@@ -84,8 +84,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
           onClick={onOpenNewLead}
           className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap ${
             isDia
-              ? 'bg-[#E05A47] hover:bg-[#C84835] text-white'
-              : 'bg-[#fbbf24] hover:bg-[#f59e0b] text-[#0f1115]'
+              ? 'bg-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)] text-white'
+              : 'bg-[#fbbf24] hover:bg-[#f59e0b] text-[var(--bg-base)]'
           }`}
         >
           <Plus className="w-4 h-4" />
@@ -96,8 +96,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
       {/* Filter and stats row */}
       <div className={`p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 transition-colors ${
         isDia
-          ? 'bg-white border border-[#E5DDD8] shadow-sm'
-          : 'bg-[#161920] border border-white/10'
+          ? 'bg-white border border-[var(--border-color)] shadow-sm'
+          : 'bg-[var(--bg-surface)] border border-white/10'
       }`}>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto flex-1">
           {/* Search */}
@@ -112,8 +112,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
               placeholder="Buscar contacto o sala..."
               className={`w-full pl-9.5 pr-4 py-2.5 text-xs rounded-xl transition-all focus:outline-none ${
                 isDia
-                  ? 'bg-[#FAF7F5] border border-[#E5DDD8] text-stone-900 placeholder-stone-400 focus:bg-white focus:border-[#E05A47] focus:ring-2 focus:ring-[#E05A47]/10'
-                  : 'bg-[#0f1115] border border-white/10 text-white placeholder-slate-400 focus:border-[#fbbf24]'
+                  ? 'bg-[var(--bg-base)] border border-[var(--border-color)] text-stone-900 placeholder-stone-400 focus:bg-white focus:border-[var(--accent-terracota)] focus:ring-2 focus:ring-[var(--accent-terracota)]/10'
+                  : 'bg-[var(--bg-base)] border border-white/10 text-white placeholder-slate-400 focus:border-[#fbbf24]'
               }`}
             />
           </div>
@@ -124,8 +124,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
             onChange={(e) => setSelectedType(e.target.value)}
             className={`w-full sm:w-auto px-3 py-2.5 text-xs rounded-xl transition-colors focus:outline-none ${
               isDia
-                ? 'bg-[#FAF7F5] border border-[#E5DDD8] text-stone-800 focus:bg-white focus:border-[#E05A47]'
-                : 'bg-[#0f1115] border border-white/10 text-white focus:border-[#fbbf24]'
+                ? 'bg-[var(--bg-base)] border border-[var(--border-color)] text-stone-800 focus:bg-white focus:border-[var(--accent-terracota)]'
+                : 'bg-[var(--bg-base)] border border-white/10 text-white focus:border-[#fbbf24]'
             }`}
           >
             <option value="all">Todos los Tipos</option>
@@ -142,8 +142,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
             onChange={(e) => setSelectedStatus(e.target.value)}
             className={`w-full sm:w-auto px-3 py-2.5 text-xs rounded-xl transition-colors focus:outline-none ${
               isDia
-                ? 'bg-[#FAF7F5] border border-[#E5DDD8] text-stone-800 focus:bg-white focus:border-[#E05A47]'
-                : 'bg-[#0f1115] border border-white/10 text-white focus:border-[#fbbf24]'
+                ? 'bg-[var(--bg-base)] border border-[var(--border-color)] text-stone-800 focus:bg-white focus:border-[var(--accent-terracota)]'
+                : 'bg-[var(--bg-base)] border border-white/10 text-white focus:border-[#fbbf24]'
             }`}
           >
             <option value="all">Todos los Estados</option>
@@ -158,7 +158,7 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
           isDia ? 'text-stone-600' : 'text-slate-400'
         }`}>
           <span>Total en vista: </span>
-          <span className={`font-bold ${isDia ? 'text-[#C84835]' : 'text-[#fbbf24]'}`}>
+          <span className={`font-bold ${isDia ? 'text-[var(--accent-terracota)]' : 'text-[#fbbf24]'}`}>
             {formatCLP(totalPipelineCLP)}
           </span>
           <span> ({filteredLeads.length} contactos)</span>
@@ -196,8 +196,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
               key={lead.id}
               className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md ${
                 isDia
-                  ? 'bg-white border-[#E5DDD8] hover:border-[#E05A47]/40'
-                  : 'bg-[#161920] border-white/10 hover:border-white/20'
+                  ? 'bg-white border-[var(--border-color)] hover:border-[var(--accent-terracota)]/40'
+                  : 'bg-[var(--bg-surface)] border-white/10 hover:border-white/20'
               }`}
             >
               <div className="space-y-3">
@@ -239,7 +239,7 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
                   {lead.email && (
                     <div className="flex items-center gap-2 truncate">
                       <Mail className={`w-3.5 h-3.5 ${isDia ? 'text-stone-400' : 'text-slate-400'}`} />
-                      <a href={`mailto:${lead.email}`} className={`truncate ${isDia ? 'hover:text-[#C84835]' : 'hover:text-white'}`}>
+                      <a href={`mailto:${lead.email}`} className={`truncate ${isDia ? 'hover:text-[var(--accent-terracota)]' : 'hover:text-white'}`}>
                         {lead.email}
                       </a>
                     </div>
@@ -255,8 +255,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
                 {/* Notes */}
                 <p className={`text-xs leading-relaxed p-3 rounded-xl border ${
                   isDia
-                    ? 'bg-[#FAF7F5] border-[#EADFD8] text-stone-700'
-                    : 'bg-[#12141a] border-white/5 text-slate-300'
+                    ? 'bg-[var(--bg-base)] border-[#EADFD8] text-stone-700'
+                    : 'bg-[var(--bg-surface)] border-white/5 text-slate-300'
                 }`}>
                   {lead.notes}
                 </p>
@@ -264,7 +264,7 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
 
               {/* Footer with value & actions */}
               <div className={`pt-3 border-t flex items-center justify-between ${
-                isDia ? 'border-[#E5DDD8]' : 'border-white/10'
+                isDia ? 'border-[var(--border-color)]' : 'border-white/10'
               }`}>
                 <div>
                   <span className={`text-[10px] block font-mono ${
@@ -273,7 +273,7 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
                     Valor Estimado
                   </span>
                   <span className={`text-xs font-bold font-mono ${
-                    isDia ? 'text-[#C84835]' : 'text-[#fbbf24]'
+                    isDia ? 'text-[var(--accent-terracota)]' : 'text-[#fbbf24]'
                   }`}>
                     {formatCLP(lead.estimatedValueCLP)}
                   </span>
@@ -317,8 +317,8 @@ export const CrmLeadsSection: React.FC<CrmLeadsSectionProps> = ({
       {filteredLeads.length === 0 && (
         <div className={`p-12 text-center rounded-2xl border space-y-3 ${
           isDia
-            ? 'bg-white border-[#E5DDD8] shadow-sm'
-            : 'bg-[#161920] border-white/10'
+            ? 'bg-white border-[var(--border-color)] shadow-sm'
+            : 'bg-[var(--bg-surface)] border-white/10'
         }`}>
           <Users2 className={`w-12 h-12 mx-auto ${isDia ? 'text-stone-400' : 'text-slate-400'}`} />
           <h3 className={`text-sm font-semibold ${isDia ? 'text-stone-800' : 'text-white'}`}>No se encontraron contactos</h3>

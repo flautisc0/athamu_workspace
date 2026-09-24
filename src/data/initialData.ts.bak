@@ -21,7 +21,341 @@ import {
  */
 
 // 1. CATÁLOGO DE OBRAS (Mínimo 8-11 obras chilenas realistas)
-export const INITIAL_OBRAS: Obra[] = [];
+export const INITIAL_OBRAS: Obra[] = [
+  {
+    id: 'obra-01',
+    title: 'La Memoria de las Aguas',
+    discipline: 'Danza',
+    format: 'Caja Negra / Sala Principal',
+    duration: '65 min',
+    targetAudience: '+14 años',
+    status: 'En gira',
+    synopsis: 'Pieza coreográfica contemporánea que investiga la relación entre la sequía en la cuenca del Río Aconcagua, el cuerpo femenino y los rituales ancestrales de rogativa de lluvia en la zona central de Chile.',
+    castTeam: {
+      direction: 'Jo Schultz',
+      cast: ['Catalina Valenzuela', 'Ignacio Araya', 'Tamara Gómez', 'Matías Cárdenas', 'Fernanda Sepúlveda'],
+      music: 'Nicolás Ortiz (Diseño sonoro en vivo)',
+      technical: 'Antonia Fernández (Diseño de iluminación & espacio)'
+    },
+    technicalRider: {
+      minStageWidthMeters: 10,
+      minStageDepthMeters: 9,
+      lighting: 'Parrilla DMX 24 canales, 12 fresneles 1kW, 8 elipsoidales ETC Source Four 36°, 4 varas LED RGBW.',
+      sound: 'Sistema PA estéreo L-Acoustics o d&b, 4 monitores de piso, 2 micros ambientales Shure KSM137, interfaz Apollo x8.',
+      loadInHours: 6,
+      crewRequired: 4
+    },
+    economics: {
+      feeCLP: 3800000,
+      ticketSplitEstimatedCLP: 5200000,
+      productionCostCLP: 8900000
+    },
+    premiereDate: '12 de Octubre 2024 (Teatro Biobío)',
+    image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Premio Círculo de Críticos de Arte de Chile (Mención Danza)',
+      'Seleccionada para Festival Internacional Santiago a Mil 2025',
+      'Elenco de 5 intérpretes + músico en vivo y técnico residente'
+    ],
+    notes: 'Disponible para giras nacionales e internacionales. Adaptable a espacios patrimoniales con piso linóleo propio.'
+  },
+  {
+    id: 'obra-02',
+    title: 'Cordillera Eléctrica',
+    discipline: 'Música',
+    format: 'Sala Grande / Concierto Electroacústico',
+    duration: '80 min',
+    targetAudience: 'Todo espectador',
+    status: 'En repertorio',
+    synopsis: 'Ensamble de cuerdas folclóricas chilenas (charango, cuatro, tiple) fusionado con sintetizadores análogos modulares y grabaciones de campo del altiplano y la Patagonia chilena.',
+    castTeam: {
+      direction: 'Nicolás Ortiz',
+      cast: ['Nicolás Ortiz', 'Camila Rivas (Charango & Tiple)', 'Javier Mancilla (Cello)', 'Paz Troncoso (Percusión latinoamericana)'],
+      music: 'Composición original de Nicolás Ortiz & Ensamble ATHA',
+      technical: 'Tomás Verdugo (Ingeniero FOH)'
+    },
+    technicalRider: {
+      minStageWidthMeters: 8,
+      minStageDepthMeters: 6,
+      lighting: 'Iluminación cálida teatral, 6 móviles Wash, niebla ligera constante.',
+      sound: 'Consola digital Midas M32 o Allen&Heath SQ6, 8 líneas directas DI Radial, 4 micros DPA 4099.',
+      loadInHours: 4,
+      crewRequired: 3
+    },
+    economics: {
+      feeCLP: 2900000,
+      ticketSplitEstimatedCLP: 4500000,
+      productionCostCLP: 6200000
+    },
+    premiereDate: '24 de Noviembre 2024 (GAM Sala A1)',
+    image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Gira financiada por Fondo de la Música 2024',
+      'Álbum disponible en vinilo y plataformas digitales con más de 180k reproducciones',
+      'Rider liviano y altamente transportable para festivales de formato medio'
+    ],
+    notes: 'Cuenta con visuales reactivas sincronizadas vía MIDI/TouchDesigner.'
+  },
+  {
+    id: 'obra-03',
+    title: 'Los Nadies del Salitre',
+    discipline: 'Teatro',
+    format: 'Sala Grande / Escenario a la Italiana',
+    duration: '90 min',
+    targetAudience: '+14 años',
+    status: 'En repertorio',
+    synopsis: 'Drama histórico-poético sobre las familias obreras de la pampa salitrera de Tarapacá en 1907. Una reconstrucción coral basada en testimonios orales, cartas y canciones obreras recopiladas en archivos de Iquique y Antofagasta.',
+    castTeam: {
+      direction: 'Francisco Pérez',
+      cast: ['Rodrigo Soto', 'Daniela Lhorente', 'Esteban Cerda', 'Paulina Eguiluz', 'Alonso Quintero'],
+      music: 'Nicolás Ortiz & Coro Popular',
+      technical: 'Antonia Fernández (Dirección de arte y técnica)'
+    },
+    technicalRider: {
+      minStageWidthMeters: 12,
+      minStageDepthMeters: 10,
+      lighting: 'Escenario teatral completo, 16 fresneles, 12 recortes, 6 perfiles LED, ciclorama blanco de fondo.',
+      sound: '5 micrófonos inalámbricos diadema Sennheiser EW-D, ambientación de sala 5.1 surround.',
+      loadInHours: 8,
+      crewRequired: 5
+    },
+    economics: {
+      feeCLP: 5500000,
+      ticketSplitEstimatedCLP: 7800000,
+      productionCostCLP: 14500000
+    },
+    premiereDate: '15 de Enero 2024 (Matucana 100)',
+    image: 'https://images.unsplash.com/photo-1469488865564-c2de10f69f96?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Temporada agotada en Matucana 100 con 14 funciones consecutivas',
+      'Premio Mejor Montaje Teatral Regional en FONDART',
+      'Escenografía modular que se pliega en 1 camión de 5 toneladas'
+    ],
+    notes: 'Requiere vara motorizada para el izamiento del telón de yute de 10 metros.'
+  },
+  {
+    id: 'obra-04',
+    title: 'Bitácora del Viento Sur',
+    discipline: 'Interdisciplinar',
+    format: 'Espacio Público / Domo Inmersivo',
+    duration: '50 min',
+    targetAudience: 'Familiar',
+    status: 'En gira',
+    synopsis: 'Instalación performática al aire libre con marionetas gigantes de tela liviana, acrobacia en tela aérea y relatos orales del archipiélago de Chiloé y Magallanes.',
+    castTeam: {
+      direction: 'Jo Schultz & Francisco Pérez',
+      cast: ['Belén Carmona', 'Gaspar Henríquez', 'Loreto Díaz', 'Simón Barraza'],
+      music: 'Nicolás Ortiz (Banda de bronces y percusión)',
+      technical: 'Antonia Fernández & Equipo Rigging ATHA'
+    },
+    technicalRider: {
+      minStageWidthMeters: 14,
+      minStageDepthMeters: 12,
+      lighting: 'Estructura truss autónoma 4x4m, luminarias IP65 para intemperie, generador 25kVA.',
+      sound: 'Sistema de audio perimetral de alta dispersión para 600 personas.',
+      loadInHours: 7,
+      crewRequired: 6
+    },
+    economics: {
+      feeCLP: 4200000,
+      ticketSplitEstimatedCLP: 6000000,
+      productionCostCLP: 9500000
+    },
+    premiereDate: '03 de Febrero 2024 (Plaza Sotomayor, Valparaíso)',
+    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Más de 12.000 espectadores en gira por 6 comunas de la Región de Los Lagos',
+      'No requiere sala cerrada, totalmente adaptable a parques y costaneras',
+      'Taller de mediación comunitaria previo a cada función'
+    ],
+    notes: 'Cuenta con seguro contra accidentes y certificado SEC para instalación eléctrica autónoma.'
+  },
+  {
+    id: 'obra-05',
+    title: 'Volcánica: Rituales del Fuego',
+    discipline: 'Danza',
+    format: 'Caja Negra',
+    duration: '70 min',
+    targetAudience: '+14 años',
+    status: 'En producción',
+    synopsis: 'Solo de danza y percusión en vivo inspirado en la tectónica de placas y el cordón de fuego andino. Una experiencia física visceral de resistencia y transformación mineral.',
+    castTeam: {
+      direction: 'Jo Schultz',
+      cast: ['Jo Schultz (Intérprete solista)'],
+      music: 'Álvaro Pacheco (Percusión acústica & electrónica)',
+      technical: 'Antonia Fernández (Espacio escénico de ceniza volcánica)'
+    },
+    technicalRider: {
+      minStageWidthMeters: 9,
+      minStageDepthMeters: 8,
+      lighting: 'Piso negro mate, linóleo de alta densidad, 8 tubos LED Titan Astera, 4 luces de recorte cenital.',
+      sound: 'Sistema cuadrafónico inmersivo con subwoofer reforzado.',
+      loadInHours: 5,
+      crewRequired: 3
+    },
+    economics: {
+      feeCLP: 2800000,
+      ticketSplitEstimatedCLP: 3900000,
+      productionCostCLP: 5100000
+    },
+    premiereDate: 'Mayo 2025 (Parque Cultural de Valparaíso)',
+    image: 'https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Residencia de creación en PCDV Valparaíso y Nave Santiago',
+      'Formato unipersonal con alta viabilidad de exportación internacional',
+      'Uso de sensores de movimiento que modulan el sonido en tiempo real'
+    ],
+    notes: 'Utiliza carbón vegetal desactivado inocuo sobre el piso escénico. Requiere protocolo de aspirado post-función.'
+  },
+  {
+    id: 'obra-06',
+    title: 'Frecuencia Maule: Crónicas de la Niebla',
+    discipline: 'Música',
+    format: 'Íntimo / Concierto Teatralizado',
+    duration: '60 min',
+    targetAudience: 'Todo espectador',
+    status: 'Estreno',
+    synopsis: 'Homenaje musical y narrativo a las estaciones de radio AM rurales del Valle Central chileno en las décadas de los 70 y 80, integrando cuentería campesina, tonadas y radioteatro en vivo.',
+    castTeam: {
+      direction: 'Francisco Pérez & Nicolás Ortiz',
+      cast: ['Héctor Morales (Narrador / Locutor)', 'María José Quintanilla (Voz invitada)', 'Trío de Guitarras del Maule'],
+      music: 'Arreglos de Nicolás Ortiz sobre recopilación de Margot Loyola',
+      technical: 'Felipe Canales'
+    },
+    technicalRider: {
+      minStageWidthMeters: 8,
+      minStageDepthMeters: 5,
+      lighting: 'Ambiente nostálgico ámbar, lámparas de tungsteno vintage funcionales, 4 perfiles.',
+      sound: '6 micrófonos Shure 55SH Serie II (vintage look), mesa analógica con procesador de válvulas.',
+      loadInHours: 3.5,
+      crewRequired: 2
+    },
+    economics: {
+      feeCLP: 3200000,
+      ticketSplitEstimatedCLP: 4800000,
+      productionCostCLP: 5800000
+    },
+    premiereDate: '28 de Marzo 2025 (Teatro Regional del Maule)',
+    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Co-producción con el Teatro Regional del Maule',
+      'Incluye exposición itinerante de radios antiguas en el foyer del teatro',
+      'Transmisión radial simultánea para comunidades rurales sin acceso digital'
+    ],
+    notes: 'Listo para programar en la Red de Salas de Teatro de Chile.'
+  },
+  {
+    id: 'obra-07',
+    title: 'Antígona en el Desierto',
+    discipline: 'Teatro',
+    format: 'Espacio no convencional / Sitio Específico',
+    duration: '85 min',
+    targetAudience: '+16 años',
+    status: 'En producción',
+    synopsis: 'Reescritura del clásico de Sófocles situada en una salitrera abandonada del desierto de Atacama, explorando las búsquedas de las mujeres de Calama y la memoria de los cuerpos que el viento no deja olvidar.',
+    castTeam: {
+      direction: 'Francisco Pérez',
+      cast: ['Claudia Di Girolamo', 'Francisco Melo', 'Ignacia Baeza', 'Gabriel Urzúa'],
+      music: 'Nicolás Ortiz (Composición para chelo y quena procesada)',
+      technical: 'Antonia Fernández (Diseño de antorchas y luz de descarga solar)'
+    },
+    technicalRider: {
+      minStageWidthMeters: 15,
+      minStageDepthMeters: 15,
+      lighting: 'Iluminación basada en proyectores LED autónomos a batería y lámparas de sodio.',
+      sound: 'Sistema de audio distribuido con microfonía omnidireccional resistente al polvo y viento.',
+      loadInHours: 8,
+      crewRequired: 6
+    },
+    economics: {
+      feeCLP: 6800000,
+      ticketSplitEstimatedCLP: 9500000,
+      productionCostCLP: 18000000
+    },
+    premiereDate: 'Septiembre 2025 (Desierto de Atacama / Centro Cultural Baquedano)',
+    image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Proyecto apoyado por Fondo Bicentenario de Creación Artística',
+      'Equipo interdisciplinario con arqueólogos y agrupaciones de memoria de Antofagasta',
+      'Documental del proceso creativo en coproducción con TVN y UCHILE'
+    ],
+    notes: 'Requiere logística de traslados 4x4 y carpas de producción para condiciones de intemperie desértica.'
+  },
+  {
+    id: 'obra-08',
+    title: 'Festival Umbral de las Artes',
+    discipline: 'Festival',
+    format: 'Multi-sala / Espacio Urbano',
+    duration: '3 días continuos',
+    targetAudience: 'Todo espectador',
+    status: 'I+D',
+    synopsis: 'Festival bienal curado y producido integralmente por ATHA Producciones que reúne a más de 20 agrupaciones escénicas independientes de las regiones de Valparaíso, O\'Higgins y Maule con cruces tecnológicos y música popular.',
+    castTeam: {
+      direction: 'Equipo Directivo ATHA (Pérez, Schultz, Fernández, Ortiz)',
+      cast: ['Más de 85 artistas y creadores convocados'],
+      music: 'Programación de 12 bandas y ensambles acústicos',
+      technical: 'Equipo Técnico Central ATHA (18 profesionales técnicos)'
+    },
+    technicalRider: {
+      minStageWidthMeters: 18,
+      minStageDepthMeters: 14,
+      lighting: '3 escenarios simultáneos con riders homologados tipo festival.',
+      sound: 'Sistemas line-array principales para 2500 personas por escenario.',
+      loadInHours: 24,
+      crewRequired: 22
+    },
+    economics: {
+      feeCLP: 28000000,
+      ticketSplitEstimatedCLP: 42000000,
+      productionCostCLP: 55000000
+    },
+    premiereDate: 'Enero 2026 (Parque Quinta Normal & Matucana)',
+    image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Modelo de gestión asociativo con 4 salas de Santiago poniente',
+      'Plataforma de vinculación para programadores de Mercartes y Santiago a Mil',
+      '100% compensación de huella de carbono y gestión de residuos'
+    ],
+    notes: 'En etapa de postulación a Fondart Nacional Trayectoria y auspicios privados bajo Ley de Donaciones Culturales.'
+  },
+  {
+    id: 'obra-09',
+    title: 'Geografía del Gesto',
+    discipline: 'Danza',
+    format: 'Caja Negra / Formato Medio',
+    duration: '55 min',
+    targetAudience: '+12 años',
+    status: 'En repertorio',
+    synopsis: 'Investigación física sobre los movimientos laborales tradicionales de Chile: la cosecha del trigo a hoz, la tejeduría a telar mapuche y la boga de los pescadores artesanales de Calbuco.',
+    castTeam: {
+      direction: 'Jo Schultz',
+      cast: ['Claudio Puebla', 'Paula Sacur', 'Francisca Silva', 'David Dinamarca'],
+      music: 'Nicolás Ortiz (Fusión cuerdas y samples de oficios)',
+      technical: 'Antonia Fernández'
+    },
+    technicalRider: {
+      minStageWidthMeters: 10,
+      minStageDepthMeters: 8,
+      lighting: 'Parrilla teatral básica, 10 focos PAR LED, 6 recortes.',
+      sound: 'Sistema estéreo de buena calidad, 2 micrófonos inalámbricos de solapa.',
+      loadInHours: 4,
+      crewRequired: 2
+    },
+    economics: {
+      feeCLP: 2600000,
+      ticketSplitEstimatedCLP: 3500000,
+      productionCostCLP: 4700000
+    },
+    premiereDate: 'Agosto 2024 (Centro Cultural GAM)',
+    image: 'https://images.unsplash.com/photo-1518834107812-67b0b7c58434?auto=format&fit=crop&w=1200&q=80',
+    dossierHighlights: [
+      'Obra altamente solicitada por colegios artísticos y liceos municipales',
+      'Incluye cuaderno pedagógico descargable elaborado por el Ministerio de las Culturas',
+      'Fácil montaje en gimnasios acondicionados o teatros provinciales'
+    ],
+    notes: 'Apta para itinerancias escolares y festivales universitarios.'
+  }
+];
 
 // 2. EQUIPO DIRECTIVO Y FUNDADORES (Los 4 socios fundadores de ATHA)
 export const INITIAL_TEAM: TeamMember[] = [
@@ -31,7 +365,7 @@ export const INITIAL_TEAM: TeamMember[] = [
     role: 'Socio Fundador',
     title: 'Director General & Productor Ejecutivo',
     bio: 'Actor y Gestor Cultural de la Universidad de Chile con más de 16 años liderando festivales y montajes teatrales en Chile y el Cono Sur. Especialista en financiamiento cultural (FONDART, Ley de Donaciones), convenios con teatros públicos y alianzas internacionales.',
-    image: 'https://storage.googleapis.com/atha-crm-obras-897089213264/equipo/francisco-perez.jpg',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
     email: 'francisco@athaproducciones.cl',
     phone: '+56 9 8452 1190',
     location: 'Santiago, Chile',
@@ -44,7 +378,7 @@ export const INITIAL_TEAM: TeamMember[] = [
     role: 'Socia Fundadora',
     title: 'Directora Creativa & Coreógrafa',
     bio: 'Bailarina, coreógrafa y máster en Artes Escénicas de la Universidad Católica. Ha dirigido piezas premiadas internacionalmente en festivales de Alemania, España y Brasil. Su sello integra la dramaturgia del cuerpo con debates ecológicos y territorio.',
-    image: 'https://storage.googleapis.com/atha-crm-obras-897089213264/equipo/jo-schultz.jpg',
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
     email: 'jo.schultz@athaproducciones.cl',
     phone: '+56 9 9341 8722',
     location: 'Valparaíso / Santiago',
@@ -57,7 +391,7 @@ export const INITIAL_TEAM: TeamMember[] = [
     role: 'Socia Fundadora',
     title: 'Directora de Producción Técnica & Iluminación',
     bio: 'Diseñadora teatral y master en tecnología lumínica de la Universidad de Chile. Ha sido jefa técnica en recintos como Matucana 100 y Teatro Biobío. Supervisa el cumplimiento de riders, logística de transportes, seguridad escénica y sostenibilidad técnica de ATHA.',
-    image: 'https://storage.googleapis.com/atha-crm-obras-897089213264/equipo/antonia-fernandez.jpg',
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
     email: 'antonia@athaproducciones.cl',
     phone: '+56 9 7619 4401',
     location: 'Santiago, Chile',
@@ -70,7 +404,7 @@ export const INITIAL_TEAM: TeamMember[] = [
     role: 'Socio Fundador',
     title: 'Director Musical & Curaduría Sonora',
     bio: 'Compositor, multi-instrumentista e ingeniero acústico de la Universidad Austral de Chile. Experto en diseño sonoro inmersivo, sintetizadores análogos y rescate organológico latinoamericano. Responsable de la identidad sonora de todas las producciones de la casa.',
-    image: 'https://storage.googleapis.com/atha-crm-obras-897089213264/equipo/nicolas-ortiz.jpg',
+    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
     email: 'nicolas@athaproducciones.cl',
     phone: '+56 9 6183 9934',
     location: 'Concepción / Santiago',

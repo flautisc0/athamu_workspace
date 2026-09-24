@@ -149,6 +149,42 @@ Revisión: `artha-arquitecto-00002-8nf`. Repo/deploy: `/home/flautisc0/deploy-ar
 (`user-01` Francisco, `user-02` Jo Schultz…) con correos y fotos antiguas.
 Se dejó intacto por riesgo (su login depende de esa lista).
 
+### Alcance por usuario (permisos de inventario)
+
+**Regla**: el inventario de una compañía lo ve **administración** y quien
+**pertenece a esa compañía en un rol de producción o técnico**. Un artista / el
+elenco / alguien de otra compañía **no lo ve**.
+
+Se resuelve en el hub con `alcanceInventario(email)`:
+
+1. `users.role` = `admin`/`director` → **todas** las compañías.
+2. `company_members` con `role_in_company` ∈ (`owner`,`coordinator`,`director`) →
+   esa compañía.
+3. `company_people` (nómina, por correo): `kind = 'equipo'` **o** un cargo que
+   matchee producción/técnico/luminaria/sonido/operación/vestuario/utilería/…
+   (regex `CARGO_GESTION`) → esa compañía.
+4. Si no cumple nada → **sin acceso** (la sección muestra un aviso, no la lista).
+
+Aplicado también en **escritura**: `permisoEscritura()` valida la compañía en
+altas, ediciones, borrados y subida de fotos (403 si no corresponde).
+`GET /inventario` devuelve `alcance` (total / companies / puede_escribir / motivo)
+y responde 403 si se pide una compañía ajena.
+
+Verificado con usuarios de prueba:
+
+| Usuario | Resultado |
+|---|---|
+| admin | 11 compañías |
+| productor de ATHA | sólo Compañía Teatral ATHA |
+| técnico de ATHA Kids | sólo ATHA Kids |
+| artista (elenco) | sin acceso |
+| no registrado | sin acceso |
+| técnico pidiendo ATHA | HTTP 403 |
+
+En la interfaz: aviso de alcance arriba ("Administración: ves todas" /
+"Acceso por pertenencia: ves X"), botones de escritura **ocultos** cuando es sólo
+lectura y pantalla de "No tenés acceso al inventario" cuando no corresponde.
+
 ## INVENTARIO / BACKLINE · Etapas 1 y 2 (2026-09-23, noche)
 
 **Concepto implementado**: inventario organizado por **CAJAS** (lo que sale a

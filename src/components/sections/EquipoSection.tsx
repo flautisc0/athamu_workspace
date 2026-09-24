@@ -98,7 +98,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
 
         <button
           onClick={handleOpenAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#fbbf24] hover:bg-[#f59e0b] text-[#0f1115] font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#fbbf24] hover:bg-[#f59e0b] text-[var(--bg-base)] font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Nuevo Miembro</span>
@@ -110,7 +110,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
         {team.map((member) => (
           <div
             key={member.id}
-            className="p-6 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-5 shadow-lg group relative"
+            className="p-6 rounded-2xl bg-[var(--bg-surface)] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-5 shadow-lg group relative"
           >
             <div className="space-y-4">
               
@@ -120,14 +120,14 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                   <img
                     src={member.image}
                     alt={member.name}
-                    className="w-20 h-20 rounded-2xl object-cover border-2 border-white/10 group-hover:border-[#6ee7b7] transition-colors shrink-0 shadow-md"
+                    className="w-20 h-20 rounded-2xl object-cover border-2 border-white/10 group-hover:border-[var(--accent-2)] transition-colors shrink-0 shadow-md"
                     referrerPolicy="no-referrer"
                   />
                   <div className="space-y-1">
                     <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-[#fbbf24]/15 text-[#fbbf24] border border-[#fbbf24]/30">
                       {member.role}
                     </span>
-                    <h3 className="text-lg font-bold text-white tracking-tight group-hover:text-[#6ee7b7] transition-colors">
+                    <h3 className="text-lg font-bold text-white tracking-tight group-hover:text-[var(--accent-2)] transition-colors">
                       {member.name}
                     </h3>
                     <p className="text-xs text-slate-300 font-medium">
@@ -176,7 +176,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                   {member.activeProjects.map((proj, i) => (
                     <span
                       key={i}
-                      className="px-2.5 py-1 rounded-lg text-[11px] bg-[#12141a] text-slate-300 border border-white/5"
+                      className="px-2.5 py-1 rounded-lg text-[11px] bg-[var(--bg-surface)] text-slate-300 border border-white/5"
                     >
                       {proj}
                     </span>
@@ -209,8 +209,8 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
       {/* Modal Add / Edit Team Member */}
       {isModalOpen && editingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-lg bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
-            <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
+          <div className="relative w-full max-w-lg bg-[var(--bg-surface)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
+            <div className="px-6 py-4 border-b border-white/10 bg-[var(--bg-surface)] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-[#fbbf24]" />
                 <h3 className="text-base font-semibold text-white">
@@ -237,7 +237,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                     value={editingMember.name || ''}
                     onChange={e => setEditingMember(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Ej. Francisco Pérez"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -249,7 +249,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                     value={editingMember.role || ''}
                     onChange={e => setEditingMember(prev => ({ ...prev, role: e.target.value }))}
                     placeholder="Ej. Socio Fundador / Director"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
               </div>
@@ -264,7 +264,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                     value={editingMember.title || ''}
                     onChange={e => setEditingMember(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Ej. Productor General & Finanzas"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -276,7 +276,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                     value={editingMember.location || ''}
                     onChange={e => setEditingMember(prev => ({ ...prev, location: e.target.value }))}
                     placeholder="Ej. Santiago, Chile"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
               </div>
@@ -291,7 +291,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                     value={editingMember.email || ''}
                     onChange={e => setEditingMember(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="correo@athaproducciones.cl"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -303,7 +303,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                     value={editingMember.phone || ''}
                     onChange={e => setEditingMember(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="+56 9 8765 4321"
-                    className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
               </div>
@@ -317,7 +317,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                   value={editingMember.image || ''}
                   onChange={e => setEditingMember(prev => ({ ...prev, image: e.target.value }))}
                   placeholder="https://images.unsplash.com/..."
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                  className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                 />
               </div>
 
@@ -330,7 +330,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                   value={editingMember.bio || ''}
                   onChange={e => setEditingMember(prev => ({ ...prev, bio: e.target.value }))}
                   placeholder="Resumen curricular y rol artístico o técnico en la compañía..."
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                  className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                 />
               </div>
 
@@ -343,7 +343,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                   value={Array.isArray(editingMember.activeProjects) ? editingMember.activeProjects.join(', ') : (editingMember.activeProjects || '')}
                   onChange={e => setEditingMember(prev => ({ ...prev, activeProjects: e.target.value.split(',').map(s => s.trim()) }))}
                   placeholder="Ej. El Canto de las Ballenas, Sesiones Acústicas"
-                  className="w-full px-3 py-2 bg-[#0f1115] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                  className="w-full px-3 py-2 bg-[var(--bg-base)] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-[#fbbf24]"
                 />
               </div>
 
@@ -375,7 +375,7 @@ export const EquipoSection: React.FC<EquipoSectionProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#fbbf24] hover:bg-[#f59e0b] rounded-lg shadow cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[#fbbf24] hover:bg-[#f59e0b] rounded-lg shadow cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>Guardar Miembro</span>

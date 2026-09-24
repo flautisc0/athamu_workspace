@@ -1,5 +1,4 @@
 import React from 'react';
-import { urlConSesion } from '../../utils/sesionEcosistema';
 import {
   ExternalLink,
   CalendarRange,
@@ -19,7 +18,7 @@ const HERRAMIENTAS = [
     url: 'https://planner-frontend-897089213264.us-central1.run.app',
     icon: CalendarRange,
     tag: 'Implementada',
-    accent: 'var(--accent-2)',
+    accent: '#6ee7b7',
     status: 'EN LÍNEA',
     statusDot: 'bg-emerald-400'
   },
@@ -58,13 +57,44 @@ const HERRAMIENTAS = [
   }
 ];
 
+/**
+ * Sesión compartida del ecosistema.
+ *
+ * Quien inicia sesión en el CRM no debería tener que volver a loguearse en el
+ * Planner ni en el Arquitecto. Al abrirlos desde acá se le pasa su identidad en
+ * la URL y cada app la toma como sesión (el Planner ya lo soporta; el Arquitecto
+ * la recibe con el bootstrap `atha-sesion.js` que sirve su propio dominio).
+ * Sólo se propaga a los artefactos que la entienden.
+ */
+const CON_SESION = new Set(['planner', 'arquitecto']);
+
+function urlConSesion(tool: { id: string; url: string }): string {
+  if (!CON_SESION.has(tool.id)) return tool.url;
+  try {
+    const raw = localStorage.getItem('user_profile');
+    const u = raw ? JSON.parse(raw) : null;
+    if (!u || !u.email) return tool.url;
+    const rol = u.role === 'admin' || u.role === 'director' ? 'director' : 'artist';
+    const p = new URLSearchParams();
+    p.set('auth', '1');
+    p.set('email', String(u.email));
+    p.set('name', String(u.name || u.email));
+    p.set('role', rol);
+    if (u.roleTitle) p.set('roleTitle', String(u.roleTitle));
+    if (u.avatar) p.set('picture', String(u.avatar));
+    return `${tool.url}?${p.toString()}`;
+  } catch {
+    return tool.url;
+  }
+}
+
 export const EcosistemaSection: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Encabezado */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-mono text-[var(--accent-2)] mb-1">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-mono text-[#6ee7b7] mb-1">
             <Wrench className="w-3.5 h-3.5" />
             <span>Ecosistema ATHA</span>
           </div>
@@ -84,7 +114,7 @@ export const EcosistemaSection: React.FC = () => {
           const card = (
             <>
               <div
-                className="p-5 rounded-2xl bg-[var(--bg-surface)] border border-white/10 hover:border-white/20 transition-all flex flex-col gap-4 group"
+                className="p-5 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col gap-4 group"
                 style={{ borderColor: `color-mix(in srgb, ${tool.accent} 25%, transparent)` }}
               >
                 <div className="flex items-start justify-between">
@@ -117,7 +147,7 @@ export const EcosistemaSection: React.FC = () => {
                     {tool.tag}
                   </span>
                   {tool.url ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent-2)] group-hover:gap-2.5 transition-all">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6ee7b7] group-hover:gap-2.5 transition-all">
                       Abrir herramienta
                       <ArrowUpRight className="w-4 h-4" />
                     </span>
@@ -135,10 +165,10 @@ export const EcosistemaSection: React.FC = () => {
           return tool.url ? (
             <a
               key={tool.id}
-              href={urlConSesion(tool.id, tool.url)}
+              href={urlConSesion(tool)}
               target="_blank"
               rel="noopener noreferrer"
-              className="block focus:outline-none focus:ring-2 focus:ring-[var(--accent-2)]/40 rounded-2xl"
+              className="block focus:outline-none focus:ring-2 focus:ring-[#6ee7b7]/40 rounded-2xl"
             >
               {card}
             </a>
@@ -151,10 +181,10 @@ export const EcosistemaSection: React.FC = () => {
       </div>
 
       {/* Nota de arquitectura */}
-      <div className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-white/10 text-xs text-slate-400 space-y-1.5">
+      <div className="p-4 rounded-2xl bg-[#12141a] border border-white/10 text-xs text-slate-400 space-y-1.5">
         <div className="font-semibold text-slate-300">Arquitectura en 3 capas</div>
         <div>
-          <span className="text-[var(--accent-2)] font-mono">Capa 2 (Intranet):</span> estas herramientas son el núcleo de gestión — administradas desde el CRM.
+          <span className="text-[#6ee7b7] font-mono">Capa 2 (Intranet):</span> estas herramientas son el núcleo de gestión — administradas desde el CRM.
         </div>
         <div>
           <span className="text-[#38bdf8] font-mono">Capa 3 (App móvil):</span> cliente del CRM; accede a estas mismas herramientas.

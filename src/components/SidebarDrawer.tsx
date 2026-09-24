@@ -89,7 +89,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
     {
       name: 'Dirección & Creación',
       items: [
-        { id: 'obras', label: 'Catálogo de Obras', icon: Drama, badge: counts.obras, accentColor: '#E05A47' },
+        { id: 'obras', label: 'Catálogo de Obras', icon: Drama, badge: counts.obras, accentColor: 'var(--accent-terracota)' },
         { id: 'arquitecto', label: 'Arquitecto de Proyectos', icon: Compass, accentColor: '#38bdf8' },
         { id: 'id', label: 'Proyectos I+D', icon: FlaskConical, badge: counts.rd, accentColor: '#a78bfa' }
       ]
@@ -97,7 +97,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
     {
       name: 'Operaciones & Ensayos',
       items: [
-        { id: 'planner', label: 'Planner Escénico & Giras', icon: CalendarDays, badge: 'Giras', accentColor: '#E05A47' },
+        { id: 'planner', label: 'Planner Escénico & Giras', icon: CalendarDays, badge: 'Giras', accentColor: 'var(--accent-terracota)' },
         { id: 'crm', label: 'CRM / Leads de Salas', icon: Users2, badge: counts.leads, accentColor: '#fbbf24' },
         { id: 'calendario', label: 'Planificación & Agenda', icon: CalendarDays, badge: counts.events, accentColor: '#38bdf8' },
         { id: 'diario', label: 'Diario de Proceso', icon: BookOpenText, accentColor: '#fbbf24' }
@@ -107,7 +107,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       name: 'Técnica & Recursos',
       items: [
         { id: 'venues', label: 'Salas / Venues', icon: Building2, accentColor: '#38bdf8' },
-        { id: 'inventario', label: 'Inventario & Backline', icon: PackageCheck, badge: counts.inventory, accentColor: '#6ee7b7' },
+        { id: 'inventario', label: 'Inventario & Backline', icon: PackageCheck, badge: counts.inventory, accentColor: 'var(--accent-2)' },
         { id: 'finanzas', label: 'Rendiciones & Finanzas', icon: ReceiptText, accentColor: '#fbbf24' },
         { id: 'riders', label: 'Riders Estándar', icon: FileSpreadsheet, accentColor: '#a78bfa' }
       ]
@@ -115,7 +115,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
     {
       name: 'Administración del Sitio',
       items: [
-        { id: 'admin', label: 'Consola de Administración', icon: Shield, badge: 'Admin', accentColor: '#E05A47' },
+        { id: 'admin', label: 'Consola de Administración', icon: Shield, badge: 'Admin', accentColor: 'var(--accent-terracota)' },
         { id: 'sql-hub', label: 'Base de Datos SQL & Archivos PHP', icon: Database, badge: 'PostgreSQL', accentColor: '#34d399' },
         { id: 'acerca', label: 'Identidad F.A.S.E (Manual de Marca)', icon: Info, accentColor: '#fbbf24' }
       ]
@@ -124,7 +124,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       name: 'Equipo & Ecosistema',
       items: [
         { id: 'equipo', label: 'Equipo Fundador', icon: Award, accentColor: '#fbbf24' },
-        { id: 'ecosistema', label: 'Ecosistema ATHA Apps', icon: Workflow, accentColor: '#E05A47' }
+        { id: 'ecosistema', label: 'Ecosistema ATHA Apps', icon: Workflow, accentColor: 'var(--accent-terracota)' }
       ]
     }
   ];
@@ -143,13 +143,13 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       <aside
         className={`fixed top-0 left-0 bottom-0 z-50 w-80 max-w-[85vw] shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
           isLight
-            ? 'bg-white border-r border-[#E5DDD8] text-stone-900'
-            : 'bg-[#1C1210] border-r border-[#3E221E] text-slate-100'
+            ? 'bg-white border-r border-[var(--border-color)] text-stone-900'
+            : 'bg-[#1C1210] border-r border-[var(--border-color)] text-slate-100'
         } ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Drawer Header */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${
-          isLight ? 'border-[#E5DDD8] bg-[#FAF7F5]' : 'border-[#3E221E] bg-[#160E0D]'
+          isLight ? 'border-[var(--border-color)] bg-[var(--bg-base)]' : 'border-[var(--border-color)] bg-[#160E0D]'
         }`}>
           <div
             onClick={() => {
@@ -160,18 +160,18 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
           >
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
               isLight
-                ? 'bg-[#E05A47]/10 border border-[#E05A47]/30 text-[#C84835]'
-                : 'bg-[#E05A47]/20 border border-[#E05A47]/40 text-[#FF6B4A]'
+                ? 'bg-[var(--accent-terracota)]/10 border border-[var(--accent-terracota)]/30 text-[var(--accent-terracota)]'
+                : 'bg-[var(--accent-terracota)]/20 border border-[var(--accent-terracota)]/40 text-[var(--accent-glow)]'
             }`}>
               F
             </div>
             <div>
               <h2 className={`text-sm font-bold tracking-wide font-display ${
-                isLight ? 'text-stone-900 group-hover:text-[#C84835]' : 'text-white group-hover:text-[#FF6B4A]'
+                isLight ? 'text-stone-900 group-hover:text-[var(--accent-terracota)]' : 'text-white group-hover:text-[var(--accent-glow)]'
               } transition-colors`}>
                 F.A.S.E / ATHA
               </h2>
-              <span className={`text-[10px] font-mono ${isLight ? 'text-stone-500' : 'text-[#D4B2AD]'}`}>
+              <span className={`text-[10px] font-mono ${isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'}`}>
                 Plataforma de Gestión Escénica
               </span>
             </div>
@@ -199,8 +199,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeSection === 'inicio'
                 ? isLight
-                  ? 'bg-[#E05A47] text-white shadow-sm'
-                  : 'bg-[#E05A47]/25 text-[#FF6B4A] border border-[#E05A47]/40 shadow-sm'
+                  ? 'bg-[var(--accent-terracota)] text-white shadow-sm'
+                  : 'bg-[var(--accent-terracota)]/25 text-[var(--accent-glow)] border border-[var(--accent-terracota)]/40 shadow-sm'
                 : isLight
                   ? 'bg-stone-100 hover:bg-stone-200 text-stone-800'
                   : 'bg-white/5 hover:bg-white/10 text-slate-200'
@@ -219,7 +219,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
           {navGroups.map((group, groupIdx) => (
             <div key={groupIdx} className="space-y-1">
               <div className={`px-3 text-[11px] font-semibold uppercase tracking-wider mb-1.5 ${
-                isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
+                isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'
               }`}>
                 {group.name}
               </div>
@@ -238,8 +238,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer group ${
                         isActive
                           ? isLight
-                            ? 'bg-[#E05A47]/10 text-[#C84835] border border-[#E05A47]/30 font-semibold shadow-xs'
-                            : 'bg-[#E05A47]/20 text-[#FF6B4A] border border-[#E05A47]/40 font-semibold shadow-sm'
+                            ? 'bg-[var(--accent-terracota)]/10 text-[var(--accent-terracota)] border border-[var(--accent-terracota)]/30 font-semibold shadow-xs'
+                            : 'bg-[var(--accent-terracota)]/20 text-[var(--accent-glow)] border border-[var(--accent-terracota)]/40 font-semibold shadow-sm'
                           : isLight
                             ? 'text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-transparent'
                             : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
@@ -249,7 +249,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                         <Icon
                           className={`w-4 h-4 shrink-0 transition-colors ${
                             isActive
-                              ? isLight ? 'text-[#C84835]' : 'text-[#FF6B4A]'
+                              ? isLight ? 'text-[var(--accent-terracota)]' : 'text-[var(--accent-glow)]'
                               : isLight ? 'text-stone-400 group-hover:text-stone-700' : 'text-slate-400 group-hover:text-slate-200'
                           }`}
                         />
@@ -262,8 +262,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                             className={`px-1.5 py-0.5 rounded text-[10px] font-mono leading-none ${
                               isActive
                                 ? isLight
-                                  ? 'bg-[#E05A47] text-white font-bold'
-                                  : 'bg-[#E05A47] text-white font-bold'
+                                  ? 'bg-[var(--accent-terracota)] text-white font-bold'
+                                  : 'bg-[var(--accent-terracota)] text-white font-bold'
                                 : isLight
                                   ? 'bg-stone-200 text-stone-700'
                                   : 'bg-white/10 text-slate-300'
@@ -275,7 +275,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                         <ChevronRight
                           className={`w-3.5 h-3.5 transition-transform ${
                             isActive
-                              ? isLight ? 'text-[#C84835] translate-x-0.5' : 'text-[#FF6B4A] translate-x-0.5'
+                              ? isLight ? 'text-[var(--accent-terracota)] translate-x-0.5' : 'text-[var(--accent-glow)] translate-x-0.5'
                               : 'text-stone-400 opacity-0 group-hover:opacity-100'
                           }`}
                         />
@@ -290,27 +290,27 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
 
         {/* Drawer User Profile & Footer */}
         <div className={`p-4 border-t space-y-3 ${
-          isLight ? 'border-[#E5DDD8] bg-[#FAF7F5]' : 'border-[#3E221E] bg-[#140B0A]'
+          isLight ? 'border-[var(--border-color)] bg-[var(--bg-base)]' : 'border-[var(--border-color)] bg-[#140B0A]'
         }`}>
           <div className="flex items-center gap-3">
             {picture ? (
               <img
                 src={picture}
                 alt={name}
-                className="w-8 h-8 rounded-full object-cover border border-[#E05A47]/30 shrink-0"
+                className="w-8 h-8 rounded-full object-cover border border-[var(--accent-terracota)]/30 shrink-0"
               />
             ) : (
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs shrink-0 ${
                 isLight
-                  ? 'bg-[#E05A47]/10 text-[#C84835] border border-[#E05A47]/25'
-                  : 'bg-[#2A1816] text-[#FF6B4A] border border-[#E05A47]/40'
+                  ? 'bg-[var(--accent-terracota)]/10 text-[var(--accent-terracota)] border border-[var(--accent-terracota)]/25'
+                  : 'bg-[#2A1816] text-[var(--accent-glow)] border border-[var(--accent-terracota)]/40'
               }`}>
                 {name ? name.charAt(0).toUpperCase() : <UserIcon className="w-3.5 h-3.5" />}
               </div>
             )}
             <div className="min-w-0 flex-1">
               <p className={`text-xs font-semibold truncate ${isLight ? 'text-stone-900' : 'text-white'}`}>{name}</p>
-              <p className={`text-[10px] font-mono truncate ${isLight ? 'text-stone-500' : 'text-[#D4B2AD]'}`}>Sesión activa</p>
+              <p className={`text-[10px] font-mono truncate ${isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'}`}>Sesión activa</p>
             </div>
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Sesión activa" />
           </div>

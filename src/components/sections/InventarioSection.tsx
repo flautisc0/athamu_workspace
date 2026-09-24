@@ -15,8 +15,8 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Box, Boxes, Camera, Check, ChevronRight, Edit3, Filter, ImageOff, Loader2, MapPin,
-  Package, Plus, RefreshCw, Search, Tag, Trash2, Truck, X,
+  Box, Boxes, Camera, Check, ChevronRight, Edit3, Filter, ImageOff, Loader2, Lock, MapPin,
+  Package, Plus, RefreshCw, Search, ShieldCheck, Tag, Trash2, Truck, X,
 } from 'lucide-react';
 
 const API = '/api/v1/crm/inventario';
@@ -52,6 +52,33 @@ interface Props {
 }
 
 const clp = (v: unknown) => `$${Math.round(Number(v) || 0).toLocaleString('es-CL')}`;
+
+/** Correo de la sesión activa (la clave compartida del ecosistema). */
+function emailSesion(): string {
+  for (const clave of ['atha_user_session', 'user_session', 'user_profile']) {
+    try {
+      const u = JSON.parse(localStorage.getItem(clave) || 'null');
+      const correo = u?.email || u?.user?.email;
+      if (correo) return String(correo).toLowerCase();
+    } catch {
+      /* sigue */
+    }
+  }
+  return '';
+}
+
+/** Cabeceras de las llamadas al hub: llevan la identidad (para los permisos). */
+function cabeceras(): Record<string, string> {
+  return { 'Content-Type': 'application/json', 'x-atha-email': emailSesion() };
+}
+
+interface Alcance {
+  total: boolean;
+  identificado: boolean;
+  puede_escribir: boolean;
+  motivo: string;
+  companies: string[];
+}
 
 /** Convierte un archivo de imagen en un data URL razonable (máx. 1280px, JPEG). */
 async function archivoADataUrl(file: File, max = 1280): Promise<string> {
@@ -94,6 +121,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
   const [cajas, setCajas] = useState<Caja[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [cajaAbierta, setCajaAbierta] = useState<string | null>(null);
+  const [alcance, setAlcance] = useState<Alcance | null>(null);
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
@@ -109,13 +137,13 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
   const t = {
     texto: isLight ? 'text-stone-800' : 'text-slate-100',
     textoSuave: isLight ? 'text-stone-500' : 'text-slate-400',
-    panel: isLight ? 'bg-white' : 'bg-[#161920]',
-    panelSuave: isLight ? 'bg-stone-50' : 'bg-[#12141a]',
+    panel: isLight ? 'bg-white' : 'bg-[var(--bg-surface)]',
+    panelSuave: isLight ? 'bg-stone-50' : 'bg-[var(--bg-surface)]',
     borde: isLight ? 'border-stone-200' : 'border-white/10',
     input: isLight
-      ? 'bg-white border-stone-300 text-stone-800 placeholder-stone-400 focus:border-[#E05A47]'
-      : 'bg-[#0f1115] border-white/10 text-white placeholder-slate-500 focus:border-[#6ee7b7]',
-    chipActivo: 'bg-[#E05A47] text-white border-[#E05A47]',
+      ? 'bg-white border-stone-300 text-stone-800 placeholder-stone-400 focus:border-[var(--accent-terracota)]'
+      : 'bg-[var(--bg-base)] border-white/10 text-white placeholder-slate-500 focus:border-[var(--accent-2)]',
+    chipActivo: 'bg-[var(--accent-terracota)] text-white border-[var(--accent-terracota)]',
     chip: isLight ? 'bg-stone-100 text-stone-600 border-stone-200 hover:border-stone-300' : 'bg-white/5 text-slate-300 border-white/10',
     hover: isLight ? 'hover:bg-stone-50' : 'hover:bg-white/5',
   };
@@ -124,14 +152,17 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
   const cargar = useCallback(async (companyId: string | null, silencioso = false) => {
     if (!silencioso) setCargando(true);
     try {
-      const url = companyId ? `${API}?company_id=${encodeURIComponent(companyId)}` : API;
-      const r = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const base = companyId ? `${API}?company_id=${encodeURIComponent(companyId)}` : API;
+      const r = await fetch(base, {
+        headers: { Accept: 'application/json', 'x-atha-email': emailSesion() },
+      });
       const d = await r.json();
-      if (d.success === false) throw new Error(d.error || 'error del CRM');
+      if (d.alcance) setAlcance(d.alcance);
+      if (!r.ok || d.success === false) throw new Error(d.error || `HTTP ${r.status}`);
       setCompanias(d.companies || []);
       setCajas(d.boxes || []);
       setItems(d.items || []);
+      if (d.company_id) setCompaniaId(d.company_id);
       setError(null);
     } catch (e: any) {
       setError(`No se pudo cargar el inventario: ${e?.message || e}`);
@@ -190,7 +221,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
       const esNueva = !modalCaja.id;
       const r = await fetch(esNueva ? `${API}/cajas` : `${API}/cajas/${modalCaja.id}`, {
         method: esNueva ? 'POST' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: cabeceras(),
         body: JSON.stringify({ ...modalCaja, companyId: modalCaja.company_id || companiaId }),
       });
       const d = await r.json();
@@ -212,7 +243,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
       const esNuevo = !modalItem.id;
       const r = await fetch(esNuevo ? `${API}/items` : `${API}/items/${modalItem.id}`, {
         method: esNuevo ? 'POST' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: cabeceras(),
         body: JSON.stringify({
           ...modalItem,
           companyId: modalItem.company_id || companiaId,
@@ -235,7 +266,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
     const extra = tipo === 'cajas' ? '\n\nLos ítems NO se borran: quedan sin caja.' : '';
     if (!window.confirm(`¿Eliminar "${nombre}"?${extra}`)) return;
     try {
-      const r = await fetch(`${API}/${tipo}/${id}`, { method: 'DELETE' });
+      const r = await fetch(`${API}/${tipo}/${id}`, { method: 'DELETE', headers: cabeceras() });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || `HTTP ${r.status}`);
       if (tipo === 'cajas' && cajaAbierta === id) setCajaAbierta(null);
@@ -261,8 +292,13 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
       const objetivoId = destino.tipo === 'caja' ? modalCaja?.id || 'nueva-caja' : modalItem?.id || 'nuevo-item';
       const r = await fetch(`${API}/foto`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image, id: objetivoId, tipo: destino.tipo }),
+        headers: cabeceras(),
+        body: JSON.stringify({
+          image,
+          id: objetivoId,
+          tipo: destino.tipo,
+          companyId: companiaId, // el alta todavía no tiene fila: manda la compañía
+        }),
       });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || `HTTP ${r.status}`);
@@ -298,13 +334,50 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
 
   const cajaSel = cajas.find((c) => c.id === cajaAbierta) || null;
 
+  // ── control de acceso ─────────────────────────────────────────────────────
+  // El inventario es gestión interna: lo ve administración y quien pertenece a la
+  // compañía en un rol de producción o técnico. Sino, no se muestra.
+  const puedeEscribir = !alcance || alcance.puede_escribir;
+  const sinAcceso = !!alcance && (!alcance.identificado || (!alcance.total && alcance.companies.length === 0));
+
+  if (sinAcceso) {
+    return (
+      <div className={`space-y-4 ${t.texto}`}>
+        <div>
+          <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--accent-terracota)] uppercase tracking-wider">
+            <Boxes className="w-4 h-4" /> Inventario & Backline
+          </div>
+          <h1 className={`text-2xl font-bold tracking-tight mt-0.5 ${t.texto}`}>Equipamiento por compañía</h1>
+        </div>
+        <div className={`p-8 rounded-2xl border ${t.borde} ${t.panel} flex flex-col items-center text-center gap-3`}>
+          <div className={`p-3 rounded-full ${t.panelSuave}`}>
+            <Lock className={`w-6 h-6 ${t.textoSuave}`} />
+          </div>
+          <h2 className={`text-sm font-bold ${isLight ? 'text-stone-900' : 'text-white'}`}>
+            No tenés acceso al inventario
+          </h2>
+          <p className={`text-xs max-w-md ${t.textoSuave}`}>
+            {alcance?.identificado
+              ? 'El inventario de una compañía lo gestiona su equipo de producción o técnico. Tu usuario no pertenece a ninguna compañía en ese rol.'
+              : 'No pudimos identificar tu sesión. Iniciá sesión en el CRM y volvé a entrar.'}
+          </p>
+          {!alcance?.identificado && (
+            <a href="/" className="px-4 py-2 text-xs font-bold rounded-xl bg-[var(--accent-terracota)] text-white">
+              Ir al inicio de sesión
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── UI ────────────────────────────────────────────────────────────────────
   return (
     <div className={`space-y-5 ${t.texto}`}>
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-mono text-[#E05A47] uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--accent-terracota)] uppercase tracking-wider">
             <Boxes className="w-4 h-4" /> Inventario & Backline
           </div>
           <h1 className={`text-2xl font-bold tracking-tight mt-0.5 ${t.texto}`}>
@@ -329,12 +402,14 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
           >
             <Truck className="w-3.5 h-3.5" /> Exportar
           </button>
-          <button
-            onClick={() => setModalCaja({ status: 'En bodega', kind: 'Audio', company_id: companiaId || undefined })}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#E05A47] hover:bg-[#c94c3c] text-white font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer"
-          >
-            <Plus className="w-4 h-4" /> Nueva caja
-          </button>
+          {puedeEscribir && (
+            <button
+              onClick={() => setModalCaja({ status: 'En bodega', kind: 'Audio', company_id: companiaId || undefined })}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--accent-terracota)] hover:bg-[#c94c3c] text-white font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Nueva caja
+            </button>
+          )}
         </div>
       </div>
 
@@ -358,6 +433,26 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
           {!companias.length && <span className={`text-xs ${t.textoSuave}`}>Cargando compañías…</span>}
         </div>
       </div>
+
+      {/* Alcance: qué puede ver este usuario */}
+      {alcance && (
+        <div className={`px-3.5 py-2.5 rounded-xl border text-[11px] flex items-start gap-2 ${
+          isLight ? 'bg-stone-50 border-stone-200 text-stone-600' : 'bg-white/5 border-white/10 text-slate-300'
+        }`}>
+          <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-[var(--accent-terracota)]" />
+          <span>
+            {alcance.total ? (
+              <><b>Administración:</b> ves el inventario de todas las compañías.</>
+            ) : (
+              <>
+                <b>Acceso por pertenencia:</b> ves el inventario de{' '}
+                {companias.map((c) => c.name).join(', ') || 'tu compañía'} (participás en producción o técnica).
+              </>
+            )}{' '}
+            {!puedeEscribir && <span className="opacity-80">· sólo lectura</span>}
+          </span>
+        </div>
+      )}
 
       {/* Totales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -435,7 +530,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
                 <div
                   key={b.id}
                   className={`rounded-2xl border overflow-hidden transition-all cursor-pointer ${t.panel} ${
-                    activa ? 'border-[#E05A47] ring-1 ring-[#E05A47]/40' : `${t.borde} ${isLight ? 'hover:border-stone-300' : 'hover:border-white/20'}`
+                    activa ? 'border-[var(--accent-terracota)] ring-1 ring-[var(--accent-terracota)]/40' : `${t.borde} ${isLight ? 'hover:border-stone-300' : 'hover:border-white/20'}`
                   }`}
                   onClick={() => { setCajaAbierta(activa ? null : b.id); setVerTodos(false); }}
                 >
@@ -469,27 +564,31 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setModalCaja(b); }}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${t.borde} ${t.hover}`}
-                          title="Editar caja"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); borrar('cajas', b.id, b.name); }}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${isLight ? 'border-stone-200 text-stone-400 hover:text-rose-600' : 'border-white/10 text-slate-400 hover:text-rose-400'}`}
-                          title="Eliminar caja"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {puedeEscribir && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setModalCaja(b); }}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${t.borde} ${t.hover}`}
+                            title="Editar caja"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {puedeEscribir && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); borrar('cajas', b.id, b.name); }}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${isLight ? 'border-stone-200 text-stone-400 hover:text-rose-600' : 'border-white/10 text-slate-400 hover:text-rose-400'}`}
+                            title="Eliminar caja"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className={`flex items-center justify-between pt-2 border-t ${t.borde}`}>
                       <span className={`text-[11px] font-mono ${t.textoSuave}`}>
                         {b.items ?? 0} ítem(s) · {clp(b.valor)}
                       </span>
-                      <span className="text-[11px] font-semibold inline-flex items-center gap-1 text-[#E05A47]">
+                      <span className="text-[11px] font-semibold inline-flex items-center gap-1 text-[var(--accent-terracota)]">
                         {activa ? 'Cerrar' : 'Ver ítems'} <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activa ? 'rotate-90' : ''}`} />
                       </span>
                     </div>
@@ -499,15 +598,17 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
             })}
 
             {/* Tarjeta para crear caja */}
-            <button
-              onClick={() => setModalCaja({ status: 'En bodega', kind: 'Audio', company_id: companiaId || undefined })}
-              className={`rounded-2xl border border-dashed p-6 flex flex-col items-center justify-center gap-2 min-h-[180px] transition-colors cursor-pointer ${
-                isLight ? 'border-stone-300 text-stone-400 hover:border-[#E05A47] hover:text-[#E05A47]' : 'border-white/15 text-slate-500 hover:border-[#6ee7b7] hover:text-[#6ee7b7]'
-              }`}
-            >
-              <Plus className="w-6 h-6" />
-              <span className="text-xs font-semibold">Nueva caja</span>
-            </button>
+            {puedeEscribir && (
+              <button
+                onClick={() => setModalCaja({ status: 'En bodega', kind: 'Audio', company_id: companiaId || undefined })}
+                className={`rounded-2xl border border-dashed p-6 flex flex-col items-center justify-center gap-2 min-h-[180px] transition-colors cursor-pointer ${
+                  isLight ? 'border-stone-300 text-stone-400 hover:border-[var(--accent-terracota)] hover:text-[var(--accent-terracota)]' : 'border-white/15 text-slate-500 hover:border-[var(--accent-2)] hover:text-[var(--accent-2)]'
+                }`}
+              >
+                <Plus className="w-6 h-6" />
+                <span className="text-xs font-semibold">Nueva caja</span>
+              </button>
+            )}
           </div>
 
           {/* ÍTEMS */}
@@ -521,12 +622,14 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
                   {itemsVisibles.length} de {items.length} ítem(s)
                 </p>
               </div>
-              <button
-                onClick={() => setModalItem({ category: 'Audio / Backline', condition: 'Excelente', status: 'Disponible', quantity: 1, box_id: cajaAbierta || undefined, company_id: companiaId || undefined })}
-                className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${t.borde} ${t.hover}`}
-              >
-                <Plus className="w-3.5 h-3.5" /> Agregar ítem
-              </button>
+              {puedeEscribir && (
+                <button
+                  onClick={() => setModalItem({ category: 'Audio / Backline', condition: 'Excelente', status: 'Disponible', quantity: 1, box_id: cajaAbierta || undefined, company_id: companiaId || undefined })}
+                  className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${t.borde} ${t.hover}`}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Agregar ítem
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -582,20 +685,24 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
                       <td className={`px-3 py-2 text-xs font-mono hidden lg:table-cell ${t.textoSuave}`}>{clp(i.value_clp)}</td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setModalItem(i)}
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${t.borde} ${t.hover}`}
-                            title="Editar ítem"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => borrar('items', i.id, i.name)}
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${isLight ? 'border-stone-200 text-stone-400 hover:text-rose-600' : 'border-white/10 text-slate-400 hover:text-rose-400'}`}
-                            title="Eliminar ítem"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {puedeEscribir && (
+                            <button
+                              onClick={() => setModalItem(i)}
+                              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${t.borde} ${t.hover}`}
+                              title="Editar ítem"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {puedeEscribir && (
+                            <button
+                              onClick={() => borrar('items', i.id, i.name)}
+                              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${isLight ? 'border-stone-200 text-stone-400 hover:text-rose-600' : 'border-white/10 text-slate-400 hover:text-rose-400'}`}
+                              title="Eliminar ítem"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -723,7 +830,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
               <button
                 onClick={guardarCaja}
                 disabled={guardando || !modalCaja.name?.trim()}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-[#E05A47] hover:bg-[#c94c3c] text-white disabled:opacity-50 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-[var(--accent-terracota)] hover:bg-[#c94c3c] text-white disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {guardando ? 'Guardando…' : 'Guardar caja'}
               </button>
@@ -842,7 +949,7 @@ export const InventarioSection: React.FC<Props> = ({ theme }) => {
                 Cancelar
               </button>
               <button onClick={guardarItem} disabled={guardando || !modalItem.name?.trim()}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-[#E05A47] hover:bg-[#c94c3c] text-white disabled:opacity-50 transition-colors cursor-pointer">
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-[var(--accent-terracota)] hover:bg-[#c94c3c] text-white disabled:opacity-50 transition-colors cursor-pointer">
                 {guardando ? 'Guardando…' : 'Guardar ítem'}
               </button>
             </div>

@@ -53,7 +53,32 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
       linkedin: 'https://linkedin.com/in/francisco-perez-fase',
       website: 'https://www.plataformafase.cl'
     },
-    milestones: currentUser.milestones || [],
+    milestones: currentUser.milestones || [
+      {
+        id: 'm-1',
+        year: '2025',
+        title: 'Selección Oficial Santiago a Mil',
+        category: 'Gira',
+        description: 'Presentación de "La Memoria de las Aguas" en Sala Principal GAM.',
+        institution: 'Fundación Teatro a Mil'
+      },
+      {
+        id: 'm-2',
+        year: '2024',
+        title: 'Premio Círculo de Críticos de Arte',
+        category: 'Premio',
+        description: 'Reconocimiento a mejor dirección coreográfica y diseño integral.',
+        institution: 'Círculo de Críticos'
+      },
+      {
+        id: 'm-3',
+        year: '2022',
+        title: 'Fondo de Creación Nacional FONDART',
+        category: 'Estreno',
+        description: 'Adjudicación de fondo línea creación de trayectoria.',
+        institution: 'MINCAP'
+      }
+    ],
     files: currentUser.files || [
       {
         id: 'f-1',
@@ -196,9 +221,9 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
       <div className={`p-6 md:p-8 rounded-3xl border transition-all relative overflow-hidden ${
         isLight
           ? 'bg-gradient-to-br from-white via-[#FAF6F4] to-[#F5ECE8] border-[#E8DDD7] text-stone-900 shadow-xs'
-          : 'bg-gradient-to-br from-[var(--bg-surface)] via-[#241513] to-[#170E0D] border-[var(--accent-terracota)]/30 text-white shadow-xl'
+          : 'bg-gradient-to-br from-[#1E110F] via-[#241513] to-[#170E0D] border-[#E05A47]/30 text-white shadow-xl'
       }`}>
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-[var(--accent-terracota)]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-[#E05A47]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
@@ -206,13 +231,13 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
               <img
                 src={formData.avatar}
                 alt={formData.name}
-                className="w-20 h-20 md:w-24 md:h-24 rounded-2xl object-cover border-2 border-[var(--accent-terracota)] shadow-md"
+                className="w-20 h-20 md:w-24 md:h-24 rounded-2xl object-cover border-2 border-[#E05A47] shadow-md"
                 referrerPolicy="no-referrer"
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-2 -right-2 p-2 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                className="absolute -bottom-2 -right-2 p-2 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white shadow-lg transition-transform hover:scale-105 cursor-pointer"
                 title="Cambiar fotografía"
               >
                 <Camera className="w-4 h-4" />
@@ -228,7 +253,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
 
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)] font-bold">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[#E05A47]/15 text-[#E05A47] font-bold">
                   Perfil Artístico & Portafolio
                 </span>
                 <span className="text-xs font-mono text-emerald-500 flex items-center gap-1">
@@ -240,7 +265,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                 {formData.artisticName || formData.name}
               </h1>
               <p className={`text-xs md:text-sm ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
-                {formData.role} • <span className="font-medium text-[var(--accent-terracota)]">{formData.discipline}</span>
+                {formData.role} • <span className="font-medium text-[#E05A47]">{formData.discipline}</span>
               </p>
             </div>
           </div>
@@ -249,7 +274,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
             <button
               type="button"
               onClick={handleSaveAll}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-semibold shadow-lg shadow-[var(--accent-terracota)]/20 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-semibold shadow-lg shadow-[#E05A47]/20 transition-all cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>Guardar Cambios</span>
@@ -272,10 +297,10 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
           
           {/* Card: Datos Personales */}
           <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-[var(--border-color)] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)] text-slate-100 shadow-sm'
+            isLight ? 'bg-white border-[#E5DDD8] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[#3E221E] text-slate-100 shadow-sm'
           }`}>
             <div className="flex items-center gap-2 font-semibold text-sm border-b pb-3 border-stone-200 dark:border-white/10">
-              <User className="w-4 h-4 text-[var(--accent-terracota)]" />
+              <User className="w-4 h-4 text-[#E05A47]" />
               <span>Datos Personales & Identidad</span>
             </div>
 
@@ -286,7 +311,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   type="text"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -298,7 +323,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   type="text"
                   value={formData.artisticName || ''}
                   onChange={e => setFormData({ ...formData, artisticName: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -310,7 +335,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   type="text"
                   value={formData.discipline || ''}
                   onChange={e => setFormData({ ...formData, discipline: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -322,7 +347,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   type="text"
                   value={formData.role}
                   onChange={e => setFormData({ ...formData, role: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -334,7 +359,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   type="email"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -347,7 +372,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                     type="text"
                     value={formData.phone || ''}
                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -358,7 +383,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                     type="text"
                     value={formData.rut || ''}
                     onChange={e => setFormData({ ...formData, rut: e.target.value })}
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -371,7 +396,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   type="text"
                   value={formData.location || ''}
                   onChange={e => setFormData({ ...formData, location: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -381,7 +406,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
 
           {/* Card: Redes Sociales (RRSS) & Web */}
           <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-[var(--border-color)] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)] text-slate-100 shadow-sm'
+            isLight ? 'bg-white border-[#E5DDD8] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[#3E221E] text-slate-100 shadow-sm'
           }`}>
             <div className="flex items-center gap-2 font-semibold text-sm border-b pb-3 border-stone-200 dark:border-white/10">
               <Globe className="w-4 h-4 text-sky-500" />
@@ -399,7 +424,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                     ...formData,
                     socialLinks: { ...formData.socialLinks, instagram: e.target.value }
                   })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -415,7 +440,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                     ...formData,
                     socialLinks: { ...formData.socialLinks, vimeo: e.target.value }
                   })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -431,7 +456,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                     ...formData,
                     socialLinks: { ...formData.socialLinks, spotify: e.target.value }
                   })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -447,7 +472,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                     ...formData,
                     socialLinks: { ...formData.socialLinks, linkedin: e.target.value }
                   })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -463,7 +488,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                     ...formData,
                     socialLinks: { ...formData.socialLinks, website: e.target.value }
                   })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -478,10 +503,10 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
           
           {/* Card: Perfil / Biografía detallada */}
           <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-[var(--border-color)] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)] text-slate-100 shadow-sm'
+            isLight ? 'bg-white border-[#E5DDD8] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[#3E221E] text-slate-100 shadow-sm'
           }`}>
             <div className="flex items-center gap-2 font-semibold text-sm border-b pb-3 border-stone-200 dark:border-white/10">
-              <Briefcase className="w-4 h-4 text-[var(--accent-terracota)]" />
+              <Briefcase className="w-4 h-4 text-[#E05A47]" />
               <span>Biografía & Declaración Artística</span>
             </div>
 
@@ -492,7 +517,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   rows={2}
                   value={formData.bioShort || ''}
                   onChange={e => setFormData({ ...formData, bioShort: e.target.value })}
-                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -504,7 +529,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   rows={5}
                   value={formData.bioFull || ''}
                   onChange={e => setFormData({ ...formData, bioFull: e.target.value })}
-                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -514,7 +539,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
 
           {/* Card: Trayectoria / Hitos (Milestones) */}
           <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-[var(--border-color)] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)] text-slate-100 shadow-sm'
+            isLight ? 'bg-white border-[#E5DDD8] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[#3E221E] text-slate-100 shadow-sm'
           }`}>
             <div className="flex items-center justify-between border-b pb-3 border-stone-200 dark:border-white/10">
               <div className="flex items-center gap-2 font-semibold text-sm">
@@ -524,7 +549,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
               <button
                 type="button"
                 onClick={() => setShowMilestoneForm(!showMilestoneForm)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-terracota)]/15 hover:bg-[var(--accent-terracota)]/25 text-[var(--accent-terracota)] text-xs font-semibold transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E05A47]/15 hover:bg-[#E05A47]/25 text-[#E05A47] text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{showMilestoneForm ? 'Cancelar' : 'Agregar Hito'}</span>
@@ -603,7 +628,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                 <div className="flex justify-end gap-2 pt-1">
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-lg bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-medium cursor-pointer"
+                    className="px-4 py-1.5 rounded-lg bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-medium cursor-pointer"
                   >
                     Guardar Hito
                   </button>
@@ -623,7 +648,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)]">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#E05A47]/15 text-[#E05A47]">
                           {m.year}
                         </span>
                         <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/10 text-slate-300">
@@ -658,7 +683,7 @@ export const PerfilPortafolioSection: React.FC<PerfilPortafolioSectionProps> = (
 
           {/* Card: Archivos & Documentos del Artista (Dossiers, CV, Riders) */}
           <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-[var(--border-color)] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)] text-slate-100 shadow-sm'
+            isLight ? 'bg-white border-[#E5DDD8] text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[#3E221E] text-slate-100 shadow-sm'
           }`}>
             <div className="flex items-center justify-between border-b pb-3 border-stone-200 dark:border-white/10">
               <div className="flex items-center gap-2 font-semibold text-sm">

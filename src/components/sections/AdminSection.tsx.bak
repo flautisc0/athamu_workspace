@@ -55,12 +55,12 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
       {/* Header Banner */}
       <div className={`p-6 sm:p-8 rounded-2xl border transition-all ${
         isLight
-          ? 'bg-white border-[var(--border-color)] text-stone-900 shadow-xs'
-          : 'bg-[#1C110F] border-[var(--border-color)] text-white shadow-xl'
+          ? 'bg-white border-[#E5DDD8] text-stone-900 shadow-xs'
+          : 'bg-[#1C110F] border-[#3E221E] text-white shadow-xl'
       }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--accent-terracota)]">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#E05A47]">
               <Shield className="w-3.5 h-3.5" />
               <span>Consola de Administración del Sitio</span>
               <span>•</span>
@@ -80,12 +80,12 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
 
           <div className="flex items-center gap-3">
             <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 text-xs ${
-              isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+              isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
             }`}>
               <img
                 src={currentUser.avatar}
                 alt={currentUser.name}
-                className="w-7 h-7 rounded-full object-cover border border-[var(--accent-terracota)]"
+                className="w-7 h-7 rounded-full object-cover border border-[#E05A47]"
               />
               <div>
                 <span className="font-bold block leading-tight">{currentUser.name}</span>
@@ -101,10 +101,10 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
             onClick={() => setActiveTab('sql')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer border ${
               activeTab === 'sql'
-                ? 'bg-[var(--accent-terracota)] text-white border-[var(--accent-terracota)] shadow-xs'
+                ? 'bg-[#E05A47] text-white border-[#E05A47] shadow-xs'
                 : isLight
                 ? 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                : 'bg-[var(--bg-base)] border-[var(--border-color)] text-slate-300 hover:bg-white/5'
+                : 'bg-[#150D0C] border-[#3E221E] text-slate-300 hover:bg-white/5'
             }`}
           >
             <Database className="w-3.5 h-3.5" />
@@ -115,10 +115,10 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
             onClick={() => setActiveTab('identidad')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer border ${
               activeTab === 'identidad'
-                ? 'bg-[var(--accent-terracota)] text-white border-[var(--accent-terracota)] shadow-xs'
+                ? 'bg-[#E05A47] text-white border-[#E05A47] shadow-xs'
                 : isLight
                 ? 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                : 'bg-[var(--bg-base)] border-[var(--border-color)] text-slate-300 hover:bg-white/5'
+                : 'bg-[#150D0C] border-[#3E221E] text-slate-300 hover:bg-white/5'
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
@@ -129,10 +129,10 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
             onClick={() => setActiveTab('servidor')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer border ${
               activeTab === 'servidor'
-                ? 'bg-[var(--accent-terracota)] text-white border-[var(--accent-terracota)] shadow-xs'
+                ? 'bg-[#E05A47] text-white border-[#E05A47] shadow-xs'
                 : isLight
                 ? 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                : 'bg-[var(--bg-base)] border-[var(--border-color)] text-slate-300 hover:bg-white/5'
+                : 'bg-[#150D0C] border-[#3E221E] text-slate-300 hover:bg-white/5'
             }`}
           >
             <Server className="w-3.5 h-3.5" />
@@ -148,7 +148,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
             
             {/* SQL Hub Launch Card */}
             <div className={`p-6 rounded-2xl border transition-all space-y-4 ${
-              isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
+              isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
             }`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
@@ -180,7 +180,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
 
             {/* PHP Web Studio Card */}
             <div className={`p-6 rounded-2xl border transition-all space-y-4 ${
-              isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
+              isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
             }`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-500 flex items-center justify-center">
@@ -237,7 +237,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
                   href="/seed-sqlite.php"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-stone-600 hover:text-[var(--accent-terracota)] transition underline font-mono text-[10px]"
+                  className="text-stone-600 hover:text-[#E05A47] transition underline font-mono text-[10px]"
                 >
                   Re-sincronizar SQLite
                 </a>
@@ -248,24 +248,24 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
 
           {/* Database Tables Summary */}
           <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
+            isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
           }`}>
             <h3 className={`text-sm font-bold flex items-center gap-2 ${isLight ? 'text-stone-900' : 'text-white'}`}>
-              <Layers className="w-4 h-4 text-[var(--accent-terracota)]" />
+              <Layers className="w-4 h-4 text-[#E05A47]" />
               <span>Esquema de Tablas Relacionales en PostgreSQL</span>
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className={`p-3 rounded-xl border text-center ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <span className="text-[10px] text-stone-400 uppercase font-mono block">Tabla</span>
-                <span className="text-xs font-bold font-mono text-[var(--accent-terracota)] block mt-0.5">obras</span>
+                <span className="text-xs font-bold font-mono text-[#E05A47] block mt-0.5">obras</span>
                 <span className="text-[11px] text-stone-500 block mt-1">{counts.obras} filas</span>
               </div>
 
               <div className={`p-3 rounded-xl border text-center ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <span className="text-[10px] text-stone-400 uppercase font-mono block">Tabla</span>
                 <span className="text-xs font-bold font-mono text-amber-500 block mt-0.5">leads_crm</span>
@@ -273,7 +273,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
               </div>
 
               <div className={`p-3 rounded-xl border text-center ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <span className="text-[10px] text-stone-400 uppercase font-mono block">Tabla</span>
                 <span className="text-xs font-bold font-mono text-sky-500 block mt-0.5">venues</span>
@@ -281,7 +281,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
               </div>
 
               <div className={`p-3 rounded-xl border text-center ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <span className="text-[10px] text-stone-400 uppercase font-mono block">Tabla</span>
                 <span className="text-xs font-bold font-mono text-purple-500 block mt-0.5">events</span>
@@ -289,7 +289,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
               </div>
 
               <div className={`p-3 rounded-xl border text-center ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <span className="text-[10px] text-stone-400 uppercase font-mono block">Tabla</span>
                 <span className="text-xs font-bold font-mono text-emerald-500 block mt-0.5">finances</span>
@@ -297,7 +297,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
               </div>
 
               <div className={`p-3 rounded-xl border text-center ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <span className="text-[10px] text-stone-400 uppercase font-mono block">Tabla</span>
                 <span className="text-xs font-bold font-mono text-cyan-500 block mt-0.5">inventory</span>
@@ -330,7 +330,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
       {activeTab === 'servidor' && (
         <div className="space-y-6">
           <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
+            isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
           }`}>
             <h3 className={`text-sm font-bold flex items-center gap-2 ${isLight ? 'text-stone-900' : 'text-white'}`}>
               <Server className="w-4 h-4 text-emerald-500" />
@@ -339,7 +339,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div className={`p-4 rounded-xl border space-y-1.5 ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">Cloud SQL PostgreSQL</span>
@@ -351,7 +351,7 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
               </div>
 
               <div className={`p-4 rounded-xl border space-y-1.5 ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">Autenticación Corporativa</span>
@@ -359,11 +359,11 @@ export const AdminSection: React.FC<AdminSectionProps> = ({
                     ACTIVO
                   </span>
                 </div>
-                <p className="text-[11px] text-stone-500">Inicio de sesion con Google Workspace (OAuth)</p>
+                <p className="text-[11px] text-stone-500">Google Workspace & Apple ID para socios</p>
               </div>
 
               <div className={`p-4 rounded-xl border space-y-1.5 ${
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
+                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
               }`}>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">Persistencia Local</span>

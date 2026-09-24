@@ -117,14 +117,14 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
       <div className={`p-6 md:p-8 rounded-3xl border relative overflow-hidden ${
         isLight
           ? 'bg-gradient-to-br from-white via-[#FAF6F4] to-[#F5ECE8] border-[#E8DDD7] text-stone-900 shadow-xs'
-          : 'bg-gradient-to-br from-[#1E110F] via-[#241513] to-[#170E0D] border-[#E05A47]/30 text-white shadow-xl'
+          : 'bg-gradient-to-br from-[var(--bg-surface)] via-[#241513] to-[#170E0D] border-[var(--accent-terracota)]/30 text-white shadow-xl'
       }`}>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#E05A47]/15 via-sky-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[var(--accent-terracota)]/15 via-sky-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[#E05A47]/15 text-[#E05A47] font-bold">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)] font-bold">
                 Planificación Operativa & Calendario Sincronizado
               </span>
               <span className="text-xs font-mono text-emerald-500 flex items-center gap-1">
@@ -144,7 +144,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
             <button
               type="button"
               onClick={() => setShowNewEventModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-semibold shadow-lg shadow-[#E05A47]/20 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-semibold shadow-lg shadow-[var(--accent-terracota)]/20 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Programar Nuevo Montaje</span>
@@ -162,8 +162,8 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
 
       {/* Workload Analytics Summary Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[#3E221E]'}`}>
-          <div className="flex items-center justify-between text-xs font-mono text-[#E05A47] uppercase tracking-wider font-bold mb-1">
+        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)]'}`}>
+          <div className="flex items-center justify-between text-xs font-mono text-[var(--accent-terracota)] uppercase tracking-wider font-bold mb-1">
             <span>Carga Horaria Total</span>
             <Clock className="w-4 h-4" />
           </div>
@@ -173,7 +173,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
           </p>
         </div>
 
-        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[#3E221E]'}`}>
+        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)]'}`}>
           <div className="flex items-center justify-between text-xs font-mono text-sky-500 uppercase tracking-wider font-bold mb-1">
             <span>Gestiones Activas</span>
             <Briefcase className="w-4 h-4" />
@@ -184,7 +184,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
           </p>
         </div>
 
-        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[#3E221E]'}`}>
+        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)]'}`}>
           <div className="flex items-center justify-between text-xs font-mono text-amber-500 uppercase tracking-wider font-bold mb-1">
             <span>Montajes Simultáneos</span>
             <Layers className="w-4 h-4" />
@@ -195,7 +195,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
           </p>
         </div>
 
-        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[#3E221E]'}`}>
+        <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)]'}`}>
           <div className="flex items-center justify-between text-xs font-mono text-emerald-500 uppercase tracking-wider font-bold mb-1">
             <span>Estado Arquitecto SQL</span>
             <Database className="w-4 h-4" />
@@ -209,17 +209,17 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
 
       {/* Filter Toolbar */}
       <div className={`p-4 rounded-2xl border flex flex-col md:flex-row items-center justify-between gap-4 ${
-        isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[#3E221E]'
+        isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)]'
       }`}>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-[#E05A47]" />
+            <Filter className="w-4 h-4 text-[var(--accent-terracota)]" />
             <span className="text-xs font-bold uppercase tracking-wider">Filtrar Obra:</span>
           </div>
           <select
             value={selectedObraFilter}
             onChange={e => setSelectedObraFilter(e.target.value)}
-            className={`px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+            className={`px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
               isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
             }`}
           >
@@ -232,7 +232,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
           <select
             value={selectedLifecycleStage}
             onChange={e => setSelectedLifecycleStage(e.target.value)}
-            className={`px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+            className={`px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
               isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
             }`}
           >
@@ -251,7 +251,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
             placeholder="Buscar por título o sala..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+            className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
               isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
             }`}
           />
@@ -261,7 +261,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
       {/* Calendar Events List Grid */}
       <div className="space-y-4">
         <h3 className="text-sm font-bold font-display flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-[#E05A47]" />
+          <CalendarDays className="w-4 h-4 text-[var(--accent-terracota)]" />
           <span>Cronograma de Montajes & Carga Diaria ({filteredEvents.length})</span>
         </h3>
 
@@ -269,13 +269,13 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
           {filteredEvents.map((ev) => (
             <div
               key={ev.id}
-              className={`p-5 rounded-2xl border space-y-4 transition-all hover:border-[#E05A47]/40 ${
-                isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[#3E221E]'
+              className={`p-5 rounded-2xl border space-y-4 transition-all hover:border-[var(--accent-terracota)]/40 ${
+                isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)]'
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold bg-[#E05A47]/15 text-[#E05A47]">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-bold bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)]">
                     {ev.type}
                   </span>
                   <h4 className="text-sm font-bold font-display">{ev.title}</h4>
@@ -287,7 +287,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
 
               <div className={`space-y-2 text-xs pt-2 border-t ${isLight ? 'border-stone-100 text-stone-600' : 'border-white/5 text-slate-300'}`}>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-[#E05A47]" />
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent-terracota)]" />
                   <span className="font-semibold">{ev.obraTitle}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -302,7 +302,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
 
               <div className="pt-2 flex items-center justify-between text-[11px] font-mono text-slate-400 border-t border-white/5">
                 <span>Carga estim: 4 hrs</span>
-                <span className="text-[#E05A47] font-semibold">SQL Sincronizado</span>
+                <span className="text-[var(--accent-terracota)] font-semibold">SQL Sincronizado</span>
               </div>
             </div>
           ))}
@@ -313,7 +313,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
       {showNewEventModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className={`w-full max-w-lg p-6 md:p-8 rounded-3xl border space-y-6 ${
-            isLight ? 'bg-white border-stone-200 text-stone-900 shadow-2xl' : 'bg-[#1C1210] border-[#3E221E] text-white shadow-2xl'
+            isLight ? 'bg-white border-stone-200 text-stone-900 shadow-2xl' : 'bg-[#1C1210] border-[var(--border-color)] text-white shadow-2xl'
           }`}>
             <div className="flex items-center justify-between border-b pb-4 border-stone-200 dark:border-white/10">
               <h3 className="text-lg font-bold font-display">Programar Nuevo Montaje / Hito Horario</h3>
@@ -334,7 +334,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
                   placeholder="Ej: Puesta de luces general Sala Principal"
                   value={newEvent.title}
                   onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                   required
@@ -349,7 +349,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
                     const sel = obras.find(o => o.id === e.target.value);
                     setNewEvent({ ...newEvent, obraId: e.target.value, obraTitle: sel ? sel.title : '' });
                   }}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-[#180F0E] border-white/10 text-white'
                   }`}
                 >
@@ -365,7 +365,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
                   <select
                     value={newEvent.type}
                     onChange={e => setNewEvent({ ...newEvent, type: e.target.value as any })}
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-[#180F0E] border-white/10 text-white'
                     }`}
                   >
@@ -434,7 +434,7 @@ export const PlanificacionCalendarioSection: React.FC<PlanificacionCalendarioSec
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-semibold shadow-lg shadow-[#E05A47]/20 cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-semibold shadow-lg shadow-[var(--accent-terracota)]/20 cursor-pointer"
                 >
                   Guardar en Calendario & Carga
                 </button>

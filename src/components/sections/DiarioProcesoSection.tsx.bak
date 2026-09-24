@@ -67,7 +67,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
 
     const saved: ProcessLog = {
       id: modalLog.id || `log-${Date.now()}`,
-      obraId: modalLog.obraId || obras[0]?.id || '',
+      obraId: modalLog.obraId || obras[0]?.id || 'obra-01',
       obraTitle: matchedObra?.title || modalLog.obraTitle || 'Montaje ATHA',
       date: modalLog.date || new Date().toLocaleDateString('es-CL'),
       author: modalLog.author || 'Equipo de Dirección',
@@ -108,7 +108,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
 
         <button
           onClick={handleOpenAdd}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#fbbf24] hover:bg-[#f59e0b] text-[var(--bg-base)] text-xs font-semibold rounded-xl shadow transition-all cursor-pointer whitespace-nowrap"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#fbbf24] hover:bg-[#f59e0b] text-[#0f1115] text-xs font-semibold rounded-xl shadow transition-all cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
           <span>Nueva Entrada de Bitácora</span>
@@ -147,11 +147,11 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
         {filteredLogs.map((log) => (
           <div
             key={log.id}
-            className="p-6 rounded-2xl bg-[var(--bg-surface)] border border-white/10 hover:border-white/20 transition-all space-y-4 shadow-lg group relative"
+            className="p-6 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all space-y-4 shadow-lg group relative"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[var(--accent-2)]">
+                <span className="text-xs font-bold text-[#6ee7b7]">
                   {log.obraTitle}
                 </span>
                 <span className="text-slate-400 text-xs">•</span>
@@ -216,8 +216,8 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
       {/* Modal Add / Edit Log */}
       {isModalOpen && modalLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-lg bg-[var(--bg-surface)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
-            <div className="px-6 py-4 border-b border-white/10 bg-[var(--bg-surface)] flex items-center justify-between">
+          <div className="relative w-full max-w-lg bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
+            <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
               <h2 className="text-base font-semibold text-white">
                 {logs.some(l => l.id === modalLog.id) ? 'Editar Entrada de Bitácora' : 'Escribir en el Diario de Proceso'}
               </h2>
@@ -238,7 +238,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
                     const o = obras.find(item => item.id === e.target.value);
                     setModalLog(prev => ({ ...prev, obraId: e.target.value, obraTitle: o?.title || '' }));
                   }}
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
+                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                 >
                   {obras.map(o => (
                     <option key={o.id} value={o.id}>{o.title}</option>
@@ -254,7 +254,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
                   value={modalLog.title || ''}
                   onChange={e => setModalLog(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="Ej. Hallazgo en la escena 3: el silencio como soporte corporal"
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
+                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                 />
               </div>
 
@@ -265,7 +265,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
                     type="text"
                     value={modalLog.author || ''}
                     onChange={e => setModalLog(prev => ({ ...prev, author: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
                 <div>
@@ -274,7 +274,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
                     type="text"
                     value={modalLog.date || ''}
                     onChange={e => setModalLog(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
+                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24]"
                   />
                 </div>
               </div>
@@ -287,7 +287,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
                   value={modalLog.entry || ''}
                   onChange={e => setModalLog(prev => ({ ...prev, entry: e.target.value }))}
                   placeholder="Describe los descubrimientos de ensayo, ajustes de vestuario o iluminación..."
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24] leading-relaxed"
+                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#fbbf24] leading-relaxed"
                 />
               </div>
 
@@ -319,7 +319,7 @@ export const DiarioProcesoSection: React.FC<DiarioProcesoSectionProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[#fbbf24] hover:bg-[#f59e0b] rounded-lg shadow cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#fbbf24] hover:bg-[#f59e0b] rounded-lg shadow cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>Guardar en Bitácora</span>

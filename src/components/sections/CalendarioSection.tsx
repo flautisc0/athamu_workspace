@@ -136,7 +136,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
 
         <button
           onClick={handleOpenAdd}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#38bdf8] hover:bg-[#0284c7] text-[#0f1115] text-xs font-semibold rounded-xl shadow transition-all cursor-pointer whitespace-nowrap"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#38bdf8] hover:bg-[#0284c7] text-[var(--bg-base)] text-xs font-semibold rounded-xl shadow transition-all cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
           <span>Agendar Ensayo o Función</span>
@@ -165,10 +165,10 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
         {filteredEvents.map((evt) => (
           <div
             key={evt.id}
-            className="p-4 rounded-2xl bg-[#161920] border border-white/10 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm group"
+            className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-white/10 hover:border-white/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm group"
           >
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-[#12141a] border border-white/5 text-center shrink-0 min-w-[70px]">
+              <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-white/5 text-center shrink-0 min-w-[70px]">
                 <span className="text-[10px] text-slate-400 font-mono block uppercase">
                   {new Date(evt.date + 'T00:00:00').toLocaleDateString('es-CL', { month: 'short' })}
                 </span>
@@ -187,7 +187,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   }`}>
                     {evt.type}
                   </span>
-                  <span className="text-xs font-bold text-[#6ee7b7]">
+                  <span className="text-xs font-bold text-[var(--accent-2)]">
                     {evt.obraTitle}
                   </span>
                 </div>
@@ -250,8 +250,8 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
       {/* Modal Add / Edit Event */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-lg bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
-            <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
+          <div className="relative w-full max-w-lg bg-[var(--bg-surface)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
+            <div className="px-6 py-4 border-b border-white/10 bg-[var(--bg-surface)] flex items-center justify-between">
               <h2 className="text-base font-semibold text-white">
                 {editingEventId ? 'Editar Evento de Producción' : 'Agendar Nuevo Hito de Producción'}
               </h2>
@@ -272,7 +272,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   value={eventForm.title || ''}
                   onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
                   placeholder="Ej. Ensayo general con pasada de luces"
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                 />
               </div>
 
@@ -285,7 +285,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                       const o = obras.find(item => item.id === e.target.value);
                       setEventForm({ ...eventForm, obraId: e.target.value, obraTitle: o?.title || '' });
                     }}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   >
                     {obras.map(o => (
                       <option key={o.id} value={o.id}>{o.title}</option>
@@ -298,7 +298,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   <select
                     value={eventForm.type || 'Ensayo'}
                     onChange={e => setEventForm({ ...eventForm, type: e.target.value as any })}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   >
                     <option value="Ensayo">Ensayo</option>
                     <option value="Montaje técnico">Montaje técnico</option>
@@ -313,7 +313,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                     type="date"
                     value={eventForm.date || ''}
                     onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   />
                 </div>
 
@@ -322,7 +322,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   <select
                     value={eventForm.status || 'Confirmado'}
                     onChange={e => setEventForm({ ...eventForm, status: e.target.value as any })}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   >
                     <option value="Confirmado">Confirmado</option>
                     <option value="Pendiente">Pendiente</option>
@@ -337,7 +337,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                       type="time"
                       value={eventForm.timeStart || ''}
                       onChange={e => setEventForm({ ...eventForm, timeStart: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                     />
                   </div>
                   <div>
@@ -346,7 +346,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                       type="time"
                       value={eventForm.timeEnd || ''}
                       onChange={e => setEventForm({ ...eventForm, timeEnd: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                     />
                   </div>
                 </div>
@@ -358,7 +358,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                     min="1"
                     value={eventForm.castCount ?? 4}
                     onChange={e => setEventForm({ ...eventForm, castCount: Number(e.target.value) })}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                   />
                 </div>
               </div>
@@ -370,7 +370,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   value={eventForm.venue || ''}
                   onChange={e => setEventForm({ ...eventForm, venue: e.target.value })}
                   placeholder="Ej. Centro GAM - Sala A1"
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#38bdf8]"
                 />
               </div>
 
@@ -401,7 +401,7 @@ export const CalendarioSection: React.FC<CalendarioSectionProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#38bdf8] hover:bg-[#0284c7] rounded-lg shadow cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[#38bdf8] hover:bg-[#0284c7] rounded-lg shadow cursor-pointer"
                   >
                     {editingEventId ? 'Actualizar Evento' : 'Guardar en Agenda'}
                   </button>

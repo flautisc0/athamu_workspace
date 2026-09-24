@@ -33,6 +33,8 @@ export interface Obra {
   premiereDate: string;
   image: string;
   dossierHighlights: string[];
+  /** Ruta al dossier PDF completo alojado en el sitio (ej: /obras/kelu/dossier.pdf) */
+  dossierPdf?: string;
   notes?: string;
 }
 
@@ -284,3 +286,48 @@ export interface AboutCompanyInfo {
   };
 }
 
+
+
+/* ==========================================================================
+   MÓDULO DE GESTIÓN MODULAR DE LA INTERFAZ
+   Preferencias por usuario: tema (acento, tipografía, densidad, superficie,
+   color de fondo) y disposición (perfil y barra de navegación).
+   ========================================================================== */
+
+export type AccentColorId =
+  | 'terracota-fase'
+  | 'ambar-escenico'
+  | 'naranja-corporativo'
+  | 'gris-industrial'
+  | 'esmeralda-creativa';
+
+export type FontFamilyOption = 'Inter' | 'Playfair Display' | 'JetBrains Mono';
+export type SurfaceStyleOption = 'clean-card' | 'minimal-border';
+export type DensityOption = 'compact' | 'comfortable';
+export type ProfileSectionKey = 'datos-personales' | 'biografia' | 'trayectoria' | 'redes' | 'archivos';
+
+export interface NavbarConfig {
+  position: 'arriba' | 'lateral' | 'abajo';
+  estilo: 'solida' | 'translucida' | 'minimal';
+  compacta: boolean;
+  ocultos: string[];
+  orden: string[];
+}
+
+export interface UserPreferencesPayload {
+  theme_config: {
+    accentColor: AccentColorId;
+    fontFamily: FontFamilyOption;
+    surfaceStyle: SurfaceStyleOption;
+    density: DensityOption;
+    /** Color de fondo elegido a mano. null/undefined = el de la paleta. */
+    bgColor?: string | null;
+  };
+  layout_config: {
+    profile_view: {
+      order: ProfileSectionKey[];
+      hidden: ProfileSectionKey[];
+    };
+    navbar?: NavbarConfig;
+  };
+}

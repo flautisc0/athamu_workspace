@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Obra, Lead, Venue } from '../../types';
 import { formatCLP } from '../../utils/storage';
 import {
@@ -48,27 +48,27 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
   const [selectedObraId, setSelectedObraId] = useState<string>(obras[0]?.id || '');
   const activeObra = obras.find(o => o.id === selectedObraId) || obras[0];
 
-  // Grupos de destinatarios: se leen y guardan en el CRM (tabla lead_groups)
-  const [recipientGroups, setRecipientGroups] = useState<RecipientGroup[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    fetch('/api/v1/crm/lead-groups')
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (!alive || !data || !Array.isArray(data.groups)) return;
-        setRecipientGroups(
-          data.groups.map((g: any) => ({
-            id: g.id,
-            name: g.name,
-            description: g.description || `${g.count || 0} contactos`,
-            emails: Array.isArray(g.emails) ? g.emails : []
-          }))
-        );
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
+  // Pre-populated recipient groups
+  const [recipientGroups, setRecipientGroups] = useState<RecipientGroup[]>([
+    {
+      id: 'g-1',
+      name: 'Programadores de Salas Principales',
+      description: 'Directores de programación de teatros corporativos y salas de la Región Metropolitana.',
+      emails: leads.filter(l => l.type === 'sala').map(l => l.email)
+    },
+    {
+      id: 'g-2',
+      name: 'Festivales Nacionales & Internacionales',
+      description: 'Curadores de festivales de artes escénicas en Chile y Latinoamérica.',
+      emails: leads.filter(l => l.type === 'festival').map(l => l.email)
+    },
+    {
+      id: 'g-3',
+      name: 'Red de Casas de Cultura & Regiones',
+      description: 'Corporaciones culturales municipales y espacios descentralizados.',
+      emails: leads.map(l => l.email).slice(0, 5)
+    }
+  ]);
 
   // Selected recipient emails state
   const [selectedEmails, setSelectedEmails] = useState<string[]>([leads[0]?.email || 'programacion@gam.cl']);
@@ -148,36 +148,12 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
     setNewGroupName('');
     setNewGroupDesc('');
     setNewGroupEmailsStr('');
-    setFeedback(`Grupo "${newGroup.name}" creado (${newGroup.emails.length} contactos).`);
-
-    fetch('/api/v1/crm/lead-groups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newGroup.name,
-        description: newGroup.description,
-        emails: newGroup.emails
-      })
-    })
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (data && data.success && data.data && data.data.id) {
-          setRecipientGroups(prev =>
-            prev.map(g => (g.id === newGroup.id ? { ...g, id: data.data.id } : g))
-          );
-          setFeedback(`Grupo "${newGroup.name}" guardado en el CRM.`);
-        } else {
-          setFeedback('Grupo creado localmente (no se pudo guardar en el CRM).');
-        }
-      })
-      .catch(() => setFeedback('Grupo creado localmente (sin conexión al CRM).'));
-
-    setTimeout(() => setFeedback(null), 3500);
+    setFeedback(`¡Grupo de destinatarios "${newGroupName}" creado con éxito!`);
+    setTimeout(() => setFeedback(null), 3000);
   };
 
   const handleDeleteGroup = (groupId: string) => {
     setRecipientGroups(recipientGroups.filter(g => g.id !== groupId));
-    fetch(`/api/v1/crm/lead-groups/${groupId}`, { method: 'DELETE' }).catch(() => {});
     setFeedback('Grupo de destinatarios eliminado.');
     setTimeout(() => setFeedback(null), 3000);
   };
@@ -247,14 +223,14 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
       <div className={`p-6 md:p-8 rounded-3xl border relative overflow-hidden ${
         isLight
           ? 'bg-gradient-to-br from-white via-[#FAF6F4] to-[#F5ECE8] border-[#E8DDD7] text-stone-900 shadow-xs'
-          : 'bg-gradient-to-br from-[var(--bg-surface)] via-[#241513] to-[#170E0D] border-[var(--accent-terracota)]/30 text-white shadow-xl'
+          : 'bg-gradient-to-br from-[#1E110F] via-[#241513] to-[#170E0D] border-[#E05A47]/30 text-white shadow-xl'
       }`}>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[var(--accent-terracota)]/15 via-emerald-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#E05A47]/15 via-emerald-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)] font-bold">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[#E05A47]/15 text-[#E05A47] font-bold">
                 Módulo de Ventas, Mailing Masivo & Presupuestos
               </span>
               <span className="text-xs font-mono text-emerald-500 flex items-center gap-1">
@@ -281,10 +257,10 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
 
       {/* Select Obra Bar */}
       <div className={`p-4 rounded-2xl border flex flex-col md:flex-row items-center justify-between gap-4 ${
-        isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)]'
+        isLight ? 'bg-white border-stone-200 shadow-xs' : 'bg-[#180F0E] border-[#3E221E]'
       }`}>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <Sparkles className="w-4 h-4 text-[var(--accent-terracota)]" />
+          <Sparkles className="w-4 h-4 text-[#E05A47]" />
           <span className="text-xs font-bold uppercase tracking-wider">Seleccionar Obra a Ofertar:</span>
           <select
             value={selectedObraId}
@@ -297,7 +273,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                 setEmailSubject(`Propuesta de Gira y Dossier Artístico: ${found.title}`);
               }
             }}
-            className={`px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+            className={`px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
               isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
             }`}
           >
@@ -319,17 +295,17 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
         
         {/* Left: Mailing List, Group Management & Email Draft (7 cols) */}
         <div className={`lg:col-span-7 p-6 md:p-8 rounded-2xl border space-y-6 ${
-          isLight ? 'bg-white border-stone-200 text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)] text-slate-100'
+          isLight ? 'bg-white border-stone-200 text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[#3E221E] text-slate-100'
         }`}>
           <div className="flex items-center justify-between border-b pb-4 border-stone-200 dark:border-white/10">
             <h3 className="text-sm font-bold font-display flex items-center gap-2">
-              <Users className="w-4 h-4 text-[var(--accent-terracota)]" />
+              <Users className="w-4 h-4 text-[#E05A47]" />
               <span>Gestión de Grupos & Destinatarios ({selectedEmails.length} seleccionados)</span>
             </h3>
             <button
               type="button"
               onClick={() => setShowNewGroupModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-terracota)]/15 hover:bg-[var(--accent-terracota)]/25 text-[var(--accent-terracota)] text-xs font-semibold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E05A47]/15 hover:bg-[#E05A47]/25 text-[#E05A47] text-xs font-semibold transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Crear Grupo Destinatarios</span>
@@ -345,7 +321,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                 onClick={() => handleSelectGroup('all')}
                 className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
                   selectedGroupId === 'all'
-                    ? 'bg-[var(--accent-terracota)] text-white border-[var(--accent-terracota)]'
+                    ? 'bg-[#E05A47] text-white border-[#E05A47]'
                     : isLight ? 'bg-stone-50 border-stone-200 text-stone-800' : 'bg-black/30 border-white/10 text-white'
                 }`}
               >
@@ -358,7 +334,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                     onClick={() => handleSelectGroup(g.id)}
                     className={`px-3 py-1.5 rounded-l-xl border text-xs font-medium transition-all cursor-pointer ${
                       selectedGroupId === g.id
-                        ? 'bg-[var(--accent-terracota)] text-white border-[var(--accent-terracota)]'
+                        ? 'bg-[#E05A47] text-white border-[#E05A47]'
                         : isLight ? 'bg-stone-50 border-stone-200 text-stone-800' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   >
@@ -383,7 +359,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
           <div className="space-y-3 pt-2">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Filter className="w-3.5 h-3.5 text-[var(--accent-terracota)]" />
+                <Filter className="w-3.5 h-3.5 text-[#E05A47]" />
                 <select
                   value={recipientFilterType}
                   onChange={e => setRecipientFilterType(e.target.value)}
@@ -421,12 +397,12 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                     onClick={() => handleToggleEmail(l.email)}
                     className={`p-2 rounded-lg border flex items-center justify-between gap-2 cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-[var(--accent-terracota)]/15 border-[var(--accent-terracota)]/40 text-[var(--accent-terracota)]'
+                        ? 'bg-[#E05A47]/15 border-[#E05A47]/40 text-[#E05A47]'
                         : isLight ? 'bg-white border-stone-200 text-stone-800 hover:bg-stone-100' : 'bg-[#180F0E] border-white/10 text-slate-200 hover:bg-white/5'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {isSelected ? <CheckSquare className="w-4 h-4 text-[var(--accent-terracota)] shrink-0" /> : <Square className="w-4 h-4 text-slate-400 shrink-0" />}
+                      {isSelected ? <CheckSquare className="w-4 h-4 text-[#E05A47] shrink-0" /> : <Square className="w-4 h-4 text-slate-400 shrink-0" />}
                       <div className="min-w-0">
                         <span className="text-xs font-bold truncate block">{l.name} ({l.organization})</span>
                         <span className="text-[10px] font-mono opacity-70 truncate block">{l.email} • {l.city}</span>
@@ -449,7 +425,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                 type="text"
                 value={emailSubject}
                 onChange={e => setEmailSubject(e.target.value)}
-                className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                   isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                 }`}
                 required
@@ -462,7 +438,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                 rows={5}
                 value={emailBody}
                 onChange={e => setEmailBody(e.target.value)}
-                className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                   isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                 }`}
                 required
@@ -472,7 +448,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
             {/* Attached Documents */}
             <div className="space-y-2">
               <label className="block font-medium opacity-80 flex items-center gap-1.5">
-                <Paperclip className="w-3.5 h-3.5 text-[var(--accent-terracota)]" />
+                <Paperclip className="w-3.5 h-3.5 text-[#E05A47]" />
                 <span>Documentos Adjuntos Automáticos (Dossiers & Riders)</span>
               </label>
 
@@ -494,7 +470,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
               </span>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-semibold shadow-lg shadow-[var(--accent-terracota)]/20 transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-semibold shadow-lg shadow-[#E05A47]/20 transition-all cursor-pointer"
               >
                 <Send className="w-4 h-4" />
                 <span>Enviar Mailing Masivo</span>
@@ -505,7 +481,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
 
         {/* Right: Budget Calculator & Break-Even Modeler (5 cols) */}
         <div className={`lg:col-span-5 p-6 md:p-8 rounded-2xl border space-y-6 ${
-          isLight ? 'bg-white border-stone-200 text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[var(--border-color)] text-slate-100'
+          isLight ? 'bg-white border-stone-200 text-stone-900 shadow-xs' : 'bg-[#180F0E] border-[#3E221E] text-slate-100'
         }`}>
           <div className="flex items-center justify-between border-b pb-4 border-stone-200 dark:border-white/10">
             <h3 className="text-sm font-bold font-display flex items-center gap-2">
@@ -604,7 +580,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
               </div>
               <div className="flex justify-between items-center text-xs pt-2 border-t border-white/10">
                 <span className="font-bold">Margen Operativo Estimado:</span>
-                <span className="font-bold text-[var(--accent-terracota)] font-mono">{formatCLP(profitMargin)}</span>
+                <span className="font-bold text-[#E05A47] font-mono">{formatCLP(profitMargin)}</span>
               </div>
             </div>
           </div>
@@ -616,7 +592,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
       {showNewGroupModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className={`w-full max-w-lg p-6 md:p-8 rounded-3xl border space-y-6 ${
-            isLight ? 'bg-white border-stone-200 text-stone-900 shadow-2xl' : 'bg-[#1C1210] border-[var(--border-color)] text-white shadow-2xl'
+            isLight ? 'bg-white border-stone-200 text-stone-900 shadow-2xl' : 'bg-[#1C1210] border-[#3E221E] text-white shadow-2xl'
           }`}>
             <div className="flex items-center justify-between border-b pb-4 border-stone-200 dark:border-white/10">
               <h3 className="text-lg font-bold font-display">Crear Grupo de Destinatarios</h3>
@@ -637,7 +613,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                   placeholder="Ej: Festivales del Sur de Chile"
                   value={newGroupName}
                   onChange={e => setNewGroupName(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                   required
@@ -651,7 +627,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                   placeholder="Descripción del segmento..."
                   value={newGroupDesc}
                   onChange={e => setNewGroupDesc(e.target.value)}
-                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -664,7 +640,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                   placeholder="prog1@teatro.cl, prog2@festival.cl"
                   value={newGroupEmailsStr}
                   onChange={e => setNewGroupEmailsStr(e.target.value)}
-                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -682,7 +658,7 @@ export const VentasSection: React.FC<VentasSectionProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-semibold shadow-lg shadow-[var(--accent-terracota)]/20 cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white text-xs font-semibold shadow-lg shadow-[#E05A47]/20 cursor-pointer"
                 >
                   Guardar Grupo & Seleccionar
                 </button>

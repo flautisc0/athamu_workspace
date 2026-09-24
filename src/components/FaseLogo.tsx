@@ -25,7 +25,7 @@ export const FaseLogo: React.FC<FaseLogoProps> = ({
   }[size];
 
   // Theme palettes
-  // Terracota: #E05A47, Coral Vivo: #FF6B4A, Azul FASE: #1E293B / #2563EB, Blanco: #FFFFFF
+  // Terracota: var(--accent-terracota), Coral Vivo: var(--accent-glow), Azul FASE: #1E293B / #2563EB, Blanco: #FFFFFF
   const isTerracota = theme === 'terracota';
   const isAzul = theme === 'azul';
   const isLight = theme === 'light';
@@ -43,8 +43,8 @@ export const FaseLogo: React.FC<FaseLogoProps> = ({
       <defs>
         {/* Gradient Terracota F.A.S.E */}
         <linearGradient id="faseTerracotaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FF6B4A" />
-          <stop offset="50%" stopColor="#E05A47" />
+          <stop offset="0%" stopColor="var(--accent-glow)" />
+          <stop offset="50%" stopColor="var(--accent-terracota)" />
           <stop offset="100%" stopColor="#C84B31" />
         </linearGradient>
 
@@ -152,7 +152,7 @@ export const FaseLogo: React.FC<FaseLogoProps> = ({
         cx="72"
         cy="49"
         r="4"
-        fill={isTerracota || isAzul ? '#FFFFFF' : '#FF6B4A'}
+        fill={isTerracota || isAzul ? '#FFFFFF' : 'var(--accent-glow)'}
       />
     </svg>
   );
@@ -165,12 +165,12 @@ export const FaseLogo: React.FC<FaseLogoProps> = ({
   // If badge card variant
   if (variant === 'badge') {
     const bgClass = isTerracota
-      ? 'bg-gradient-to-br from-[#FF6B4A] to-[#C84B31] text-white border-white/20'
+      ? 'bg-gradient-to-br from-[var(--accent-glow)] to-[#C84B31] text-white border-white/20'
       : isAzul
       ? 'bg-gradient-to-br from-[#1E3A8A] via-[#1E293B] to-[#0F172A] text-white border-blue-500/30'
       : isLight
       ? 'bg-white text-slate-900 border-slate-200'
-      : 'bg-[#151921] text-white border-[#E05A47]/30';
+      : 'bg-[#151921] text-white border-[var(--accent-terracota)]/30';
 
     return (
       <div
@@ -179,7 +179,7 @@ export const FaseLogo: React.FC<FaseLogoProps> = ({
         {renderSymbol(dimensions.icon * 1.4)}
         <div className="flex items-center gap-1 font-display font-extrabold tracking-widest text-lg">
           <span>F</span>
-          <span className="text-[#FF6B4A]">•</span>
+          <span className="text-[var(--accent-glow)]">•</span>
           <span>A</span>
           <span className="text-[#38BDF8]">•</span>
           <span>S</span>
@@ -206,9 +206,9 @@ export const FaseLogo: React.FC<FaseLogoProps> = ({
               isLight ? 'text-slate-900' : 'text-white'
             }`}
           >
-            F<span className="text-[#FF6B4A]">•</span>A<span className="text-[#38BDF8]">•</span>S<span className="text-[#F59E0B]">•</span>E
+            F<span className="text-[var(--accent-glow)]">•</span>A<span className="text-[#38BDF8]">•</span>S<span className="text-[#F59E0B]">•</span>E
           </span>
-          <span className="text-[9px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded bg-[#E05A47]/20 text-[#FF6B4A] border border-[#E05A47]/30 font-semibold">
+          <span className="text-[9px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded bg-[var(--accent-terracota)]/20 text-[var(--accent-glow)] border border-[var(--accent-terracota)]/30 font-semibold">
             PRODUCCIÓN
           </span>
         </div>

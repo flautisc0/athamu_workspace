@@ -13,7 +13,6 @@ import {
   Users
 } from 'lucide-react';
 import { FaseLogo } from './FaseLogo';
-import { guardarSesionCompartida } from '../utils/sesionEcosistema';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -46,21 +45,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Google bloquea el login dentro de navegadores embebidos (Telegram, Instagram,
-  // Facebook...): responde disallowed_useragent y el flujo muere sin aviso.
-  const estaEnWebview =
-    typeof navigator !== 'undefined' &&
-    /Telegram|TelegramBot|FBAN|FBAV|FB_IAB|Instagram|Line\/|WhatsApp|MicroMessenger/i.test(navigator.userAgent);
-  const urlActual = typeof window !== 'undefined' ? window.location.href : '';
-
   const handleGoogleLogin = async () => {
-    if (estaEnWebview) {
-      setAuthMethodFeedback(
-        'Abrí esta página en Safari o Chrome: Google bloquea el inicio de sesión dentro de Telegram.'
-      );
-      setTimeout(() => setAuthMethodFeedback(null), 7000);
-      return;
-    }
     setAuthMethodFeedback('Conectando con Google Workspace...');
     
     try {
@@ -180,9 +165,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       onSelectUser(userSession);
-      // Guarda en la clave COMPARTIDA del ecosistema (atha_user_session), que es
-      // la que leen el Planner, el Arquitecto y el Buscador.
-      guardarSesionCompartida(userSession);
+      try {
+        localStorage.setItem('user_session', JSON.stringify(userSession));
+        window.dispatchEvent(new Event('user_session_updated'));
+      } catch (e: any) {
+        console.warn('Storage sync error:', e);
+      }
 
       setTimeout(() => {
         setAuthMethodFeedback(null);
@@ -240,7 +228,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setTimeout(() => {
       onSelectUser(newUser);
-      guardarSesionCompartida(newUser);
+      try {
+        localStorage.setItem('user_session', JSON.stringify(newUser));
+        window.dispatchEvent(new Event('user_session_updated'));
+      } catch (e) {
+        console.warn('Storage sync error:', e);
+      }
       setTimeout(() => {
         setAuthMethodFeedback(null);
         onClose?.();
@@ -254,7 +247,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         className={`relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border transition-colors flex flex-col max-h-[90vh] ${
           isLight
             ? 'bg-[#FAF8F6] border-stone-200 text-stone-900 shadow-stone-300/40'
-            : 'bg-[#160E0D] border-[var(--border-color)] text-[#FDF5F4] shadow-black/80'
+            : 'bg-[#160E0D] border-[#3E221E] text-[#FDF5F4] shadow-black/80'
         }`}
       >
         {/* Header */}
@@ -262,7 +255,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           className={`flex items-center justify-between px-6 py-4 border-b transition-colors ${
             isLight
               ? 'bg-white border-stone-200'
-              : 'bg-[#1A100F] border-[var(--border-color)]'
+              : 'bg-[#1A100F] border-[#3E221E]'
           }`}
         >
           <div className="flex items-center gap-3">
@@ -273,7 +266,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </h2>
               <p
                 className={`text-xs mt-0.5 ${
-                  isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'
+                  isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
                 }`}
               >
                 ATHA Producciones • Panel de Dirección y Control
@@ -301,7 +294,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           className={`flex items-center px-6 pt-3 pb-2 border-b gap-2 ${
             isLight
               ? 'bg-stone-50/70 border-stone-200'
-              : 'bg-[#140B0A]/80 border-[var(--border-color)]'
+              : 'bg-[#140B0A]/80 border-[#3E221E]'
           }`}
         >
           <button
@@ -310,8 +303,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
               authMode === 'login'
                 ? isLight
-                  ? 'bg-[var(--accent-terracota)] text-white shadow-sm'
-                  : 'bg-[var(--accent-terracota)] text-white shadow-sm'
+                  ? 'bg-[#C84835] text-white shadow-sm'
+                  : 'bg-[#E05A47] text-white shadow-sm'
                 : isLight
                 ? 'text-stone-600 hover:bg-stone-200/60'
                 : 'text-stone-400 hover:bg-white/5'
@@ -327,8 +320,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
               authMode === 'register'
                 ? isLight
-                  ? 'bg-[var(--accent-terracota)] text-white shadow-sm'
-                  : 'bg-[var(--accent-terracota)] text-white shadow-sm'
+                  ? 'bg-[#C84835] text-white shadow-sm'
+                  : 'bg-[#E05A47] text-white shadow-sm'
                 : isLight
                 ? 'text-stone-600 hover:bg-stone-200/60'
                 : 'text-stone-400 hover:bg-white/5'
@@ -362,14 +355,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               className={`p-4 rounded-xl border flex items-center gap-3.5 ${
                 isLight
                   ? 'bg-white border-stone-200'
-                  : 'bg-[var(--bg-surface)] border-[var(--border-color)]'
+                  : 'bg-[#1E110F] border-[#3E221E]'
               }`}
             >
               <img
                 src={currentUser.avatar}
                 alt={currentUser.name}
                 className={`w-12 h-12 rounded-xl object-cover border-2 ${
-                  isLight ? 'border-[var(--accent-terracota)]' : 'border-[var(--accent-terracota)]'
+                  isLight ? 'border-[#C84835]' : 'border-[#E05A47]'
                 }`}
                 referrerPolicy="no-referrer"
               />
@@ -385,8 +378,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span
                     className={`text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${
                       isLight
-                        ? 'bg-[var(--accent-terracota)]/10 text-[var(--accent-terracota)] border-[var(--accent-terracota)]/20'
-                        : 'bg-[var(--accent-terracota)]/15 text-[var(--accent-glow)] border-[var(--accent-terracota)]/30'
+                        ? 'bg-[#C84835]/10 text-[#C84835] border-[#C84835]/20'
+                        : 'bg-[#E05A47]/15 text-[#FF6B4A] border-[#E05A47]/30'
                     }`}
                   >
                     {currentUser.provider}
@@ -394,7 +387,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
                 <p
                   className={`text-xs truncate mt-0.5 ${
-                    isLight ? 'text-stone-600' : 'text-[var(--text-secondary)]'
+                    isLight ? 'text-stone-600' : 'text-[#D4B2AD]'
                   }`}
                 >
                   {currentUser.role}
@@ -412,13 +405,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div
               className={`p-4 rounded-xl border text-center space-y-1.5 ${
                 isLight
-                  ? 'bg-[var(--accent-terracota)]/10 border-[var(--accent-terracota)]/30'
-                  : 'bg-[var(--accent-terracota)]/15 border-[var(--accent-terracota)]/40'
+                  ? 'bg-[#C84835]/10 border-[#C84835]/30'
+                  : 'bg-[#E05A47]/15 border-[#E05A47]/40'
               }`}
             >
               <h3
                 className={`text-sm font-bold ${
-                  isLight ? 'text-[var(--accent-terracota)]' : 'text-[var(--accent-glow)]'
+                  isLight ? 'text-[#C84835]' : 'text-[#FF6B4A]'
                 }`}
               >
                 Acceso Protegido F.A.S.E / ATHA
@@ -440,7 +433,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="space-y-2">
                 <p
                   className={`text-[11px] font-semibold uppercase tracking-wider ${
-                    isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'
+                    isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
                   }`}
                 >
                   Iniciar con Cuenta Corporativa
@@ -453,7 +446,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer ${
                       isLight
                         ? 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-sm'
-                        : 'bg-[var(--bg-surface)] hover:bg-white/10 border-[var(--border-color)] text-white'
+                        : 'bg-[#1E110F] hover:bg-white/10 border-[#3E221E] text-white'
                     }`}
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -464,38 +457,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </svg>
                     <span>Iniciar sesión con Google</span>
                   </button>
-
-                {estaEnWebview && (
-                  <div
-                    className={`p-3.5 rounded-xl border space-y-2 ${
-                      isLight
-                        ? 'bg-amber-50 border-amber-300 text-amber-900'
-                        : 'bg-amber-500/10 border-amber-500/40 text-amber-200'
-                    }`}
-                  >
-                    <p className="text-[11px] font-semibold">
-                      Google bloquea el inicio de sesión dentro de Telegram y otros navegadores integrados.
-                    </p>
-                    <p className="text-[11px] leading-relaxed">
-                      Abrí esta página en <b>Safari</b> o <b>Chrome</b>: tocá el menú <b>⋯</b> (arriba a la
-                      derecha) y elegí <b>Abrir en el navegador</b>. También podés crear tu cuenta con el
-                      formulario de registro de abajo.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        try {
-                          window.open(urlActual, '_blank');
-                        } catch (e) {
-                          console.warn('No se pudo abrir el navegador externo:', e);
-                        }
-                      }}
-                      className="w-full py-2 rounded-xl text-[11px] font-semibold bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white transition-colors cursor-pointer"
-                    >
-                      Abrir en el navegador
-                    </button>
-                  </div>
-                )}
 
                 </div>
               </div>
@@ -509,7 +470,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div>
                 <label
                   className={`block text-[11px] font-semibold mb-1 ${
-                    isLight ? 'text-stone-600' : 'text-[var(--text-secondary)]'
+                    isLight ? 'text-stone-600' : 'text-[#D4B2AD]'
                   }`}
                 >
                   Nombre Completo *
@@ -522,8 +483,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   placeholder="Ej: Carmen Gloria Larenas"
                   className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-colors ${
                     isLight
-                      ? 'bg-white border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
-                      : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
+                      ? 'bg-white border-stone-300 focus:border-[#C84835] text-stone-900'
+                      : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
                   }`}
                 />
               </div>
@@ -531,7 +492,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div>
                 <label
                   className={`block text-[11px] font-semibold mb-1 ${
-                    isLight ? 'text-stone-600' : 'text-[var(--text-secondary)]'
+                    isLight ? 'text-stone-600' : 'text-[#D4B2AD]'
                   }`}
                 >
                   Tipo de cuenta *
@@ -542,8 +503,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   onChange={e => setRegRole(e.target.value)}
                   className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-colors ${
                     isLight
-                      ? 'bg-white border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
-                      : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
+                      ? 'bg-white border-stone-300 focus:border-[#C84835] text-stone-900'
+                      : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
                   }`}
                 >
                   <option value="Artista">Artista / Elenco</option>
@@ -557,7 +518,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div>
                   <label
                     className={`block text-[11px] font-semibold mb-1 ${
-                      isLight ? 'text-stone-600' : 'text-[var(--text-secondary)]'
+                      isLight ? 'text-stone-600' : 'text-[#D4B2AD]'
                     }`}
                   >
                     Correo Corporativo *
@@ -570,8 +531,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     placeholder="usuario@athaproducciones.cl"
                     className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-colors ${
                       isLight
-                        ? 'bg-white border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
-                        : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
+                        ? 'bg-white border-stone-300 focus:border-[#C84835] text-stone-900'
+                        : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
                     }`}
                   />
                 </div>
@@ -579,7 +540,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div>
                   <label
                     className={`block text-[11px] font-semibold mb-1 ${
-                      isLight ? 'text-stone-600' : 'text-[var(--text-secondary)]'
+                      isLight ? 'text-stone-600' : 'text-[#D4B2AD]'
                     }`}
                   >
                     Proveedor de Credencial
@@ -589,8 +550,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={e => setRegProvider(e.target.value as any)}
                     className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-colors ${
                       isLight
-                        ? 'bg-white border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
-                        : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
+                        ? 'bg-white border-stone-300 focus:border-[#C84835] text-stone-900'
+                        : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
                     }`}
                   >
                     <option value="google">Google Workspace</option>
@@ -603,8 +564,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="submit"
                 className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-xs text-white transition-colors cursor-pointer shadow-md ${
                   isLight
-                    ? 'bg-[var(--accent-terracota)] hover:bg-[#A33827]'
-                    : 'bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)]'
+                    ? 'bg-[#C84835] hover:bg-[#A33827]'
+                    : 'bg-[#E05A47] hover:bg-[#FF6B4A]'
                 }`}
               >
                 <UserPlus className="w-4 h-4" />

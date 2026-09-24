@@ -72,10 +72,10 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-xl bg-[#161920] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200 my-auto">
+      <div className="relative w-full max-w-xl bg-[var(--bg-surface)] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200 my-auto">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141a]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[var(--bg-surface)]">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <span>{lead ? 'Editar Contacto / Lead' : 'Nuevo Contacto Escénico'}</span>
           </h2>
@@ -99,7 +99,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 value={formData.name || ''}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Ej. Rodrigo Bazaes"
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               />
             </div>
 
@@ -111,7 +111,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 value={formData.organization || ''}
                 onChange={e => setFormData({ ...formData, organization: e.target.value })}
                 placeholder="Ej. Centro Cultural GAM"
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               />
             </div>
 
@@ -120,7 +120,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
               <select
                 value={formData.type || 'sala'}
                 onChange={e => setFormData({ ...formData, type: e.target.value as LeadType })}
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               >
                 <option value="sala">Sala / Teatro</option>
                 <option value="festival">Festival</option>
@@ -135,7 +135,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
               <select
                 value={formData.status || 'contactado'}
                 onChange={e => setFormData({ ...formData, status: e.target.value as LeadStatus })}
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               >
                 <option value="contactado">Contactado / Primer acercamiento</option>
                 <option value="negociacion">En Negociación / Revisión técnica</option>
@@ -151,7 +151,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 value={formData.city || ''}
                 onChange={e => setFormData({ ...formData, city: e.target.value })}
                 placeholder="Santiago / Concepción / Valparaíso"
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               />
             </div>
 
@@ -161,7 +161,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 type="number"
                 value={formData.estimatedValueCLP || 0}
                 onChange={e => setFormData({ ...formData, estimatedValueCLP: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               />
             </div>
 
@@ -172,7 +172,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 value={formData.email || ''}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
                 placeholder="contacto@teatro.cl"
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               />
             </div>
 
@@ -183,7 +183,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 value={formData.phone || ''}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="+56 9 ..."
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               />
             </div>
 
@@ -192,7 +192,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
               <select
                 value={formData.assignedTo || 'Francisco Pérez'}
                 onChange={e => setFormData({ ...formData, assignedTo: e.target.value })}
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               >
                 <option value="Francisco Pérez">Francisco Pérez (Dirección)</option>
                 <option value="Jo Schultz">Jo Schultz (Creación/Danza)</option>
@@ -208,7 +208,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 value={formData.lastContactDate || ''}
                 onChange={e => setFormData({ ...formData, lastContactDate: e.target.value })}
                 placeholder="dd/mm/aaaa"
-                className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
               />
             </div>
           </div>
@@ -220,7 +220,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
               value={formData.notes || ''}
               onChange={e => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Detalles sobre fechas tentativas, presupuesto, requerimientos especiales..."
-              className="w-full px-3 py-2 text-sm bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
             />
           </div>
 
@@ -251,7 +251,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-lg transition-colors shadow cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-[var(--bg-base)] bg-[var(--accent-2)] hover:bg-[#5eead4] rounded-lg transition-colors shadow cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>Guardar</span>

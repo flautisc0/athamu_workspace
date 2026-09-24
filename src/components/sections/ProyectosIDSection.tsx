@@ -100,14 +100,14 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
       <div className={`p-6 md:p-8 rounded-3xl border relative overflow-hidden ${
         isLight
           ? 'bg-gradient-to-br from-white via-[#FAF6F4] to-[#F5ECE8] border-[#E8DDD7] text-stone-900 shadow-xs'
-          : 'bg-gradient-to-br from-[#1E110F] via-[#241513] to-[#170E0D] border-[#E05A47]/30 text-white shadow-xl'
+          : 'bg-gradient-to-br from-[var(--bg-surface)] via-[#241513] to-[#170E0D] border-[var(--accent-terracota)]/30 text-white shadow-xl'
       }`}>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#E05A47]/15 via-sky-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[var(--accent-terracota)]/15 via-sky-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[#E05A47]/15 text-[#E05A47] font-bold">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)] font-bold">
                 Módulo I+D & Laboratorios Escénicos
               </span>
               <span className="text-xs font-mono text-emerald-500 flex items-center gap-1">
@@ -131,10 +131,10 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                 className={`inline-flex items-center gap-2 px-4 py-3 rounded-2xl border text-xs font-semibold transition-all shadow-xs cursor-pointer ${
                   isLight
                     ? 'bg-white hover:bg-stone-50 border-stone-300 text-stone-800'
-                    : 'bg-[#2A1815] hover:bg-[#35201C] border-[#E05A47]/40 text-white'
+                    : 'bg-[#2A1815] hover:bg-[#35201C] border-[var(--accent-terracota)]/40 text-white'
                 }`}
               >
-                <Compass className="w-4 h-4 text-[#E05A47]" />
+                <Compass className="w-4 h-4 text-[var(--accent-terracota)]" />
                 <span>Abrir Arquitecto de Proyectos</span>
                 <ArrowUpRight className="w-3.5 h-3.5 opacity-70" />
               </button>
@@ -142,7 +142,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
 
             <button
               onClick={handleOpenNewModal}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-[#E05A47] hover:bg-[#FF6B4A] text-white font-semibold text-xs rounded-2xl shadow-lg shadow-[#E05A47]/25 transition-all cursor-pointer w-full sm:w-auto justify-center"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white font-semibold text-xs rounded-2xl shadow-lg shadow-[var(--accent-terracota)]/25 transition-all cursor-pointer w-full sm:w-auto justify-center"
             >
               <Plus className="w-4 h-4" />
               <span>Nuevo Proyecto I+D</span>
@@ -165,7 +165,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
           const percentColor =
             currentProgress >= 80 ? 'bg-emerald-500' :
             currentProgress >= 60 ? 'bg-emerald-400' :
-            currentProgress >= 40 ? 'bg-[#E05A47]' : 'bg-amber-500';
+            currentProgress >= 40 ? 'bg-[var(--accent-terracota)]' : 'bg-amber-500';
 
           return (
             <div
@@ -173,15 +173,15 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
               onClick={() => handleOpenEditModal(project)}
               className={`p-6 rounded-3xl border transition-all flex flex-col justify-between space-y-5 shadow-sm hover:shadow-md cursor-pointer group relative ${
                 isLight
-                  ? 'bg-white border-stone-200 hover:border-[#E05A47]/50'
-                  : 'bg-[#180F0E] border-[#3E221E] hover:border-[#E05A47]/60'
+                  ? 'bg-white border-stone-200 hover:border-[var(--accent-terracota)]/50'
+                  : 'bg-[#180F0E] border-[var(--border-color)] hover:border-[var(--accent-terracota)]/60'
               }`}
             >
               <div className="space-y-4">
                 {/* Code & Actions */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-[#E05A47]/15 text-[#E05A47] border border-[#E05A47]/30">
+                    <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)] border border-[var(--accent-terracota)]/30">
                       {project.code}
                     </span>
                     <span className={`text-[11px] font-mono ${isLight ? 'text-stone-400' : 'text-slate-400'}`}>
@@ -190,7 +190,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[11px] font-medium text-[#E05A47] flex items-center gap-1 bg-[#E05A47]/10 px-2.5 py-1 rounded-lg">
+                    <span className="text-[11px] font-medium text-[var(--accent-terracota)] flex items-center gap-1 bg-[var(--accent-terracota)]/10 px-2.5 py-1 rounded-lg">
                       <Edit2 className="w-3 h-3" />
                       <span>Editar Ficha</span>
                     </span>
@@ -211,7 +211,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                 </div>
 
                 {/* Title */}
-                <h3 className={`text-lg font-bold tracking-tight font-display ${isLight ? 'text-stone-900 group-hover:text-[#E05A47]' : 'text-white group-hover:text-[#E05A47]'}`}>
+                <h3 className={`text-lg font-bold tracking-tight font-display ${isLight ? 'text-stone-900 group-hover:text-[var(--accent-terracota)]' : 'text-white group-hover:text-[var(--accent-terracota)]'}`}>
                   {project.title}
                 </h3>
 
@@ -289,11 +289,11 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
       {isModalOpen && modalProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
           <div className={`relative w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden ${
-            isLight ? 'bg-white border-stone-200 text-stone-900' : 'bg-[#1C1210] border-[#3E221E] text-white'
+            isLight ? 'bg-white border-stone-200 text-stone-900' : 'bg-[#1C1210] border-[var(--border-color)] text-white'
           }`}>
-            <div className={`flex items-center justify-between px-6 py-4 border-b ${isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'}`}>
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'}`}>
               <div className="flex items-center gap-2">
-                <FlaskConical className="w-5 h-5 text-[#E05A47]" />
+                <FlaskConical className="w-5 h-5 text-[var(--accent-terracota)]" />
                 <h3 className="text-base font-semibold font-display">
                   {modalProject.title ? `Editar Proyecto I+D: ${modalProject.title}` : 'Nuevo Proyecto I+D (SQL Sync)'}
                 </h3>
@@ -318,7 +318,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     value={modalProject.title || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Ej. Interfaces Sonoras Biométricas"
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -332,7 +332,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     value={modalProject.code || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, code: e.target.value }))}
                     placeholder="Ej. ID-05"
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -349,7 +349,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     value={modalProject.phase || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, phase: e.target.value }))}
                     placeholder="Ej. Prototipado Técnico & Muestreo"
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -363,7 +363,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     value={modalProject.teamLead || ''}
                     onChange={(e) => setModalProject(prev => ({ ...prev, teamLead: e.target.value }))}
                     placeholder="Ej. Antonia Fernández"
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -379,7 +379,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                   value={modalProject.description || ''}
                   onChange={(e) => setModalProject(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Detalla el alcance de la investigación y su aplicación..."
-                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                  className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -394,7 +394,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                   value={modalProject.milestoneUpcoming || ''}
                   onChange={(e) => setModalProject(prev => ({ ...prev, milestoneUpcoming: e.target.value }))}
                   placeholder="Ej. Residencia técnica de 5 días en Sala A1 GAM"
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -411,7 +411,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     max="100"
                     value={modalProject.progress ?? 0}
                     onChange={(e) => setModalProject(prev => ({ ...prev, progress: Number(e.target.value) }))}
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -424,7 +424,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     type="number"
                     value={modalProject.budgetCLP ?? 0}
                     onChange={(e) => setModalProject(prev => ({ ...prev, budgetCLP: Number(e.target.value) }))}
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -437,7 +437,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                     type="number"
                     value={modalProject.spentCLP ?? 0}
                     onChange={(e) => setModalProject(prev => ({ ...prev, spentCLP: Number(e.target.value) }))}
-                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                    className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                       isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                     }`}
                   />
@@ -453,7 +453,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                   value={Array.isArray(modalProject.tags) ? modalProject.tags.join(', ') : (modalProject.tags || '')}
                   onChange={(e) => setModalProject(prev => ({ ...prev, tags: e.target.value.split(',').map(s => s.trim()) }))}
                   placeholder="Ej. Audio Inmersivo, Sensórica, FONDART"
-                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#E05A47] ${
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
                     isLight ? 'bg-stone-50 border-stone-200 text-stone-900' : 'bg-black/30 border-white/10 text-white'
                   }`}
                 />
@@ -488,7 +488,7 @@ export const ProyectosIDSection: React.FC<ProyectosIDSectionProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E05A47] hover:bg-[#FF6B4A] text-white font-semibold shadow-lg shadow-[#E05A47]/20 transition-all cursor-pointer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white font-semibold shadow-lg shadow-[var(--accent-terracota)]/20 transition-all cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Guardar y Sincronizar SQL</span>

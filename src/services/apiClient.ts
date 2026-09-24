@@ -83,14 +83,73 @@ export async function checkCloudSqlStatus(): Promise<CloudSqlStatus> {
 /**
  * Fetch de proyectos desde el CRM v1 Cloud Run
  */
+/**
+ * La API v1 entrega columnas crudas (image_url, dossier_highlights, target_audience...)
+ * mientras la UI trabaja con la forma de `Obra` (image, dossierHighlights, ...).
+ * Este normalizador evita tarjetas sin imagen / sin dossier.
+ */
+function safeJson<T>(raw: any, fallback: T): T {
+  if (raw === null || raw === undefined) return fallback;
+  if (typeof raw !== 'string') return raw as T;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function normalizeObra(p: any): any {
+  const highlightsRaw = p.dossierHighlights ?? p.dossier_highlights;
+  const highlights: string[] = Array.isArray(highlightsRaw)
+    ? highlightsRaw
+    : safeJson<string[]>(highlightsRaw, []);
+
+  const dossierPdf = highlights.find(
+    (h) => typeof h === 'string' && h.trim().startsWith('/obras/')
+  ) || '';
+
+  return {
+    ...p,
+    image: p.image || p.image_url || '',
+    dossierHighlights: highlights,
+    dossierPdf,
+    targetAudience: p.targetAudience || p.target_audience || 'Todo espectador',
+    premiereDate: p.premiereDate || p.premiere_date || '',
+    castTeam: p.castTeam && typeof p.castTeam === 'object'
+      ? { direction: '', cast: [], music: '', technical: '', ...p.castTeam }
+      : { direction: '', cast: [], music: '', technical: '' },
+    technicalRider: p.technicalRider && typeof p.technicalRider === 'object'
+      ? p.technicalRider
+      : { minStageWidthMeters: 0, minStageDepthMeters: 0, lighting: '', sound: '', loadInHours: 0, crewRequired: 0 },
+    economics: p.economics && typeof p.economics === 'object'
+      ? { feeCLP: 0, ticketSplitEstimatedCLP: 0, productionCostCLP: 0, ...p.economics }
+      : { feeCLP: 0, ticketSplitEstimatedCLP: 0, productionCostCLP: 0 },
+  };
+}
+
 export async function fetchAllFromSql(): Promise<SqlDataPayload | null> {
   try {
-    const res = await fetch(`${CRM_BASE_URL}/api/v1/crm/portfolio/projects`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const [projRes, leadsRes] = await Promise.all([
+      fetch(`${CRM_BASE_URL}/api/v1/crm/portfolio/projects`),
+      fetch('/api/v1/crm/leads').catch(() => null),
+    ]);
+    if (!projRes.ok) throw new Error(`HTTP ${projRes.status}`);
+    const data = await projRes.json();
+
+    // Los leads reales vienen de nuestro propio backend (server.js + MySQL)
+    let leads: any[] | undefined;
+    if (leadsRes && leadsRes.ok) {
+      try {
+        const lj = await leadsRes.json();
+        if (lj && Array.isArray(lj.leads) && lj.leads.length > 0) leads = lj.leads;
+      } catch {
+        /* se mantiene el estado actual */
+      }
+    }
+
     return {
-      obras: data.projects || [],
-      leads: data.leads,
+      obras: (data.projects || []).map(normalizeObra),
+      leads,
       finances: data.finances,
       inventory: data.inventory,
       venues: data.venues,
@@ -136,6 +195,26 @@ export async function saveLeadToSql(lead: any) {
     return await res.json();
   } catch (err) {
     console.warn('Could not save lead to SQL:', err);
+  }
+}
+
+/** Borra una obra del CRM (persistente) */
+export async function deleteObraFromSql(obraId: string) {
+  try {
+    const res = await fetch(`/api/obras/${encodeURIComponent(obraId)}`, { method: 'DELETE' });
+    return await res.json();
+  } catch (err) {
+    console.warn('Could not delete obra from SQL:', err);
+  }
+}
+
+/** Borra un lead del CRM (persistente) */
+export async function deleteLeadFromSql(leadId: string) {
+  try {
+    const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}`, { method: 'DELETE' });
+    return await res.json();
+  } catch (err) {
+    console.warn('Could not delete lead from SQL:', err);
   }
 }
 

@@ -52,23 +52,18 @@ import {
 
 // Modals & Navigation
 import { Navbar } from './components/Navbar';
-import { DesignPanel } from './components/DesignPanel';
-import { ThemeProvider } from './context/ThemeContext';
 import { SidebarDrawer } from './components/SidebarDrawer';
 import { FaseLogo } from './components/FaseLogo';
 import { DossierModal } from './components/DossierModal';
 import { EditObraModal } from './components/EditObraModal';
 import { EditLeadModal } from './components/EditLeadModal';
 import { AuthModal } from './components/AuthModal';
-import { guardarSesionCompartida } from './utils/sesionEcosistema';
 import { NotificationsModal } from './components/NotificationsModal';
 import { SqlDataHubModal } from './components/SqlDataHubModal';
 import {
   fetchAllFromSql,
   saveObraToSql,
-  deleteObraFromSql,
   saveLeadToSql,
-  deleteLeadFromSql,
   saveFinanceToSql,
   saveInventoryToSql
 } from './services/apiClient';
@@ -156,14 +151,20 @@ export default function App() {
       const updated = { ...currentUser, avatar: avatarUrl };
       setCurrentUser(updated);
       saveToStorage(STORAGE_KEYS.USER_PROFILE, updated);
-      guardarSesionCompartida(updated);
+      try {
+        localStorage.setItem('user_session', JSON.stringify(updated));
+        window.dispatchEvent(new Event('user_session_updated'));
+      } catch {}
     }
   };
 
   const handleUpdateUser = (updatedUser: UserSession) => {
     setCurrentUser(updatedUser);
     saveToStorage(STORAGE_KEYS.USER_PROFILE, updatedUser);
-    guardarSesionCompartida(updatedUser);
+    try {
+      localStorage.setItem('user_session', JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event('user_session_updated'));
+    } catch {}
   };
 
   // Core Data Collections with LocalStorage Persistence
@@ -199,18 +200,9 @@ export default function App() {
   const [venues, setVenues] = useState<Venue[]>(() =>
     loadFromStorage<Venue[]>(STORAGE_KEYS.VENUES, initialVenues)
   );
-  const [team, setTeam] = useState<TeamMember[]>(() => {
-    const stored = loadFromStorage<TeamMember[]>(STORAGE_KEYS.TEAM, initialTeam);
-    // Refresca las fotos reales del equipo: si el navegador tenia cacheada una
-    // imagen generada (unsplash) y ya existe la foto real, se usa la real.
-    return (stored || []).map((m) => {
-      const real = initialTeam.find((t) => t.name === m.name);
-      if (real && real.image && (!m.image || m.image.includes('unsplash.com'))) {
-        return { ...m, image: real.image };
-      }
-      return m;
-    });
-  });
+  const [team, setTeam] = useState<TeamMember[]>(() =>
+    loadFromStorage<TeamMember[]>(STORAGE_KEYS.TEAM, initialTeam)
+  );
   const [riders, setRiders] = useState<TechnicalRider[]>(() =>
     loadFromStorage<TechnicalRider[]>(STORAGE_KEYS.RIDERS, initialRiders)
   );
@@ -345,7 +337,6 @@ export default function App() {
   };
 
   const handleDeleteObra = (obraId: string) => {
-    deleteObraFromSql(obraId);
     setObras(prev => prev.filter(o => o.id !== obraId));
   };
 
@@ -364,7 +355,6 @@ export default function App() {
   };
 
   const handleDeleteLead = (leadId: string) => {
-    deleteLeadFromSql(leadId);
     setLeads(prev => prev.filter(l => l.id !== leadId));
   };
 
@@ -572,10 +562,9 @@ export default function App() {
     setDossierObra(obra);
   };
 
-  const [isDesignPanelOpen, setIsDesignPanelOpen] = useState(false);
   const unreadRemindersCount = reminders.filter(r => !r.read).length;
 
-  const contenidoApp = !currentUser ? (
+  return !currentUser ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
       <AuthModal
         isOpen={true}
@@ -590,8 +579,8 @@ export default function App() {
   ) : (
     <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
       theme === 'dia'
-        ? 'bg-[#F8F6F4] text-stone-900 selection:bg-[var(--accent-terracota)]/20 selection:text-[var(--accent-terracota)]'
-        : 'bg-[#140D0C] text-[#FDF5F4] selection:bg-[var(--accent-terracota)]/20 selection:text-[var(--accent-glow)]'
+        ? 'bg-[#F8F6F4] text-stone-900 selection:bg-[#E05A47]/20 selection:text-[#C84835]'
+        : 'bg-[#140D0C] text-[#FDF5F4] selection:bg-[#E05A47]/20 selection:text-[#FF6B4A]'
     } ${highContrast ? 'contrast-125' : ''}`}>
       
       {/* Top Navigation Bar with Direct Visible Menus */}
@@ -619,7 +608,6 @@ export default function App() {
           inventory: inventory.length
         }}
         onSelectObra={(obra) => setDossierObra(obra)}
-        onOpenDesignPanel={() => setIsDesignPanelOpen(true)}
       />
 
       {/* Slide-out Sidebar Drawer for Complete Categorized Overview */}
@@ -797,10 +785,12 @@ export default function App() {
         )}
 
         {activeSection === 'inventario' && (
-          // Sección autocontenida: lee y escribe en el hub del CRM por su cuenta
-          // (/api/v1/crm/inventario). Antes recibía datos demo y no el tema, por
-          // eso quedaba con letras blancas sobre fondo claro.
-          <InventarioSection theme={theme} />
+          <InventarioSection
+            inventory={inventory}
+            onUpdateItemStatus={handleUpdateItemStatus}
+            onSaveItem={handleSaveInventoryItem}
+            onDeleteItem={handleDeleteInventoryItem}
+          />
         )}
 
         {activeSection === 'finanzas' && (
@@ -848,8 +838,8 @@ export default function App() {
       {/* Footer */}
       <footer className={`mt-auto border-t py-6 px-4 sm:px-6 lg:px-8 text-xs transition-colors backdrop-blur-md ${
         theme === 'dia'
-          ? 'bg-white/95 border-[var(--border-color)] text-stone-600'
-          : 'bg-[#140B0A]/95 border-[var(--border-color)] text-slate-400'
+          ? 'bg-white/95 border-[#E5DDD8] text-stone-600'
+          : 'bg-[#140B0A]/95 border-[#3E221E] text-slate-400'
       }`}>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -862,32 +852,32 @@ export default function App() {
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-[11px]">
             <button onClick={() => handleNavigateSection('inicio')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[var(--accent-terracota)]' : 'hover:text-[var(--accent-glow)]'
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
               Panel de Control
             </button>
             <button onClick={() => handleNavigateSection('planner')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[var(--accent-terracota)]' : 'hover:text-[var(--accent-glow)]'
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
               Planner Escénico
             </button>
             <button onClick={() => handleNavigateSection('arquitecto')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[var(--accent-terracota)]' : 'hover:text-[var(--accent-glow)]'
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
               Arquitecto Proyectos
             </button>
             <button onClick={() => handleNavigateSection('obras')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[var(--accent-terracota)]' : 'hover:text-[var(--accent-glow)]'
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
               Catálogo Obras
             </button>
             <button onClick={() => handleNavigateSection('crm')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[var(--accent-terracota)]' : 'hover:text-[var(--accent-glow)]'
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
               CRM Salas
             </button>
             <button onClick={() => handleNavigateSection('admin')} className={`cursor-pointer transition-colors ${
-              theme === 'dia' ? 'hover:text-[var(--accent-terracota)]' : 'hover:text-[var(--accent-glow)]'
+              theme === 'dia' ? 'hover:text-[#C84835]' : 'hover:text-[#FF6B4A]'
             }`}>
               Administración
             </button>
@@ -978,17 +968,7 @@ export default function App() {
         }}
       />
 
-      {/* Panel de personalización modular de la interfaz */}
-      <DesignPanel theme={theme} />
-
     </div>
   );
-
-  // El módulo de gestión modular necesita el ThemeProvider envolviendo la app
-  // (panel de diseño, tema en vivo y barra de navegación editable).
-  return (
-    <ThemeProvider userId={currentUser?.email || currentUser?.id || 'invitado'}>
-      {contenidoApp}
-    </ThemeProvider>
-  );
 }
+

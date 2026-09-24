@@ -60,7 +60,7 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className={`flex items-center gap-2 text-xs font-mono uppercase tracking-wider ${
-            isDia ? 'text-[#C84835]' : 'text-[#6ee7b7]'
+            isDia ? 'text-[var(--accent-terracota)]' : 'text-[var(--accent-2)]'
           }`}>
             <span>2. Catálogo de Obras</span>
             <span>•</span>
@@ -82,8 +82,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
           onClick={onNewObra}
           className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap ${
             isDia
-              ? 'bg-[#E05A47] hover:bg-[#C84835] text-white'
-              : 'bg-[#6ee7b7] hover:bg-[#5eead4] text-[#0f1115]'
+              ? 'bg-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)] text-white'
+              : 'bg-[var(--accent-2)] hover:bg-[#5eead4] text-[var(--bg-base)]'
           }`}
         >
           <Plus className="w-4 h-4" />
@@ -94,8 +94,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
       {/* Filter and Search Bar */}
       <div className={`p-4 rounded-2xl flex flex-col md:flex-row items-center gap-3 transition-colors ${
         isDia
-          ? 'bg-white border border-[#E5DDD8] shadow-sm'
-          : 'bg-[#161920] border border-white/10'
+          ? 'bg-white border border-[var(--border-color)] shadow-sm'
+          : 'bg-[var(--bg-surface)] border border-white/10'
       }`}>
         {/* Search */}
         <div className="relative flex-1 w-full">
@@ -109,8 +109,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
             placeholder="Buscar por título, dirección, temática o elenco..."
             className={`w-full pl-9.5 pr-4 py-2.5 text-xs rounded-xl transition-all focus:outline-none ${
               isDia
-                ? 'bg-[#FAF7F5] border border-[#E5DDD8] text-stone-900 placeholder-stone-400 focus:bg-white focus:border-[#E05A47] focus:ring-2 focus:ring-[#E05A47]/10'
-                : 'bg-[#0f1115] border border-white/10 text-white placeholder-slate-400 focus:border-[#6ee7b7]'
+                ? 'bg-[var(--bg-base)] border border-[var(--border-color)] text-stone-900 placeholder-stone-400 focus:bg-white focus:border-[var(--accent-terracota)] focus:ring-2 focus:ring-[var(--accent-terracota)]/10'
+                : 'bg-[var(--bg-base)] border border-white/10 text-white placeholder-slate-400 focus:border-[var(--accent-2)]'
             }`}
           />
         </div>
@@ -122,8 +122,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
             onChange={(e) => setSelectedDiscipline(e.target.value)}
             className={`w-full md:w-auto px-3 py-2.5 text-xs rounded-xl transition-colors focus:outline-none ${
               isDia
-                ? 'bg-[#FAF7F5] border border-[#E5DDD8] text-stone-800 focus:bg-white focus:border-[#E05A47]'
-                : 'bg-[#0f1115] border border-white/10 text-white focus:border-[#6ee7b7]'
+                ? 'bg-[var(--bg-base)] border border-[var(--border-color)] text-stone-800 focus:bg-white focus:border-[var(--accent-terracota)]'
+                : 'bg-[var(--bg-base)] border border-white/10 text-white focus:border-[var(--accent-2)]'
             }`}
           >
             <option value="all">Todas las Disciplinas</option>
@@ -140,8 +140,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
             onChange={(e) => setSelectedStatus(e.target.value)}
             className={`w-full md:w-auto px-3 py-2.5 text-xs rounded-xl transition-colors focus:outline-none ${
               isDia
-                ? 'bg-[#FAF7F5] border border-[#E5DDD8] text-stone-800 focus:bg-white focus:border-[#E05A47]'
-                : 'bg-[#0f1115] border border-white/10 text-white focus:border-[#6ee7b7]'
+                ? 'bg-[var(--bg-base)] border border-[var(--border-color)] text-stone-800 focus:bg-white focus:border-[var(--accent-terracota)]'
+                : 'bg-[var(--bg-base)] border border-white/10 text-white focus:border-[var(--accent-2)]'
             }`}
           >
             <option value="all">Todos los Estados</option>
@@ -163,8 +163,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
               key={obra.id}
               className={`rounded-2xl border transition-all flex flex-col overflow-hidden group shadow-sm hover:shadow-md ${
                 isDia
-                  ? 'bg-white border-[#E5DDD8] hover:border-[#E05A47]/40'
-                  : 'bg-[#161920] border-white/10 hover:border-white/20'
+                  ? 'bg-white border-[var(--border-color)] hover:border-[var(--accent-terracota)]/40'
+                  : 'bg-[var(--bg-surface)] border-white/10 hover:border-white/20'
               }`}
             >
               {/* Image & Status tag */}
@@ -208,8 +208,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
                 <div>
                   <h3 className={`text-lg font-bold tracking-tight transition-colors ${
                     isDia
-                      ? 'text-stone-900 group-hover:text-[#C84835]'
-                      : 'text-white group-hover:text-[#6ee7b7]'
+                      ? 'text-stone-900 group-hover:text-[var(--accent-terracota)]'
+                      : 'text-white group-hover:text-[var(--accent-2)]'
                   }`}>
                     {obra.title}
                   </h3>
@@ -229,8 +229,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
                 {/* Team snippet */}
                 <div className={`p-3 rounded-xl border space-y-1.5 text-xs transition-colors ${
                   isDia
-                    ? 'bg-[#FAF7F5] border-[#EADFD8]'
-                    : 'bg-[#12141a] border-white/5'
+                    ? 'bg-[var(--bg-base)] border-[#EADFD8]'
+                    : 'bg-[var(--bg-surface)] border-white/5'
                 }`}>
                   <div className="flex items-center justify-between">
                     <span className={isDia ? 'text-stone-500' : 'text-slate-400'}>Dirección:</span>
@@ -244,7 +244,7 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
                     isDia ? 'border-stone-200/80' : 'border-white/5'
                   }`}>
                     <span className={isDia ? 'text-stone-500' : 'text-slate-400'}>Caché ref:</span>
-                    <span className={`font-bold ${isDia ? 'text-[#C84835]' : 'text-[#6ee7b7]'}`}>{formatCLP(obra.economics.feeCLP)}</span>
+                    <span className={`font-bold ${isDia ? 'text-[var(--accent-terracota)]' : 'text-[var(--accent-2)]'}`}>{formatCLP(obra.economics.feeCLP)}</span>
                   </div>
                 </div>
 
@@ -254,8 +254,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
                     onClick={() => onOpenDossier(obra)}
                     className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-colors shadow-sm cursor-pointer ${
                       isDia
-                        ? 'bg-[#E05A47] hover:bg-[#C84835] text-white'
-                        : 'bg-[#6ee7b7] hover:bg-[#5eead4] text-[#0f1115]'
+                        ? 'bg-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)] text-white'
+                        : 'bg-[var(--accent-2)] hover:bg-[#5eead4] text-[var(--bg-base)]'
                     }`}
                     title="Ver Ficha y Descargar Dossier PDF"
                   >
@@ -286,8 +286,8 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
       {filteredObras.length === 0 && (
         <div className={`p-12 text-center rounded-2xl border space-y-3 ${
           isDia
-            ? 'bg-white border-[#E5DDD8] shadow-sm'
-            : 'bg-[#161920] border-white/10'
+            ? 'bg-white border-[var(--border-color)] shadow-sm'
+            : 'bg-[var(--bg-surface)] border-white/10'
         }`}>
           <Drama className={`w-12 h-12 mx-auto ${isDia ? 'text-stone-400' : 'text-slate-400'}`} />
           <h3 className={`text-sm font-semibold ${isDia ? 'text-stone-800' : 'text-white'}`}>No se encontraron obras</h3>

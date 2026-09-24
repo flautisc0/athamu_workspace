@@ -184,12 +184,12 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
         </div>
 
         {/* Tab switch */}
-        <div className="flex items-center p-1 bg-[#161920] border border-white/10 rounded-xl">
+        <div className="flex items-center p-1 bg-[var(--bg-surface)] border border-white/10 rounded-xl">
           <button
             onClick={() => setActiveTab('calculadora')}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
               activeTab === 'calculadora'
-                ? 'bg-[#a78bfa] text-[#0f1115] font-bold shadow'
+                ? 'bg-[#a78bfa] text-[var(--bg-base)] font-bold shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -199,7 +199,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
             onClick={() => setActiveTab('disponibilidad')}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
               activeTab === 'disponibilidad'
-                ? 'bg-[#6ee7b7] text-[#0f1115] font-bold shadow'
+                ? 'bg-[var(--accent-2)] text-[var(--bg-base)] font-bold shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -213,7 +213,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Left Column: Parameter Inputs (7 cols) */}
-          <div className="lg:col-span-7 p-6 rounded-2xl bg-[#161920] border border-white/10 space-y-6 shadow-lg">
+          <div className="lg:col-span-7 p-6 rounded-2xl bg-[var(--bg-surface)] border border-white/10 space-y-6 shadow-lg">
             <h2 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/10 pb-3">
               <Sliders className="w-4 h-4 text-[#a78bfa]" />
               <span>Parámetros del Montaje & Calendario</span>
@@ -227,7 +227,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                 <select
                   value={selectedObraId}
                   onChange={(e) => setSelectedObraId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#a78bfa]"
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#a78bfa]"
                 >
                   {obras.map((o) => (
                     <option key={o.id} value={o.id}>{o.title} ({o.discipline})</option>
@@ -248,7 +248,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                       className={`py-2 px-1 text-center text-xs font-medium rounded-lg border transition-colors cursor-pointer uppercase ${
                         complexity === lvl
                           ? 'bg-[#a78bfa]/20 text-[#a78bfa] border-[#a78bfa]'
-                          : 'bg-[#0f1115] text-slate-400 border-white/10 hover:border-white/20'
+                          : 'bg-[var(--bg-base)] text-slate-400 border-white/10 hover:border-white/20'
                       }`}
                     >
                       {lvl}
@@ -317,7 +317,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   <select
                     value={sessionsPerWeek}
                     onChange={(e) => setSessionsPerWeek(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#a78bfa]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#a78bfa]"
                   >
                     {[1, 2, 3, 4, 5, 6].map(num => (
                       <option key={num} value={num}>{num} ensayos semanales</option>
@@ -332,7 +332,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   <select
                     value={hoursPerSession}
                     onChange={(e) => setHoursPerSession(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#a78bfa]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#a78bfa]"
                   >
                     {[2, 3, 4, 5, 6].map(h => (
                       <option key={h} value={h}>{h} horas por sesión</option>
@@ -351,7 +351,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                     type="number"
                     value={hourlyPerformerFeeCLP}
                     onChange={(e) => setHourlyPerformerFeeCLP(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white font-mono focus:outline-none focus:border-[#a78bfa]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-xl text-white font-mono focus:outline-none focus:border-[#a78bfa]"
                   />
                 </div>
 
@@ -363,7 +363,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                     type="number"
                     value={roomRentalPerHourCLP}
                     onChange={(e) => setRoomRentalPerHourCLP(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white font-mono focus:outline-none focus:border-[#a78bfa]"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-xl text-white font-mono focus:outline-none focus:border-[#a78bfa]"
                   />
                 </div>
               </div>
@@ -414,7 +414,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
             </div>
 
             {/* Financial Summary Breakdown */}
-            <div className="p-6 rounded-2xl bg-[#161920] border border-white/10 space-y-4 shadow-lg">
+            <div className="p-6 rounded-2xl bg-[var(--bg-surface)] border border-white/10 space-y-4 shadow-lg">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-emerald-400" />
                 <span>Presupuesto Estimado de Proceso de Ensayos</span>
@@ -442,7 +442,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
 
                 <div className="flex items-center justify-between pt-2 text-sm font-bold">
                   <span className="text-white">Costo Total de Ensayos:</span>
-                  <span className="text-[#6ee7b7] font-mono text-base">
+                  <span className="text-[var(--accent-2)] font-mono text-base">
                     {formatCLP(totalEstimatedRehearsalBudgetCLP)}
                   </span>
                 </div>
@@ -460,17 +460,17 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
         /* TAB 2: ARTIST AVAILABILITY VIEW */
         <div className="space-y-6">
           
-          <div className="p-4 rounded-2xl bg-[#161920] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="p-4 rounded-2xl bg-[var(--bg-surface)] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img
                 src={currentArtist.avatar}
                 alt={currentArtist.artistName}
-                className="w-12 h-12 rounded-xl object-cover border border-[#6ee7b7]"
+                className="w-12 h-12 rounded-xl object-cover border border-[var(--accent-2)]"
                 referrerPolicy="no-referrer"
               />
               <div>
                 <h3 className="text-base font-bold text-white">{currentArtist.artistName}</h3>
-                <span className="text-xs text-[#6ee7b7] font-medium">{currentArtist.role}</span>
+                <span className="text-xs text-[var(--accent-2)] font-medium">{currentArtist.role}</span>
               </div>
             </div>
 
@@ -480,7 +480,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
               <select
                 value={selectedArtistId}
                 onChange={(e) => setSelectedArtistId(e.target.value)}
-                className="px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#6ee7b7]"
+                className="px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-xl text-white focus:outline-none focus:border-[var(--accent-2)]"
               >
                 {artists.map((art) => (
                   <option key={art.id} value={art.id}>
@@ -495,14 +495,14 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                 title="Editar datos del intérprete"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 bg-white/5 hover:bg-white/10 hover:text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
               >
-                <Edit2 className="w-3.5 h-3.5 text-[#6ee7b7]" />
+                <Edit2 className="w-3.5 h-3.5 text-[var(--accent-2)]" />
                 <span>Editar</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleOpenAddArtist}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-xl shadow transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--accent-2)] hover:bg-[#5eead4] rounded-xl shadow transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Nuevo Intérprete</span>
@@ -511,11 +511,11 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
           </div>
 
           {/* Availability Grid */}
-          <div className="p-6 rounded-2xl bg-[#161920] border border-white/10 space-y-4">
+          <div className="p-6 rounded-2xl bg-[var(--bg-surface)] border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#6ee7b7]" />
+                  <Clock className="w-4 h-4 text-[var(--accent-2)]" />
                   <span>Matriz de Disponibilidad Semanal</span>
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -531,7 +531,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
               {daysList.map((day) => {
                 const daySlots = currentArtist.timeSlots[day] || [];
                 return (
-                  <div key={day} className="p-3.5 rounded-xl bg-[#12141a] border border-white/5 space-y-3">
+                  <div key={day} className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-white/5 space-y-3">
                     <span className="text-xs font-bold uppercase text-[#fbbf24] block border-b border-white/5 pb-1 font-display">
                       {day}
                     </span>
@@ -547,7 +547,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                             className={`w-full p-2 rounded-lg text-[11px] text-left transition-all cursor-pointer border ${
                               isAvailable
                                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
-                                : 'bg-[#0f1115] text-slate-400 border-white/5 hover:border-white/10'
+                                : 'bg-[var(--bg-base)] text-slate-400 border-white/5 hover:border-white/10'
                             }`}
                           >
                             <div className="flex items-center justify-between">
@@ -567,7 +567,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
             </div>
 
             {/* Notes */}
-            <div className="p-3.5 rounded-xl bg-[#12141a] border border-white/5 text-xs text-slate-300 space-y-1">
+            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-white/5 text-xs text-slate-300 space-y-1">
               <span className="text-[10px] uppercase font-semibold text-slate-400 block font-mono">
                 Observaciones del Intérprete:
               </span>
@@ -575,9 +575,9 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
             </div>
 
             {/* General Best Match analysis */}
-            <div className="p-4 rounded-xl bg-[#6ee7b7]/10 border border-[#6ee7b7]/30 flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-[var(--accent-2)]/10 border border-[var(--accent-2)]/30 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Sparkles className="w-5 h-5 text-[#6ee7b7]" />
+                <Sparkles className="w-5 h-5 text-[var(--accent-2)]" />
                 <div>
                   <h4 className="text-xs font-bold text-white">
                     Horario de Mayor Coincidencia de Elenco:
@@ -597,10 +597,10 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
       {/* Modal Add / Edit Artist */}
       {isArtistModalOpen && artistModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-md bg-[#161920] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
-            <div className="px-6 py-4 border-b border-white/10 bg-[#12141a] flex items-center justify-between">
+          <div className="relative w-full max-w-md bg-[var(--bg-surface)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-slate-200">
+            <div className="px-6 py-4 border-b border-white/10 bg-[var(--bg-surface)] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-[#6ee7b7]" />
+                <UserCheck className="w-5 h-5 text-[var(--accent-2)]" />
                 <h3 className="text-base font-semibold text-white">
                   {artists.some(a => a.id === artistModalData.id) ? 'Editar Intérprete' : 'Nuevo Intérprete al Elenco'}
                 </h3>
@@ -622,7 +622,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   value={artistModalData.artistName || ''}
                   onChange={e => setArtistModalData(prev => ({ ...prev, artistName: e.target.value }))}
                   placeholder="Ej. Francisca Gavilán"
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
                 />
               </div>
 
@@ -633,7 +633,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   value={artistModalData.role || ''}
                   onChange={e => setArtistModalData(prev => ({ ...prev, role: e.target.value }))}
                   placeholder="Ej. Actriz Principal (Protagonista)"
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
                 />
               </div>
 
@@ -644,7 +644,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   value={artistModalData.avatar || ''}
                   onChange={e => setArtistModalData(prev => ({ ...prev, avatar: e.target.value }))}
                   placeholder="https://images.unsplash.com/..."
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
                 />
               </div>
 
@@ -655,7 +655,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   value={artistModalData.notes || ''}
                   onChange={e => setArtistModalData(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="Ej. Bloqueo fijo martes por rodaje de serie. Disponible para giras internacionales."
-                  className="w-full px-3 py-2 text-xs bg-[#0f1115] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#6ee7b7]"
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--accent-2)]"
                 />
               </div>
 
@@ -689,7 +689,7 @@ export const CalculadoraEstrenosSection: React.FC<CalculadoraEstrenosSectionProp
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#0f1115] bg-[#6ee7b7] hover:bg-[#5eead4] rounded-lg shadow cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--accent-2)] hover:bg-[#5eead4] rounded-lg shadow cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>Guardar Intérprete</span>

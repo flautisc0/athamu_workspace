@@ -1078,6 +1078,668 @@ app.get('/api/v1/crm/convocatorias', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// PREFERENCIAS DE INTERFAZ · /api/users/:id/preferences
+//
+// El panel de diseño (módulo modular que agregó Francisco) guarda acá la
+// configuración visual de cada usuario: color de acento, tipografía, estilo de
+// superficie, densidad y el orden/ocultamiento de las secciones del perfil.
+//
+// ANTES esto apuntaba a un servicio que ya no existe y el frontend caía en
+// silencio a localStorage: el estado decía "Sincronizado Cloud" sin haber
+// guardado nada en la base. Ahora persiste de verdad, por usuario.
+//
+// El `id` puede ser el id del usuario o su correo (se normaliza).
+// ---------------------------------------------------------------------------
+async function resolverUsuarioId(id) {
+  const clave = String(id || '').trim();
+  if (!clave) return null;
+  const db = getPool();
+  const [filas] = await db.execute(
+    'SELECT id, email FROM users WHERE id = ? OR LOWER(email) = ? LIMIT 1',
+    [clave, clave.toLowerCase()]
+  );
+  return filas.length ? filas[0] : null;
+}
+
+app.get('/api/users/:id/preferences', async (req, res) => {
+  try {
+    const db = getPool();
+    const usuario = await resolverUsuarioId(req.params.id);
+    const clave = usuario ? usuario.id : String(req.params.id || '').trim();
+    const [filas] = await db.execute(
+      'SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1', [clave]
+    );
+    if (!filas.length) {
+      // Sin preferencias guardadas: el frontend usa sus valores por defecto.
+      return res.status(404).json({ success: false, error: 'sin preferencias guardadas' });
+    }
+    const prefs = typeof filas[0].preferences_json === 'string'
+      ? JSON.parse(filas[0].preferences_json)
+      : filas[0].preferences_json;
+    return res.json(prefs);
+  } catch (e) {
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+async function guardarPreferencias(req, res) {
+  try {
+    const db = getPool();
+    const prefs = req.body || {};
+    if (!prefs.theme_config || !prefs.layout_config) {
+      return res.status(400).json({ success: false, error: 'faltan theme_config o layout_config' });
+    }
+    // Se puede guardar para el usuario indicado en la URL o para el de la sesión
+    const usuario = await resolverUsuarioId(req.params.id || req.body.userId || req.headers['x-atha-email']);
+    const clave = usuario ? usuario.id : String(req.params.id || '').slice(0, 64);
+    if (!clave) return res.status(400).json({ success: false, error: 'falta el usuario' });
+
+    await db.execute(
+      `INSERT INTO user_preferences (user_id, preferences_json)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE preferences_json = VALUES(preferences_json)`,
+      [clave, JSON.stringify(prefs)]
+    );
+    return res.json({ success: true, ok: true, user_id: clave, guardado: new Date().toISOString() });
+  } catch (e) {
+    return res.status(503).json({ success: false, ok: false, error: e.message });
+  }
+}
+
+app.put('/api/users/:id/preferences', guardarPreferencias);
+app.post('/api/users/:id/preferences', guardarPreferencias);
+
+// ---------------------------------------------------------------------------
+// RADAR CULTURAL · /api/v1/crm/radar/*
+//
+// El radar (nodos culturales descubribles por GPS o QR, rutas y progreso) vive
+// ACÁ, en el hub. Antes cada proyecto traía su propio esquema PostgreSQL y datos
+// semilla; ahora hay una sola fuente de verdad y las apps (móvil, PWA, CRM)
+// sólo consumen.
+//
+// Identidad: el correo del explorador (misma sesión del ecosistema). Si el
+// correo no existe todavía se crea como rol `explorador` (registro público).
+// ---------------------------------------------------------------------------
+const RADAR_XP_DESCUBRIR = 50;
+
+/** Distancia en metros entre dos coordenadas (haversine). */
+function distanciaMetros(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const rad = Math.PI / 180;
+  const dLat = (Number(lat2) - Number(lat1)) * rad;
+  const dLng = (Number(lng2) - Number(lng1)) * rad;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(Number(lat1) * rad) * Math.cos(Number(lat2) * rad) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(a)));
+}
+
+/** Nivel a partir de la experiencia acumulada. */
+const nivelPorXp = (xp) => Math.max(1, Math.floor(Math.sqrt(Math.max(0, Number(xp) || 0) / 100)) + 1);
+
+/** Id del explorador; si no existe, lo crea (registro público, rol no-admin). */
+async function exploradorId(email, nombre) {
+  const correo = String(email || '').trim().toLowerCase();
+  if (!correo) return null;
+  const db = getPool();
+  const [filas] = await db.execute('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [correo]);
+  if (filas.length) return filas[0].id;
+  const id = `usr_${randomUUID().slice(0, 8)}`;
+  await db.execute(
+    'INSERT INTO users (id, email, display_name, role, provider, public_profile) VALUES (?, ?, ?, ?, ?, 1)',
+    [id, correo, String(nombre || correo.split('@')[0]).slice(0, 120), 'explorador', 'google']
+  );
+  return id;
+}
+
+/** Perfil de explorador (se crea al vuelo con 0 XP). */
+async function perfilRadar(userId) {
+  const db = getPool();
+  const [filas] = await db.execute('SELECT * FROM radar_profiles WHERE user_id = ? LIMIT 1', [userId]);
+  if (filas.length) return filas[0];
+  const numero = `FASE-EXP-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+  await db.execute(
+    'INSERT INTO radar_profiles (user_id, explorer_number, xp, level) VALUES (?, ?, 0, 1)',
+    [userId, numero]
+  );
+  const [nuevo] = await db.execute('SELECT * FROM radar_profiles WHERE user_id = ? LIMIT 1', [userId]);
+  return nuevo[0];
+}
+
+const nodoSalida = (n, distancia, descubrimiento) => ({
+  id: n.id,
+  name: n.name,
+  short_description: n.short_description,
+  full_description: n.full_description,
+  category: n.category,
+  latitude: Number(n.latitude),
+  longitude: Number(n.longitude),
+  address: n.address,
+  city: n.city,
+  region: n.region,
+  cover_url: n.cover_url,
+  unlock_radius_m: n.unlock_radius_m,
+  qr_code: n.qr_code,
+  is_published: !!n.is_published,
+  created_by: n.created_by,
+  created_at: n.created_at,
+  distance_m: distancia,
+  is_discovered: !!descubrimiento,
+  discovery_number: descubrimiento ? descubrimiento.discovery_number : undefined,
+  discovered_at: descubrimiento ? descubrimiento.discovered_at : undefined,
+});
+
+// Nodos del radar (con estado de descubrimiento y distancia si se envía la ubicación)
+app.get('/api/v1/crm/radar/nodos', async (req, res) => {
+  try {
+    const db = getPool();
+    const { lat, lng, email, incluir_borradores } = req.query;
+    const userId = email ? await exploradorId(email) : null;
+
+    let sql = 'SELECT * FROM radar_nodes';
+    if (!incluir_borradores) sql += ' WHERE is_published = 1';
+    sql += ' ORDER BY created_at DESC';
+    const [nodos] = await db.execute(sql);
+
+    let descubiertos = [];
+    if (userId) {
+      const [d] = await db.execute('SELECT * FROM radar_discoveries WHERE user_id = ?', [userId]);
+      descubiertos = d;
+    }
+    const porNodo = new Map(descubiertos.map((d) => [d.node_id, d]));
+
+    const lista = nodos.map((n) => {
+      const dist = (lat && lng && n.latitude != null)
+        ? distanciaMetros(lat, lng, n.latitude, n.longitude)
+        : undefined;
+      return nodoSalida(n, dist, porNodo.get(n.id));
+    });
+
+    return res.json({ ok: true, total: lista.length, nodos: lista });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Un nodo puntual
+app.get('/api/v1/crm/radar/nodos/:id', async (req, res) => {
+  try {
+    const db = getPool();
+    const [filas] = await db.execute('SELECT * FROM radar_nodes WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!filas.length) return res.status(404).json({ ok: false, error: 'nodo no encontrado' });
+    const userId = req.query.email ? await exploradorId(req.query.email) : null;
+    let desc = null;
+    if (userId) {
+      const [d] = await db.execute(
+        'SELECT * FROM radar_discoveries WHERE user_id = ? AND node_id = ? LIMIT 1', [userId, req.params.id]
+      );
+      desc = d.length ? d[0] : null;
+    }
+    return res.json({ ok: true, nodo: nodoSalida(filas[0], undefined, desc) });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Alta / edición de nodos (administración del radar)
+async function guardarNodoRadar(req, res, id) {
+  try {
+    const b = req.body || {};
+    const db = getPool();
+    const email = b.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
+    if (!alcance.total) {
+      return res.status(403).json({ ok: false, error: 'sólo administración puede editar el radar' });
+    }
+    const campos = {
+      name: b.name ? String(b.name).slice(0, 200) : null,
+      short_description: b.short_description ? String(b.short_description).slice(0, 300) : null,
+      full_description: b.full_description ?? null,
+      category: b.category ?? null,
+      latitude: b.latitude ?? b.lat ?? null,
+      longitude: b.longitude ?? b.lng ?? null,
+      address: b.address ?? null,
+      city: b.city ?? null,
+      region: b.region ?? null,
+      cover_url: b.cover_url ?? null,
+      unlock_radius_m: b.unlock_radius_m ?? 120,
+      qr_code: b.qr_code ?? null,
+      is_published: b.is_published === undefined ? 1 : (b.is_published ? 1 : 0),
+      created_by: alcance.usuario ? alcance.usuario.email : null,
+    };
+
+    if (id) {
+      const sets = Object.keys(campos).filter((k) => b[k] !== undefined || ['name','short_description','full_description','category','latitude','longitude','address','city','region','cover_url','unlock_radius_m','qr_code','is_published'].includes(k));
+      const sql = `UPDATE radar_nodes SET ${sets.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`;
+      await db.execute(sql, [...sets.map((k) => campos[k]), id]);
+      return res.json({ ok: true, id });
+    }
+    const nuevo = String(b.id || `nd_${randomUUID().slice(0, 8)}`).slice(0, 64);
+    await db.execute(
+      `INSERT INTO radar_nodes
+        (id, name, short_description, full_description, category, latitude, longitude, address, city, region,
+         cover_url, unlock_radius_m, qr_code, is_published, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nuevo, campos.name || 'Nodo sin nombre', campos.short_description, campos.full_description, campos.category,
+       campos.latitude, campos.longitude, campos.address, campos.city, campos.region, campos.cover_url,
+       campos.unlock_radius_m, campos.qr_code, campos.is_published, campos.created_by]
+    );
+    return res.json({ ok: true, nodo: { id: nuevo, ...campos } });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+}
+
+app.post('/api/v1/crm/radar/nodos', (req, res) => guardarNodoRadar(req, res, null));
+app.patch('/api/v1/crm/radar/nodos/:id', (req, res) => guardarNodoRadar(req, res, req.params.id));
+
+// Descubrimiento de un nodo (GPS o QR): otorga XP una sola vez
+app.post('/api/v1/crm/radar/descubrimientos', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || b.userId || req.headers['x-atha-email'];
+    const nodeId = b.nodeId || b.node_id;
+    if (!email || !nodeId) {
+      return res.status(400).json({ ok: false, error: 'faltan email y nodeId' });
+    }
+    const db = getPool();
+    const userId = await exploradorId(email, b.name);
+
+    const [nodos] = await db.execute('SELECT * FROM radar_nodes WHERE id = ? LIMIT 1', [nodeId]);
+    if (!nodos.length) return res.status(404).json({ ok: false, error: 'nodo no encontrado' });
+
+    const [ya] = await db.execute(
+      'SELECT * FROM radar_discoveries WHERE user_id = ? AND node_id = ? LIMIT 1', [userId, nodeId]
+    );
+    if (ya.length) {
+      return res.json({ ok: true, repetido: true, descubrimiento: ya[0], perfil: await perfilRadar(userId) });
+    }
+
+    const [cuenta] = await db.execute('SELECT COUNT(*) n FROM radar_discoveries WHERE node_id = ?', [nodeId]);
+    const numero = String(Number(cuenta[0].n) + 1).padStart(4, '0');
+    const id = `ds_${randomUUID().slice(0, 8)}`;
+    await db.execute(
+      `INSERT INTO radar_discoveries (id, user_id, node_id, discovery_number, method, xp_awarded)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, userId, nodeId, numero, b.method === 'qr' ? 'qr' : 'gps', RADAR_XP_DESCUBRIR]
+    );
+    await db.execute(
+      `INSERT INTO radar_profiles (user_id, explorer_number, xp, level) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE xp = xp + VALUES(xp),
+                               level = GREATEST(level, FLOOR(SQRT((xp + VALUES(xp)) / 100)) + 1)`,
+      [userId, `FASE-EXP-${Math.floor(Math.random() * 9000) + 1000}`, RADAR_XP_DESCUBRIR, nivelPorXp(RADAR_XP_DESCUBRIR)]
+    );
+    const [desc] = await db.execute('SELECT * FROM radar_discoveries WHERE id = ? LIMIT 1', [id]);
+    return res.json({
+      ok: true,
+      repetido: false,
+      nodo: nodoSalida(nodos[0], undefined, desc[0]),
+      descubrimiento: desc[0],
+      perfil: await perfilRadar(userId),
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Perfil del explorador (XP, nivel, número, cuántos nodos descubrió)
+app.get('/api/v1/crm/radar/perfil', async (req, res) => {
+  try {
+    const email = req.query.email || req.headers['x-atha-email'];
+    if (!email) return res.status(400).json({ ok: false, error: 'falta email' });
+    const db = getPool();
+    const userId = await exploradorId(email);
+    const perfil = await perfilRadar(userId);
+    const [desc] = await db.execute(
+      'SELECT node_id, discovery_number, discovered_at FROM radar_discoveries WHERE user_id = ? ORDER BY discovered_at DESC',
+      [userId]
+    );
+    const [total] = await db.execute('SELECT COUNT(*) n FROM radar_nodes WHERE is_published = 1');
+    return res.json({
+      ok: true,
+      perfil: { ...perfil, descubiertos: desc.length, total_nodos: total[0].n },
+      descubrimientos: desc,
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Rutas culturales (con sus nodos y el progreso del explorador)
+app.get('/api/v1/crm/radar/rutas', async (req, res) => {
+  try {
+    const db = getPool();
+    const [rutas] = await db.execute('SELECT * FROM radar_routes ORDER BY created_at DESC');
+    const [enlaces] = await db.execute('SELECT * FROM radar_route_nodes ORDER BY order_index');
+    const [nodos] = await db.execute('SELECT * FROM radar_nodes WHERE is_published = 1');
+    const porId = new Map(nodos.map((n) => [n.id, n]));
+
+    let hechos = new Set();
+    if (req.query.email) {
+      const userId = await exploradorId(req.query.email);
+      const [d] = await db.execute('SELECT node_id FROM radar_discoveries WHERE user_id = ?', [userId]);
+      hechos = new Set(d.map((x) => x.node_id));
+    }
+
+    const salida = rutas.map((r) => {
+      const suyos = enlaces.filter((e) => e.route_id === r.id);
+      const completados = suyos.filter((e) => hechos.has(e.node_id)).length;
+      return {
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        cover_url: r.cover_url,
+        city: r.city,
+        tags: typeof r.tags_json === 'string' ? JSON.parse(r.tags_json || '[]') : (r.tags_json || []),
+        is_public: !!r.is_public,
+        nodes: suyos.map((e) => ({ node_id: e.node_id, order_index: e.order_index, note: e.note, node: porId.get(e.node_id) || null })),
+        progress: {
+          status: suyos.length && completados >= suyos.length ? 'completed' : 'in_progress',
+          completed_nodes: suyos.filter((e) => hechos.has(e.node_id)).map((e) => e.node_id),
+          completados, total: suyos.length,
+        },
+      };
+    });
+    return res.json({ ok: true, total: salida.length, rutas: salida });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Alta de rutas (administración)
+app.post('/api/v1/crm/radar/rutas', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const db = getPool();
+    const alcance = await alcanceInventario(b.email || req.headers['x-atha-email'] || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'sólo administración puede crear rutas' });
+    const id = String(b.id || `rt_${randomUUID().slice(0, 8)}`).slice(0, 64);
+    await db.execute(
+      `INSERT INTO radar_routes (id, name, description, cover_url, city, tags_json, created_by, is_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description),
+                               cover_url = VALUES(cover_url), city = VALUES(city),
+                               tags_json = VALUES(tags_json), is_public = VALUES(is_public)`,
+      [id, b.name || 'Ruta sin nombre', b.description || null, b.cover_url || null, b.city || null,
+       JSON.stringify(b.tags || []), alcance.usuario ? alcance.usuario.email : null, b.is_public === false ? 0 : 1]
+    );
+    if (Array.isArray(b.nodes)) {
+      await db.execute('DELETE FROM radar_route_nodes WHERE route_id = ?', [id]);
+      let i = 0;
+      for (const n of b.nodes) {
+        const nodeId = typeof n === 'string' ? n : (n.node_id || n.id);
+        if (!nodeId) continue;
+        await db.execute(
+          'INSERT INTO radar_route_nodes (route_id, node_id, order_index, note) VALUES (?, ?, ?, ?)',
+          [id, nodeId, typeof n === 'object' && n.order_index !== undefined ? n.order_index : i, (typeof n === 'object' && n.note) || null]
+        );
+        i += 1;
+      }
+    }
+    return res.json({ ok: true, id });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// RADAR SOCIAL · feed, publicaciones, comentarios, reacciones e insignias
+//
+// La red social del radar NO es un feed genérico: cada publicación está anclada
+// a un nodo cultural (publicás sobre el lugar que descubriste). Las reacciones
+// siguen el modelo del radar (like · inspire · fire · star · clap) y son únicas
+// por usuario y objetivo.
+// ---------------------------------------------------------------------------
+const REACCIONES = ['like', 'inspire', 'fire', 'star', 'clap'];
+
+/** Otorga las insignias que correspondan según la actividad del explorador. */
+async function otorgarInsignias(userId) {
+  const db = getPool();
+  const [reglas] = await db.execute('SELECT * FROM radar_badges');
+  if (!reglas.length) return [];
+  const [[d]] = await db.execute('SELECT COUNT(*) n FROM radar_discoveries WHERE user_id = ?', [userId]);
+  const [[p]] = await db.execute('SELECT COUNT(*) n FROM radar_posts WHERE user_id = ?', [userId]);
+  const [[r]] = await db.execute(
+    `SELECT COUNT(*) n FROM radar_routes rt
+      WHERE EXISTS (SELECT 1 FROM radar_route_nodes rn WHERE rn.route_id = rt.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM radar_route_nodes rn
+           WHERE rn.route_id = rt.id
+             AND rn.node_id NOT IN (SELECT node_id FROM radar_discoveries WHERE user_id = ?)
+        )`, [userId]
+  );
+  const cuenta = { descubrimientos: Number(d.n), publicaciones: Number(p.n), rutas: Number(r.n) };
+  const [tiene] = await db.execute('SELECT badge_id FROM radar_user_badges WHERE user_id = ?', [userId]);
+  const ya = new Set(tiene.map((x) => x.badge_id));
+  const nuevas = [];
+  for (const b of reglas) {
+    if (ya.has(b.id)) continue;
+    if ((cuenta[b.criterio] || 0) >= Number(b.umbral || 1)) {
+      await db.execute('INSERT IGNORE INTO radar_user_badges (user_id, badge_id) VALUES (?, ?)', [userId, b.id]);
+      nuevas.push({ code: b.code, name: b.name, icon: b.icon });
+    }
+  }
+  return nuevas;
+}
+
+const autorDe = (u) => ({
+  id: u.user_id,
+  name: u.display_name || (u.email || '').split('@')[0],
+  avatar: u.avatar_url || null,
+  explorer_number: u.explorer_number || null,
+  level: u.level || 1,
+  xp: u.xp || 0,
+});
+
+// Feed del radar: publicaciones con autor, nodo, reacciones y comentarios
+app.get('/api/v1/crm/radar/feed', async (req, res) => {
+  try {
+    const db = getPool();
+    const limite = Math.min(Number(req.query.limite) || 30, 100);
+    const usuarioActual = req.query.email ? await exploradorId(req.query.email) : null;
+    const esAdmin = (await alcanceInventario(req.query.email || '')).total;
+
+    let sql = `SELECT p.*, u.display_name, u.email, COALESCE(u.picture, u.google_picture) AS avatar_url,
+                      rp.explorer_number, rp.level, rp.xp
+                 FROM radar_posts p
+                 LEFT JOIN users u ON u.id = p.user_id
+                 LEFT JOIN radar_profiles rp ON rp.user_id = p.user_id`;
+    const cond = [];
+    const vals = [];
+    if (!esAdmin) cond.push("p.status = 'approved'");
+    if (req.query.node_id) { cond.push('p.node_id = ?'); vals.push(req.query.node_id); }
+    if (req.query.autor === 'mio' && usuarioActual) { cond.push('p.user_id = ?'); vals.push(usuarioActual); }
+    if (cond.length) sql += ' WHERE ' + cond.join(' AND ');
+    sql += ' ORDER BY p.created_at DESC LIMIT ' + limite;
+
+    const [posts] = await db.execute(sql, vals);
+    const ids = posts.map((p) => p.id);
+    let comentarios = [];
+    let reacciones = [];
+    let nodos = [];
+    if (ids.length) {
+      const marcas = ids.map(() => '?').join(',');
+      [comentarios] = await db.execute(
+        `SELECT c.*, u.display_name, COALESCE(u.picture, u.google_picture) AS avatar_url FROM radar_comments c
+          LEFT JOIN users u ON u.id = c.user_id
+          WHERE c.post_id IN (${marcas}) AND c.status = 'approved' ORDER BY c.created_at ASC`, ids);
+      [reacciones] = await db.execute(
+        `SELECT target_id, reaction_type, COUNT(*) n FROM radar_reactions
+          WHERE target_type = 'post' AND target_id IN (${marcas}) GROUP BY target_id, reaction_type`, ids);
+      const nodeIds = [...new Set(posts.map((p) => p.node_id).filter(Boolean))];
+      if (nodeIds.length) {
+        const nm = nodeIds.map(() => '?').join(',');
+        [nodos] = await db.execute(`SELECT id, name, category, city, cover_url FROM radar_nodes WHERE id IN (${nm})`, nodeIds);
+      }
+    }
+    let mias = new Set();
+    if (usuarioActual && ids.length) {
+      const marcas = ids.map(() => '?').join(',');
+      const [m] = await db.execute(
+        `SELECT target_id, reaction_type FROM radar_reactions WHERE user_id = ? AND target_type = 'post' AND target_id IN (${marcas})`,
+        [usuarioActual, ...ids]);
+      mias = new Map(m.map((x) => [x.target_id, x.reaction_type]));
+    }
+    const nodoPorId = new Map(nodos.map((n) => [n.id, n]));
+
+    const feed = posts.map((p) => {
+      const suyos = reacciones.filter((r) => r.target_id === p.id);
+      const conteo = suyos.reduce((acc, r) => { acc[r.reaction_type] = Number(r.n); return acc; }, {});
+      const totalReacciones = suyos.reduce((acc, r) => acc + Number(r.n), 0);
+      const suyosCom = comentarios.filter((c) => c.post_id === p.id);
+      return {
+        id: p.id,
+        type: p.type,
+        media_url: p.media_url,
+        caption: p.caption,
+        status: p.status,
+        created_at: p.created_at,
+        autor: autorDe(p),
+        nodo: nodoPorId.get(p.node_id) || (p.node_id ? { id: p.node_id } : null),
+        reactions: conteo,
+        total_reacciones: totalReacciones,
+        mi_reaccion: (mias instanceof Map ? mias.get(p.id) : null) || null,
+        comentarios: suyosCom.length,
+        ultimos_comentarios: suyosCom.slice(-3).map((c) => ({
+          id: c.id, content: c.content, created_at: c.created_at,
+          autor: { id: c.user_id, name: c.display_name || 'Explorador', avatar: c.avatar_url || null },
+        })),
+      };
+    });
+    return res.json({ ok: true, total: feed.length, feed });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Publicar en el radar (con foto opcional: llega como image base64 o media_url)
+app.post('/api/v1/crm/radar/posts', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'];
+    if (!email) return res.status(400).json({ ok: false, error: 'falta email' });
+    if (!b.caption && !b.media_url && !b.image) {
+      return res.status(400).json({ ok: false, error: 'la publicación necesita texto o imagen' });
+    }
+    const db = getPool();
+    const userId = await exploradorId(email, b.name);
+    const id = `po_${randomUUID().slice(0, 8)}`;
+
+    let media = b.media_url || null;
+    if (!media && b.image) {
+      media = await subirFotoGcs(id, b.image, 'radar/publicaciones');
+    }
+    const alcance = await alcanceInventario(email);
+    const status = (alcance.total && b.status) ? String(b.status).slice(0, 16) : 'approved';
+
+    await db.execute(
+      `INSERT INTO radar_posts (id, user_id, node_id, type, media_url, caption, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, userId, b.node_id || b.nodeId || null, b.type || (media ? 'photo' : 'text'), media, b.caption || null, status]
+    );
+    const insignias = await otorgarInsignias(userId);
+    return res.json({ ok: true, id, status, media_url: media, insignias });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Comentar una publicación (o un nodo)
+app.post('/api/v1/crm/radar/posts/:id/comentarios', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'];
+    if (!email || !b.content) return res.status(400).json({ ok: false, error: 'faltan email y content' });
+    const db = getPool();
+    const userId = await exploradorId(email, b.name);
+    const [post] = await db.execute('SELECT * FROM radar_posts WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!post.length) return res.status(404).json({ ok: false, error: 'publicación no encontrada' });
+    const id = `cm_${randomUUID().slice(0, 8)}`;
+    await db.execute(
+      `INSERT INTO radar_comments (id, user_id, node_id, post_id, content, status)
+       VALUES (?, ?, ?, ?, ?, 'approved')`,
+      [id, userId, post[0].node_id, req.params.id, String(b.content).slice(0, 2000)]
+    );
+    return res.json({
+      ok: true,
+      comentario: {
+        id, content: String(b.content), created_at: new Date().toISOString(),
+        autor: { id: userId, name: b.name || email.split('@')[0], avatar: null },
+      },
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Reaccionar (toggle): misma reacción = se quita; otra = se cambia
+app.post('/api/v1/crm/radar/reacciones', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'];
+    const tipo = REACCIONES.includes(b.reaction_type) ? b.reaction_type : 'inspire';
+    const target = b.target_id || b.targetId;
+    const targetType = b.target_type === 'node' ? 'node' : 'post';
+    if (!email || !target) return res.status(400).json({ ok: false, error: 'faltan email y target_id' });
+    const db = getPool();
+    const userId = await exploradorId(email, b.name);
+    const [ya] = await db.execute(
+      'SELECT * FROM radar_reactions WHERE user_id = ? AND target_type = ? AND target_id = ? LIMIT 1',
+      [userId, targetType, target]
+    );
+    if (ya.length && ya[0].reaction_type === tipo) {
+      await db.execute('DELETE FROM radar_reactions WHERE id = ?', [ya[0].id]);
+      return res.json({ ok: true, accion: 'quitada', reaction_type: null });
+    }
+    if (ya.length) {
+      await db.execute('UPDATE radar_reactions SET reaction_type = ? WHERE id = ?', [tipo, ya[0].id]);
+      return res.json({ ok: true, accion: 'cambiada', reaction_type: tipo });
+    }
+    await db.execute(
+      'INSERT INTO radar_reactions (id, user_id, target_type, target_id, reaction_type) VALUES (?, ?, ?, ?, ?)',
+      [`rx_${randomUUID().slice(0, 8)}`, userId, targetType, target, tipo]
+    );
+    return res.json({ ok: true, accion: 'puesta', reaction_type: tipo });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Insignias: catálogo + las que ganó el explorador
+app.get('/api/v1/crm/radar/badges', async (req, res) => {
+  try {
+    const db = getPool();
+    const [todas] = await db.execute('SELECT * FROM radar_badges ORDER BY umbral');
+    let ganadas = new Map();
+    if (req.query.email) {
+      const userId = await exploradorId(req.query.email);
+      await otorgarInsignias(userId);
+      const [mias] = await db.execute('SELECT badge_id, earned_at FROM radar_user_badges WHERE user_id = ?', [userId]);
+      ganadas = new Map(mias.map((x) => [x.badge_id, x.earned_at]));
+    }
+    return res.json({
+      ok: true,
+      badges: todas.map((b) => ({ ...b, earned: ganadas.has(b.id), earned_at: ganadas.get(b.id) || null })),
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Moderación de publicaciones (administración)
+app.patch('/api/v1/crm/radar/posts/:id/moderar', async (req, res) => {
+  try {
+    const alcance = await alcanceInventario(req.body?.email || req.headers['x-atha-email'] || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'sólo administración modera' });
+    const estado = ['approved', 'pending', 'rejected'].includes(req.body?.status) ? req.body.status : 'approved';
+    const db = getPool();
+    await db.execute('UPDATE radar_posts SET status = ? WHERE id = ?', [estado, req.params.id]);
+    return res.json({ ok: true, id: req.params.id, status: estado });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // INVENTARIO · /api/v1/crm/inventario/*
 //
 // El inventario se organiza por CAJAS (lo que realmente sale a gira) y cada caja
@@ -1217,42 +1879,143 @@ async function subirFotoInventario(id, dataUrl, carpeta) {
   return `https://storage.googleapis.com/${BUCKET_INVENTARIO}/${nombre}`;
 }
 
-// Todo el inventario de una compañía (o de todas) en una sola llamada.
+/**
+ * ALCANCE DEL INVENTARIO POR USUARIO
+ *
+ * Regla de negocio: el inventario de una compañía lo ve quien PERTENECE a esa
+ * compañía con un rol de producción o técnico. Un artista, el elenco, o alguien
+ * de otra compañía NO lo ve. Administración (admin/director) ve todo.
+ *
+ * De dónde sale la pertenencia:
+ *   - `company_members` (user_id → compañía, rol: owner/coordinator/director/artist/viewer)
+ *   - `company_people`  (nómina vinculada por correo; kind = 'equipo' o cargo
+ *     de producción/técnico: "Producción & Elenco", "Técnico", "Operación Lumínica"…)
+ */
+const CARGO_GESTION = /productor|producci|t[eé]cnic|t[eé]cnica|luminic|sonor|sonido|operaci[oó]n|escenari|regid|maquinis|utiler|vestuar|bodega|log[ií]stic/i;
+const ROLES_GESTION = ['owner', 'coordinator', 'director'];
+
+function esAdministracion(rolUsuario) {
+  return ['admin', 'director'].includes(String(rolUsuario || '').toLowerCase());
+}
+
+async function alcanceInventario(email) {
+  const correo = String(email || '').trim().toLowerCase();
+  const base = { identificado: false, total: false, companies: [], puedeEscribir: false, motivo: '' };
+  if (!correo) return { ...base, motivo: 'sin sesión' };
+
+  const db = getPool();
+  const [filas] = await db.execute(
+    'SELECT id, email, display_name, role, role_title FROM users WHERE LOWER(email) = ? LIMIT 1',
+    [correo]
+  );
+  if (!filas.length) return { ...base, motivo: 'usuario no registrado' };
+
+  const u = filas[0];
+  if (esAdministracion(u.role)) {
+    return {
+      identificado: true, total: true, companies: [], puedeEscribir: true,
+      motivo: 'administración: ve todas las compañías', usuario: u,
+    };
+  }
+
+  const companies = new Set();
+
+  // 1) pertenencia declarada como miembro de la compañía
+  const [mem] = await db.execute(
+    'SELECT company_id, role_in_company FROM company_members WHERE user_id = ?', [u.id]
+  );
+  for (const m of mem) {
+    if (ROLES_GESTION.includes(String(m.role_in_company || '').toLowerCase())) {
+      companies.add(m.company_id);
+    }
+  }
+
+  // 2) pertenencia por nómina: equipo técnico o cargo de producción
+  const [nom] = await db.execute(
+    'SELECT company_id, kind, role_title FROM company_people WHERE LOWER(email) = ?', [correo]
+  );
+  for (const n of nom) {
+    const cargo = String(n.role_title || '');
+    const esEquipoTecnico = String(n.kind || '').toLowerCase() === 'equipo';
+    if (esEquipoTecnico || CARGO_GESTION.test(cargo)) companies.add(n.company_id);
+  }
+
+  const lista = [...companies];
+  return {
+    identificado: true,
+    total: false,
+    companies: lista,
+    puedeEscribir: lista.length > 0,
+    motivo: lista.length
+      ? 'pertenencia: ve sólo las compañías en las que participa en producción o técnica'
+      : 'no pertenece a ninguna compañía en un rol de producción o técnico',
+    usuario: u,
+  };
+}
+
+// Todo el inventario que el usuario puede ver (una compañía o todas) en una llamada.
 app.get('/api/v1/crm/inventario', async (req, res) => {
   try {
     const db = getPool();
-    const companyId = String(req.query.company_id || req.query.companyId || '').trim() || null;
+    const email = req.query.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
 
-    const [companies] = await db.execute(
-      'SELECT id, name, kind, city FROM companies ORDER BY name'
-    );
+    // compañías habilitadas para este usuario (null = todas)
+    const permitidas = alcance.total ? null : alcance.companies;
+    const pedida = String(req.query.company_id || req.query.companyId || '').trim() || null;
 
-    const filtroCajas = companyId ? 'WHERE b.company_id = ?' : '';
-    const filtroItems = companyId ? 'WHERE i.company_id = ?' : '';
-    const parC = companyId ? [companyId] : [];
-    const parI = companyId ? [companyId] : [];
+    // pide una compañía que no le corresponde
+    if (pedida && permitidas && !permitidas.includes(pedida)) {
+      return res.status(403).json({
+        success: false, alcance,
+        error: 'No tenés acceso al inventario de esa compañía.',
+        companies: [], boxes: [], items: [],
+      });
+    }
 
-    const [boxes] = await db.execute(
-      `SELECT b.*,
-              (SELECT COUNT(*) FROM inventory_items i WHERE i.box_id = b.id) AS items,
-              (SELECT COALESCE(SUM(i.value_clp * COALESCE(i.quantity, 1)), 0)
-                 FROM inventory_items i WHERE i.box_id = b.id) AS valor
-         FROM inventory_boxes b ${filtroCajas}
-        ORDER BY b.code IS NULL, b.code, b.name`,
-      parC
-    );
-    const [items] = await db.execute(
-      `SELECT i.*, c.name AS company_name, b.name AS box_name
-         FROM inventory_items i
-         LEFT JOIN companies c ON c.id = i.company_id
-         LEFT JOIN inventory_boxes b ON b.id = i.box_id
-         ${filtroItems}
-        ORDER BY i.name`,
-      parI
-    );
+    const [todasLasCompanias] = await db.execute('SELECT id, name, kind, city FROM companies ORDER BY name');
+    const companies = permitidas
+      ? todasLasCompanias.filter((c) => permitidas.includes(c.id))
+      : todasLasCompanias;
+
+    // si no pidió compañía, se abre la primera que puede ver
+    const elegida = pedida || (permitidas ? (companies[0]?.id || null) : null);
+
+    let boxes = [];
+    let items = [];
+    if (permitidas === null ? true : Boolean(elegida)) {
+      const filtroC = elegida ? 'WHERE b.company_id = ?' : '';
+      const filtroI = elegida ? 'WHERE i.company_id = ?' : '';
+      const par = elegida ? [elegida] : [];
+      [boxes] = await db.execute(
+        `SELECT b.*,
+                (SELECT COUNT(*) FROM inventory_items i WHERE i.box_id = b.id) AS items,
+                (SELECT COALESCE(SUM(i.value_clp * COALESCE(i.quantity, 1)), 0)
+                   FROM inventory_items i WHERE i.box_id = b.id) AS valor
+           FROM inventory_boxes b ${filtroC}
+          ORDER BY b.code IS NULL, b.code, b.name`,
+        par
+      );
+      [items] = await db.execute(
+        `SELECT i.*, b.name AS box_name
+           FROM inventory_items i
+           LEFT JOIN inventory_boxes b ON b.id = i.box_id
+           ${filtroI}
+          ORDER BY i.name`,
+        par
+      );
+    }
 
     return res.json({
       success: true,
+      alcance: {
+        total: alcance.total,
+        identificado: alcance.identificado,
+        puede_escribir: alcance.puedeEscribir,
+        motivo: alcance.motivo,
+        companies: alcance.companies,
+      },
+      company_id: elegida,
       total_cajas: boxes.length,
       total_items: items.length,
       valor_total: items.reduce((s, i) => s + Number(i.value_clp || 0) * Number(i.quantity || 1), 0),
@@ -1269,9 +2032,47 @@ app.get('/api/v1/crm/inventario', async (req, res) => {
 });
 
 // Alta / edición de cajas
+/**
+ * ¿Este usuario puede ESCRIBIR en el inventario de esa compañía?
+ * Sólo se exige cuando el pedido trae la identidad (email); si no viene, se deja
+ * pasar para no romper flujos internos previos.
+ */
+async function permisoEscritura(email, companyId) {
+  if (!email) return { ok: true, sin_identidad: true };
+  const alcance = await alcanceInventario(email);
+  if (!alcance.identificado) return { ok: false, motivo: 'usuario no registrado', alcance };
+  if (alcance.total) return { ok: true, alcance };
+  if (!companyId) return { ok: false, motivo: 'no se indicó la compañía', alcance };
+  return alcance.companies.includes(companyId)
+    ? { ok: true, alcance }
+    : { ok: false, motivo: 'tu rol no tiene acceso al inventario de esta compañía', alcance };
+}
+
+/** Compañía de una caja (para validar permisos en ediciones/borrados). */
+async function companiaDeCaja(id) {
+  const [r] = await getPool().execute('SELECT company_id FROM inventory_boxes WHERE id = ? LIMIT 1', [id]);
+  return r.length ? r[0].company_id : null;
+}
+
+/** Compañía de un ítem. */
+async function companiaDeItem(id) {
+  const [r] = await getPool().execute('SELECT company_id FROM inventory_items WHERE id = ? LIMIT 1', [id]);
+  return r.length ? r[0].company_id : null;
+}
+
 async function guardarCaja(req, res, id) {
   try {
     const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'] || '';
+
+    // ¿puede escribir en esa compañía?
+    let companyId = b.companyId || b.company_id || null;
+    if (!companyId && id) companyId = await companiaDeCaja(id);
+    const perm = await permisoEscritura(email, companyId);
+    if (!perm.ok) {
+      return res.status(403).json({ success: false, ok: false, error: `Sin permiso: ${perm.motivo}` });
+    }
+
     // Edición: se actualizan SÓLO los campos enviados (una edición parcial no
     // debe borrar lo que ya estaba cargado).
     if (id) {
@@ -1297,6 +2098,11 @@ app.delete('/api/v1/crm/inventario/cajas/:id', async (req, res) => {
   try {
     const db = getPool();
     const id = req.params.id;
+    const email = (req.body && req.body.email) || req.query.email || req.headers['x-atha-email'] || '';
+    const perm = await permisoEscritura(email, await companiaDeCaja(id));
+    if (!perm.ok) {
+      return res.status(403).json({ success: false, ok: false, error: `Sin permiso: ${perm.motivo}` });
+    }
     // los ítems de la caja no se borran: quedan sin caja (no se pierde información)
     await db.execute('UPDATE inventory_items SET box_id = NULL WHERE box_id = ?', [id]);
     await db.execute('DELETE FROM inventory_boxes WHERE id = ?', [id]);
@@ -1310,6 +2116,16 @@ app.delete('/api/v1/crm/inventario/cajas/:id', async (req, res) => {
 async function guardarItem(req, res, id) {
   try {
     const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'] || '';
+
+    // ¿puede escribir en esa compañía? (en edición se resuelve por la fila)
+    let companyId = b.companyId || b.company_id || null;
+    if (!companyId && id) companyId = await companiaDeItem(id);
+    const perm = await permisoEscritura(email, companyId);
+    if (!perm.ok) {
+      return res.status(403).json({ success: false, ok: false, error: `Sin permiso: ${perm.motivo}` });
+    }
+
     // Edición: sólo los campos enviados (una edición parcial no borra el resto).
     if (id) {
       const r = await actualizarParcial('inventory_items', id, camposItemDeBody(b));
@@ -1337,6 +2153,11 @@ app.patch('/api/v1/crm/inventario/items/:id', (req, res) => guardarItem(req, res
 app.delete('/api/v1/crm/inventario/items/:id', async (req, res) => {
   try {
     const db = getPool();
+    const email = (req.body && req.body.email) || req.query.email || req.headers['x-atha-email'] || '';
+    const perm = await permisoEscritura(email, await companiaDeItem(req.params.id));
+    if (!perm.ok) {
+      return res.status(403).json({ success: false, ok: false, error: `Sin permiso: ${perm.motivo}` });
+    }
     await db.execute('DELETE FROM inventory_items WHERE id = ?', [req.params.id]);
     return res.json({ success: true, ok: true, id: req.params.id });
   } catch (e) {
@@ -1344,11 +2165,24 @@ app.delete('/api/v1/crm/inventario/items/:id', async (req, res) => {
   }
 });
 
-// Foto de un ítem o de una caja: { image: 'data:image/jpeg;base64,...', id, tipo }
+// Foto de un ítem o de una caja: { image: 'data:image/jpeg;base64,...', id, tipo, companyId }
 app.post('/api/v1/crm/inventario/foto', async (req, res) => {
   try {
     const b = req.body || {};
-    const carpeta = String(b.tipo || 'items').toLowerCase() === 'caja' ? 'inventario-cajas' : 'inventario-items';
+    const esCaja = String(b.tipo || 'items').toLowerCase() === 'caja';
+    const email = b.email || req.headers['x-atha-email'] || '';
+
+    // Permiso: la compañía puede venir en el body (alta nueva, la fila aún no
+    // existe) o resolverse desde la fila que se está editando.
+    const companyId =
+      b.companyId || b.company_id ||
+      (esCaja ? await companiaDeCaja(b.id) : await companiaDeItem(b.id));
+    const perm = await permisoEscritura(email, companyId);
+    if (!perm.ok) {
+      return res.status(403).json({ success: false, ok: false, error: `Sin permiso: ${perm.motivo}` });
+    }
+
+    const carpeta = esCaja ? 'inventario-cajas' : 'inventario-items';
     const url = await subirFotoInventario(b.id, b.image, carpeta);
     return res.json({ success: true, ok: true, url });
   } catch (e) {

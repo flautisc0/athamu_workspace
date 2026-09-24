@@ -140,8 +140,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         return {
           label: 'Ensayo',
           style: isLight
-            ? 'bg-[#C84835]/10 text-[#C84835] border-[#C84835]/30'
-            : 'bg-[#E05A47]/15 text-[#FF6B4A] border-[#E05A47]/30'
+            ? 'bg-[var(--accent-terracota)]/10 text-[var(--accent-terracota)] border-[var(--accent-terracota)]/30'
+            : 'bg-[var(--accent-terracota)]/15 text-[var(--accent-glow)] border-[var(--accent-terracota)]/30'
         };
       case 'finanzas':
         return {
@@ -180,7 +180,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         className={`relative w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border transition-colors flex flex-col max-h-[88vh] ${
           isLight
             ? 'bg-[#FAF8F6] border-stone-200 text-stone-900 shadow-stone-300/40'
-            : 'bg-[#160E0D] border-[#3E221E] text-[#FDF5F4] shadow-black/80'
+            : 'bg-[#160E0D] border-[var(--border-color)] text-[#FDF5F4] shadow-black/80'
         }`}
       >
         {/* Header */}
@@ -188,15 +188,15 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           className={`flex items-center justify-between px-6 py-4 border-b transition-colors ${
             isLight
               ? 'bg-white border-stone-200'
-              : 'bg-[#1A100F] border-[#3E221E]'
+              : 'bg-[#1A100F] border-[var(--border-color)]'
           }`}
         >
           <div className="flex items-center gap-3">
             <div
               className={`p-2 rounded-xl border ${
                 isLight
-                  ? 'bg-[#C84835]/10 border-[#C84835]/20 text-[#C84835]'
-                  : 'bg-[#E05A47]/15 border-[#E05A47]/30 text-[#FF6B4A]'
+                  ? 'bg-[var(--accent-terracota)]/10 border-[var(--accent-terracota)]/20 text-[var(--accent-terracota)]'
+                  : 'bg-[var(--accent-terracota)]/15 border-[var(--accent-terracota)]/30 text-[var(--accent-glow)]'
               }`}
             >
               <Bell className="w-5 h-5" />
@@ -208,8 +208,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   <span
                     className={`px-2 py-0.5 rounded-full text-[11px] font-bold font-mono ${
                       isLight
-                        ? 'bg-[#C84835] text-white'
-                        : 'bg-[#E05A47] text-white'
+                        ? 'bg-[var(--accent-terracota)] text-white'
+                        : 'bg-[var(--accent-terracota)] text-white'
                     }`}
                   >
                     {unreadCount} nuevas
@@ -218,7 +218,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               </div>
               <p
                 className={`text-xs mt-1 ${
-                  isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
+                  isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'
                 }`}
               >
                 Sincronización en vivo con CRM, agenda de ensayos y llamados F.A.S.E
@@ -247,7 +247,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             className={`p-4 rounded-xl border transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
               isLight
                 ? 'bg-white border-stone-200'
-                : 'bg-[#1E1210] border-[#3E221E]'
+                : 'bg-[#1E1210] border-[var(--border-color)]'
             }`}
           >
             <div className="space-y-1">
@@ -256,12 +256,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   className={`w-2 h-2 rounded-full ${
                     permissionState === 'granted'
                       ? 'bg-emerald-500 animate-pulse'
-                      : 'bg-[#E05A47]'
+                      : 'bg-[var(--accent-terracota)]'
                   }`}
                 />
                 <span
                   className={`text-xs font-semibold uppercase tracking-wider ${
-                    isLight ? 'text-stone-700' : 'text-[#D4B2AD]'
+                    isLight ? 'text-stone-700' : 'text-[var(--text-secondary)]'
                   }`}
                 >
                   Alertas de Navegador Web
@@ -278,7 +278,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               </div>
               <p
                 className={`text-xs leading-relaxed ${
-                  isLight ? 'text-stone-500' : 'text-[#D4B2AD]'
+                  isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'
                 }`}
               >
                 {permissionState === 'granted'
@@ -294,8 +294,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   onClick={requestPermission}
                   className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                     isLight
-                      ? 'bg-[#C84835] hover:bg-[#A33827] text-white shadow-sm'
-                      : 'bg-[#E05A47] hover:bg-[#FF6B4A] text-white shadow-sm'
+                      ? 'bg-[var(--accent-terracota)] hover:bg-[#A33827] text-white shadow-sm'
+                      : 'bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white shadow-sm'
                   }`}
                 >
                   Activar Web Push
@@ -307,10 +307,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
                   isLight
                     ? 'border-stone-300 hover:bg-stone-100 text-stone-700'
-                    : 'border-[#3E221E] hover:bg-white/5 text-stone-200'
+                    : 'border-[var(--border-color)] hover:bg-white/5 text-stone-200'
                 }`}
               >
-                <Send className="w-3.5 h-3.5 text-[#E05A47]" />
+                <Send className="w-3.5 h-3.5 text-[var(--accent-terracota)]" />
                 <span>{notificationSent ? '¡Push Enviado!' : 'Probar Alerta'}</span>
               </button>
             </div>
@@ -340,11 +340,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                         isActive
                           ? isLight
-                            ? 'bg-[#C84835] text-white'
-                            : 'bg-[#E05A47] text-white'
+                            ? 'bg-[var(--accent-terracota)] text-white'
+                            : 'bg-[var(--accent-terracota)] text-white'
                           : isLight
                           ? 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
-                          : 'bg-[#1E1210] border border-[#3E221E] text-stone-300 hover:bg-white/5'
+                          : 'bg-[#1E1210] border border-[var(--border-color)] text-stone-300 hover:bg-white/5'
                       }`}
                     >
                       {tab.label}
@@ -364,7 +364,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                         : 'bg-white/10 border-white/20 text-white'
                       : isLight
                       ? 'bg-stone-50 border-stone-200 hover:bg-stone-100 text-stone-700'
-                      : 'bg-[#1E1210] border-[#3E221E] hover:bg-white/5 text-stone-200'
+                      : 'bg-[#1E1210] border-[var(--border-color)] hover:bg-white/5 text-stone-200'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -377,8 +377,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                     onClick={onClearAll}
                     className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                       isLight
-                        ? 'text-[#C84835] hover:bg-[#C84835]/10'
-                        : 'text-[#FF6B4A] hover:bg-[#E05A47]/10'
+                        ? 'text-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)]/10'
+                        : 'text-[var(--accent-glow)] hover:bg-[var(--accent-terracota)]/10'
                     }`}
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
@@ -394,12 +394,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 onSubmit={handleCreateSubmit}
                 className={`p-4 rounded-xl border space-y-3 animate-in fade-in duration-150 ${
                   isLight
-                    ? 'bg-white border-[#C84835]/30 shadow-sm'
-                    : 'bg-[#1C100F] border-[#E05A47]/40 shadow-sm'
+                    ? 'bg-white border-[var(--accent-terracota)]/30 shadow-sm'
+                    : 'bg-[#1C100F] border-[var(--accent-terracota)]/40 shadow-sm'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#E05A47] flex items-center gap-1.5">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--accent-terracota)] flex items-center gap-1.5">
                     <Plus className="w-3.5 h-3.5" />
                     <span>Crear Recordatorio o Alerta de Producción</span>
                   </h4>
@@ -418,8 +418,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                       placeholder="Ej: Montaje luces GAM"
                       className={`w-full px-3 py-1.5 text-xs rounded-lg border outline-none transition-colors ${
                         isLight
-                          ? 'bg-[#FAF8F6] border-stone-300 focus:border-[#C84835] text-stone-900'
-                          : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
+                          ? 'bg-[#FAF8F6] border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
+                          : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
                       }`}
                     />
                   </div>
@@ -434,8 +434,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                         onChange={e => setNewType(e.target.value)}
                         className={`w-full px-2 py-1.5 text-xs rounded-lg border outline-none transition-colors ${
                           isLight
-                            ? 'bg-[#FAF8F6] border-stone-300 focus:border-[#C84835] text-stone-900'
-                            : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
+                            ? 'bg-[#FAF8F6] border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
+                            : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
                         }`}
                       >
                         <option value="ensayo">Ensayo</option>
@@ -456,8 +456,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                         onChange={e => setNewDate(e.target.value)}
                         className={`w-full px-2 py-1.5 text-xs rounded-lg border outline-none transition-colors ${
                           isLight
-                            ? 'bg-[#FAF8F6] border-stone-300 focus:border-[#C84835] text-stone-900'
-                            : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
+                            ? 'bg-[#FAF8F6] border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
+                            : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
                         }`}
                       />
                     </div>
@@ -475,8 +475,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                     placeholder="Instrucciones para el equipo, sala o requerimientos técnicos..."
                     className={`w-full px-3 py-1.5 text-xs rounded-lg border outline-none transition-colors ${
                       isLight
-                        ? 'bg-[#FAF8F6] border-stone-300 focus:border-[#C84835] text-stone-900'
-                        : 'bg-[#120B0A] border-[#3E221E] focus:border-[#E05A47] text-white'
+                        ? 'bg-[#FAF8F6] border-stone-300 focus:border-[var(--accent-terracota)] text-stone-900'
+                        : 'bg-[#120B0A] border-[var(--border-color)] focus:border-[var(--accent-terracota)] text-white'
                     }`}
                   />
                 </div>
@@ -492,7 +492,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   <button
                     type="submit"
                     className={`px-3 py-1 text-xs font-semibold rounded-lg text-white transition-colors cursor-pointer ${
-                      isLight ? 'bg-[#C84835] hover:bg-[#A33827]' : 'bg-[#E05A47] hover:bg-[#FF6B4A]'
+                      isLight ? 'bg-[var(--accent-terracota)] hover:bg-[#A33827]' : 'bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)]'
                     }`}
                   >
                     Guardar Notificación
@@ -509,10 +509,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 className={`p-8 text-center rounded-xl border ${
                   isLight
                     ? 'bg-white border-stone-200 text-stone-400'
-                    : 'bg-[#1A100F] border-[#3E221E] text-stone-500'
+                    : 'bg-[#1A100F] border-[var(--border-color)] text-stone-500'
                 }`}
               >
-                <Bell className="w-8 h-8 mx-auto mb-2 opacity-30 text-[#E05A47]" />
+                <Bell className="w-8 h-8 mx-auto mb-2 opacity-30 text-[var(--accent-terracota)]" />
                 <p className="text-xs font-semibold">No hay alertas en esta categoría</p>
                 <p className="text-[11px] mt-0.5">Puedes crear una nueva alerta con el botón superior.</p>
               </div>
@@ -526,17 +526,17 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                       rem.read
                         ? isLight
                           ? 'bg-white/60 border-stone-200 opacity-60'
-                          : 'bg-[#160E0D]/60 border-[#3E221E]/60 opacity-60'
+                          : 'bg-[#160E0D]/60 border-[var(--border-color)]/60 opacity-60'
                         : isLight
-                        ? 'bg-white border-[#C84835]/30 shadow-sm'
-                        : 'bg-[#1E110F] border-[#E05A47]/40 shadow-sm'
+                        ? 'bg-white border-[var(--accent-terracota)]/30 shadow-sm'
+                        : 'bg-[var(--bg-surface)] border-[var(--accent-terracota)]/40 shadow-sm'
                     }`}
                   >
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={`w-2 h-2 rounded-full shrink-0 ${
-                            rem.read ? 'bg-stone-400' : 'bg-[#E05A47]'
+                            rem.read ? 'bg-stone-400' : 'bg-[var(--accent-terracota)]'
                           }`}
                         />
                         <h4
@@ -563,7 +563,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
                       <div
                         className={`flex items-center gap-3 text-[10px] font-mono ${
-                          isLight ? 'text-stone-400' : 'text-[#D4B2AD]'
+                          isLight ? 'text-stone-400' : 'text-[var(--text-secondary)]'
                         }`}
                       >
                         <span className="flex items-center gap-1">
@@ -585,7 +585,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                           className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                             isLight
                               ? 'text-stone-500 hover:text-emerald-700 hover:bg-emerald-50 border-stone-200'
-                              : 'text-stone-400 hover:text-emerald-400 hover:bg-emerald-950/30 border-[#3E221E]'
+                              : 'text-stone-400 hover:text-emerald-400 hover:bg-emerald-950/30 border-[var(--border-color)]'
                           }`}
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -600,7 +600,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                           className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                             isLight
                               ? 'text-stone-400 hover:text-rose-600 hover:bg-rose-50 border-stone-200'
-                              : 'text-stone-400 hover:text-rose-400 hover:bg-rose-950/30 border-[#3E221E]'
+                              : 'text-stone-400 hover:text-rose-400 hover:bg-rose-950/30 border-[var(--border-color)]'
                           }`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -617,10 +617,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             className={`p-3 rounded-xl border text-[11px] leading-relaxed flex items-center gap-2 ${
               isLight
                 ? 'bg-stone-50 border-stone-200 text-stone-500'
-                : 'bg-[#1A100F] border-[#3E221E] text-[#D4B2AD]'
+                : 'bg-[#1A100F] border-[var(--border-color)] text-[var(--text-secondary)]'
             }`}
           >
-            <Info className="w-4 h-4 text-[#E05A47] shrink-0" />
+            <Info className="w-4 h-4 text-[var(--accent-terracota)] shrink-0" />
             <span>
               Las alertas se sincronizan automáticamente con las fechas de la Calculadora de Estrenos y el CRM de obras teatrales.
             </span>

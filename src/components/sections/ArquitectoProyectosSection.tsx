@@ -209,12 +209,12 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
       {/* Header Banner */}
       <div className={`p-6 sm:p-8 rounded-2xl border transition-all ${
         isLight
-          ? 'bg-white border-[#E5DDD8] text-stone-900 shadow-xs'
-          : 'bg-[#1C110F] border-[#3E221E] text-white shadow-xl'
+          ? 'bg-white border-[var(--border-color)] text-stone-900 shadow-xs'
+          : 'bg-[#1C110F] border-[var(--border-color)] text-white shadow-xl'
       }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#E05A47]">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--accent-terracota)]">
               <span>Módulo de Creación & Pitch</span>
               <span>•</span>
               <span>Arquitectura Escénica & Financiamiento</span>
@@ -246,7 +246,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
 
             <button
               onClick={() => setIsNewProjectModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#E05A47] hover:bg-[#C84835] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Diseñar Nuevo Proyecto</span>
@@ -264,10 +264,10 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                 onClick={() => setSelectedProjectId(p.id)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium transition cursor-pointer border ${
                   isSelected
-                    ? 'bg-[#E05A47] text-white border-[#E05A47] shadow-xs'
+                    ? 'bg-[var(--accent-terracota)] text-white border-[var(--accent-terracota)] shadow-xs'
                     : isLight
                     ? 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
-                    : 'bg-[#150D0C] border-[#3E221E] text-slate-300 hover:bg-white/5'
+                    : 'bg-[var(--bg-base)] border-[var(--border-color)] text-slate-300 hover:bg-white/5'
                 }`}
               >
                 <span className="font-mono text-[10px] opacity-80">{p.code}</span>
@@ -292,12 +292,12 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
             
             {/* Conceptual Dossier Card */}
             <div className={`p-6 rounded-2xl border transition-all space-y-4 ${
-              isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
+              isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
             }`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-[#E05A47]">{selectedProject.code}</span>
+                    <span className="text-xs font-mono font-bold text-[var(--accent-terracota)]">{selectedProject.code}</span>
                     <span className={`text-xs px-2 py-0.5 rounded font-mono ${
                       isLight ? 'bg-stone-100 text-stone-700' : 'bg-white/10 text-slate-300'
                     }`}>
@@ -312,7 +312,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
 
                 <div className="text-right">
                   <span className="text-[11px] font-mono text-stone-400 block uppercase">Estado Postulación</span>
-                  <span className="text-xs font-bold text-[#E05A47] block mt-0.5">
+                  <span className="text-xs font-bold text-[var(--accent-terracota)] block mt-0.5">
                     {selectedProject.stage}
                   </span>
                 </div>
@@ -320,7 +320,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
 
               {/* Curatorial Hypothesis */}
               <div className={`p-4 rounded-xl border ${
-                isLight ? 'bg-stone-50/70 border-stone-200 text-stone-800' : 'bg-[#150D0C] border-[#3E221E] text-slate-200'
+                isLight ? 'bg-stone-50/70 border-stone-200 text-stone-800' : 'bg-[var(--bg-base)] border-[var(--border-color)] text-slate-200'
               }`}>
                 <span className="text-[11px] font-mono uppercase tracking-wider text-stone-400 block mb-1 font-semibold">
                   Hipótesis Curatorial & Dramatúrgica
@@ -333,7 +333,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
               {/* Leads / Directors */}
               <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
                 <div className={`p-3 rounded-xl border ${
-                  isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
+                  isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
                 }`}>
                   <span className="text-[10px] text-stone-400 block uppercase font-mono">Dirección Artística</span>
                   <span className={`font-bold mt-0.5 block ${isLight ? 'text-stone-900' : 'text-white'}`}>
@@ -341,7 +341,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                   </span>
                 </div>
                 <div className={`p-3 rounded-xl border ${
-                  isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
+                  isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
                 }`}>
                   <span className="text-[10px] text-stone-400 block uppercase font-mono">Dirección Técnica & Escénica</span>
                   <span className={`font-bold mt-0.5 block ${isLight ? 'text-stone-900' : 'text-white'}`}>
@@ -353,7 +353,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
 
             {/* Financial Architecture Breakdown */}
             <div className={`p-6 rounded-2xl border transition-all space-y-4 ${
-              isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
+              isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
             }`}>
               <div className="flex items-center justify-between">
                 <h3 className={`text-sm font-bold flex items-center gap-2 ${isLight ? 'text-stone-900' : 'text-white'}`}>
@@ -431,19 +431,19 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
             
             {/* Readiness Index Card */}
             <div className={`p-6 rounded-2xl border transition-all space-y-4 ${
-              isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
+              isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
             }`}>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
                   Índice de Madurez
                 </span>
-                <span className="text-xs font-mono font-bold text-[#E05A47]">
+                <span className="text-xs font-mono font-bold text-[var(--accent-terracota)]">
                   {selectedProject.readinessScore}/100
                 </span>
               </div>
               <div className="w-full h-2.5 rounded-full bg-stone-200 dark:bg-white/10 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[#E05A47] to-amber-500"
+                  className="h-full bg-gradient-to-r from-[var(--accent-terracota)] to-amber-500"
                   style={{ width: `${selectedProject.readinessScore}%` }}
                 />
               </div>
@@ -454,7 +454,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
 
             {/* Technical Specs Blueprint */}
             <div className={`p-6 rounded-2xl border transition-all space-y-4 ${
-              isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
+              isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
             }`}>
               <h3 className={`text-sm font-bold flex items-center gap-2 ${isLight ? 'text-stone-900' : 'text-white'}`}>
                 <Boxes className="w-4 h-4 text-sky-500" />
@@ -485,7 +485,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
 
             {/* Target CRM Venues */}
             <div className={`p-6 rounded-2xl border transition-all space-y-4 ${
-              isLight ? 'bg-white border-[#E5DDD8] shadow-xs' : 'bg-[#1C110F] border-[#3E221E] shadow-md'
+              isLight ? 'bg-white border-[var(--border-color)] shadow-xs' : 'bg-[#1C110F] border-[var(--border-color)] shadow-md'
             }`}>
               <div className="flex items-center justify-between">
                 <h3 className={`text-sm font-bold flex items-center gap-2 ${isLight ? 'text-stone-900' : 'text-white'}`}>
@@ -494,7 +494,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                 </h3>
                 <button
                   onClick={() => onNavigateSection('crm')}
-                  className="text-xs text-[#E05A47] hover:underline"
+                  className="text-xs text-[var(--accent-terracota)] hover:underline"
                 >
                   Abrir CRM →
                 </button>
@@ -505,7 +505,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                   <div
                     key={i}
                     className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
-                      isLight ? 'bg-stone-50 border-stone-200 text-stone-800' : 'bg-[#150D0C] border-[#3E221E] text-slate-200'
+                      isLight ? 'bg-stone-50 border-stone-200 text-stone-800' : 'bg-[var(--bg-base)] border-[var(--border-color)] text-slate-200'
                     }`}
                   >
                     <span className="font-medium truncate">{v}</span>
@@ -524,7 +524,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
       {isNewProjectModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
           <div className={`w-full max-w-lg rounded-2xl border p-6 shadow-2xl space-y-4 ${
-            isLight ? 'bg-white border-stone-200 text-stone-900' : 'bg-[#1C110F] border-[#3E221E] text-white'
+            isLight ? 'bg-white border-stone-200 text-stone-900' : 'bg-[#1C110F] border-[var(--border-color)] text-white'
           }`}>
             <h3 className="text-base font-bold">Diseñar Nueva Arquitectura de Proyecto</h3>
             
@@ -538,7 +538,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="Ej: La Tempestad Silenciosa"
                   className={`w-full px-3 py-2 rounded-xl border focus:outline-none ${
-                    isLight ? 'bg-stone-50 border-stone-200 focus:border-[#E05A47]' : 'bg-[#150D0C] border-[#3E221E] focus:border-[#E05A47]'
+                    isLight ? 'bg-stone-50 border-stone-200 focus:border-[var(--accent-terracota)]' : 'bg-[var(--bg-base)] border-[var(--border-color)] focus:border-[var(--accent-terracota)]'
                   }`}
                 />
               </div>
@@ -550,7 +550,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                     value={newDiscipline}
                     onChange={(e) => setNewDiscipline(e.target.value as Discipline)}
                     className={`w-full px-3 py-2 rounded-xl border focus:outline-none ${
-                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
+                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
                     }`}
                   >
                     <option value="Danza">Danza</option>
@@ -569,7 +569,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                     onChange={(e) => setNewFormat(e.target.value)}
                     placeholder="Caja Negra / Sala Principal"
                     className={`w-full px-3 py-2 rounded-xl border focus:outline-none ${
-                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
+                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
                     }`}
                   />
                 </div>
@@ -583,7 +583,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                   onChange={(e) => setNewHypothesis(e.target.value)}
                   placeholder="Describe la tesis artística, cuerpo en escena, propuesta lumínica y sonora..."
                   className={`w-full px-3 py-2 rounded-xl border focus:outline-none resize-none ${
-                    isLight ? 'bg-stone-50 border-stone-200 focus:border-[#E05A47]' : 'bg-[#150D0C] border-[#3E221E] focus:border-[#E05A47]'
+                    isLight ? 'bg-stone-50 border-stone-200 focus:border-[var(--accent-terracota)]' : 'bg-[var(--bg-base)] border-[var(--border-color)] focus:border-[var(--accent-terracota)]'
                   }`}
                 />
               </div>
@@ -596,7 +596,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                     value={newFondart}
                     onChange={(e) => setNewFondart(Number(e.target.value))}
                     className={`w-full px-3 py-2 rounded-xl border focus:outline-none ${
-                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
+                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
                     }`}
                   />
                 </div>
@@ -607,7 +607,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                     value={newCoprod}
                     onChange={(e) => setNewCoprod(Number(e.target.value))}
                     className={`w-full px-3 py-2 rounded-xl border focus:outline-none ${
-                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#150D0C] border-[#3E221E]'
+                      isLight ? 'bg-stone-50 border-stone-200' : 'bg-[var(--bg-base)] border-[var(--border-color)]'
                     }`}
                   />
                 </div>
@@ -625,7 +625,7 @@ export const ArquitectoProyectosSection: React.FC<ArquitectoProyectosSectionProp
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#E05A47] hover:bg-[#C84835] text-white font-semibold cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)] text-white font-semibold cursor-pointer"
                 >
                   Crear Arquitectura
                 </button>
