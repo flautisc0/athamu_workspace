@@ -75,18 +75,16 @@ const BACKGROUNDS: { color: string; nombre: string }[] = [
 /** Accesos de la barra de navegación (ids reales del Navbar). */
 const NAVBAR_ITEMS: { id: string; label: string }[] = [
   { id: 'inicio', label: 'Dashboard' },
-  { id: 'perfil', label: 'Perfil & Portafolio' },
   { id: 'companias', label: 'Compañías / Agrupaciones' },
   { id: 'obras', label: 'Catálogo de Obras' },
   { id: 'crm', label: 'CRM Leads' },
-  { id: 'calendario', label: 'Planificación' },
   { id: 'ventas', label: 'Ventas & Pitching' },
-  { id: 'id', label: 'Proyectos I+D' },
   { id: 'venues', label: 'Salas & Venues' },
   { id: 'inventario', label: 'Inventario Backline' },
   { id: 'finanzas', label: 'Finanzas & Rendiciones' },
   { id: 'riders', label: 'Riders Técnicos' },
-  { id: 'diario', label: 'Diario de Proceso' },
+  { id: 'planner', label: 'Planner (app real)' },
+  { id: 'arquitecto', label: 'Arquitecto (app real)' },
   { id: 'ecosistema', label: 'Ecosistema ATHA' },
   { id: 'admin', label: 'Administración' },
 ];

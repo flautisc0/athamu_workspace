@@ -360,6 +360,428 @@ function leadStatusUi(status) {
   return 'contactado';
 }
 
+/* ---------------------------------------------------------------------------
+   USUARIOS Y ROLES · sólo administración
+   El rol vive en `users.role` (y el cargo libre en `users.role_title`); la
+   pertenencia a compañías en `company_members` / `company_people`.
+
+   Catálogo de roles (uno por usuario, decide el alcance en todo el ecosistema):
+     admin      → todo el ecosistema
+     productor  → gestiona su(s) compañía(s): obras, leads, equipo, inventario
+     tecnico    → su compañía: inventario y riders
+     artist     → artista/elenco: sin acceso a gestión (ve su perfil)
+   --------------------------------------------------------------------------- */
+const ROLES_VALIDOS = ['admin', 'director', 'productor', 'tecnico', 'artist'];
+
+const DESCRIPCION_ROLES = {
+  admin: 'Owner: todo el ecosistema y el panel de usuarios (único e irrepetible)',
+  director: 'Dirección: dirige compañías, obras y espectáculos; administra el panel',
+  productor: 'Producción: administra obras, compañías y elementos técnicos de las suyas',
+  tecnico: 'Técnica: administra elementos técnicos e inventario de su compañía',
+  artist: 'Artista: postea en su perfil, declara disponibilidad y busca fondos',
+};
+
+/** Disciplina del artista (subcategoría de `artist`). */
+const DISCIPLINAS = [
+  { id: 'musico', label: 'Músico/a' },
+  { id: 'actor', label: 'Actor / Actriz' },
+  { id: 'bailarin', label: 'Bailarín/a' },
+  { id: 'otro', label: 'Otra disciplina' },
+];
+
+/** Roles dentro de una compañía (enum de company_members). */
+const ROLES_COMPANIA = ['owner', 'coordinator', 'director', 'artist', 'viewer'];
+
+/** Tipos de persona en la nómina (enum de company_people). */
+const TIPOS_NOMINA = ['socio', 'elenco', 'equipo', 'colaborador'];
+
+async function permisoAdmin(req, res) {
+  const correo = String(
+    req.headers['x-atha-email'] || (req.query && req.query.email) || ''
+  ).trim();
+  const alcance = await alcanceInventario(correo);
+  if (!alcance.total) {
+    res.status(403).json({ ok: false, error: 'sólo administración puede gestionar usuarios' });
+    return null;
+  }
+  return alcance;
+}
+
+app.get('/api/v1/crm/usuarios', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const db = getPool();
+    const [us] = await db.execute(
+      `SELECT id, email, display_name, role, role_title, artist_kind, picture, public_profile, created_at
+         FROM users ORDER BY (role = 'admin') DESC, (role = 'director') DESC, display_name`
+    );
+    // compañías disponibles (para asignar pertenencias desde el panel)
+    let comps = [];
+    try {
+      [comps] = await db.execute('SELECT id, name, status FROM companies ORDER BY name');
+    } catch { /* la tabla puede no estar */ }
+    // pertenencia declarada y nómina (con el nombre de la compañía si se puede)
+    let membresias = [];
+    let nomina = [];
+    try {
+      [membresias] = await db.execute(
+        `SELECT cm.user_id, cm.company_id, cm.role_in_company, c.name AS company_name
+           FROM company_members cm LEFT JOIN companies c ON c.id = cm.company_id`
+      );
+    } catch {
+      [membresias] = await db.execute(
+        'SELECT user_id, company_id, role_in_company FROM company_members'
+      );
+    }
+    try {
+      [nomina] = await db.execute(
+        `SELECT LOWER(cp.email) AS email, cp.company_id, cp.kind, cp.role_title,
+                c.name AS company_name
+           FROM company_people cp LEFT JOIN companies c ON c.id = cp.company_id`
+      );
+    } catch {
+      [nomina] = await db.execute(
+        'SELECT LOWER(email) AS email, company_id, kind, role_title FROM company_people'
+      );
+    }
+
+    const porUsuario = {};
+    for (const m of membresias) {
+      (porUsuario[m.user_id] = porUsuario[m.user_id] || []).push({
+        origen: 'miembro', company_id: m.company_id,
+        company_name: m.company_name || m.company_id, rol: m.role_in_company,
+      });
+    }
+    const porCorreo = {};
+    for (const n of nomina) {
+      (porCorreo[n.email] = porCorreo[n.email] || []).push({
+        origen: 'nómina', company_id: n.company_id,
+        company_name: n.company_name || n.company_id, cargo: n.role_title, tipo: n.kind,
+      });
+    }
+
+    const usuarios = us.map((u) => ({
+      ...u,
+      companias: porUsuario[u.id] || [],
+      nomina: porCorreo[String(u.email || '').toLowerCase()] || [],
+      puede_gestionar: u.role !== 'artist',
+    }));
+    return res.json({
+      ok: true, total: usuarios.length, usuarios,
+      roles: ROLES_VALIDOS.map((r) => ({ id: r, descripcion: DESCRIPCION_ROLES[r] })),
+      disciplinas: DISCIPLINAS,
+      roles_compania: ROLES_COMPANIA,
+      tipos_nomina: TIPOS_NOMINA,
+      companias: comps,
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message, usuarios: [] });
+  }
+});
+
+app.patch('/api/v1/crm/usuarios/:id', async (req, res) => {
+  try {
+    const alcance = await permisoAdmin(req, res);
+    if (!alcance) return;
+    const db = getPool();
+    const [destino] = await db.execute('SELECT id, email, role FROM users WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!destino.length) return res.status(404).json({ ok: false, error: 'usuario no encontrado' });
+    const rolSolicitante = String((alcance.usuario && alcance.usuario.role) || '').toLowerCase();
+
+    const b = req.body || {};
+    const campos = {};
+
+    if (b.role !== undefined) {
+      if (!ROLES_VALIDOS.includes(b.role)) {
+        return res.status(400).json({ ok: false, error: `rol inválido: usá ${ROLES_VALIDOS.join(', ')}` });
+      }
+      // proteger al owner: sólo el owner puede tocar a un owner, y no puede quedar sin owner
+      if (String(destino[0].role).toLowerCase() === 'admin' && rolSolicitante !== 'admin') {
+        return res.status(403).json({ ok: false, error: 'sólo el owner puede modificar al owner' });
+      }
+      if (b.role === 'admin' && rolSolicitante !== 'admin') {
+        return res.status(403).json({ ok: false, error: 'sólo el owner puede nombrar otro owner' });
+      }
+      if (String(destino[0].role).toLowerCase() === 'admin' && b.role !== 'admin') {
+        const [admins] = await db.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'");
+        if ((admins[0]?.n || 0) <= 1) {
+          return res.status(409).json({ ok: false, error: 'no se puede quitar el último owner del sistema' });
+        }
+      }
+      campos.role = b.role;
+    }
+    if (b.role_title !== undefined) campos.role_title = b.role_title;
+    if (b.artist_kind !== undefined) {
+      const validos = ['', ...DISCIPLINAS.map((d) => d.id)];
+      if (!validos.includes(String(b.artist_kind))) {
+        return res.status(400).json({ ok: false, error: `disciplina inválida: ${validos.filter(Boolean).join(', ')}` });
+      }
+      campos.artist_kind = b.artist_kind || null;
+    }
+    if (b.public_profile !== undefined) campos.public_profile = b.public_profile ? 1 : 0;
+    if (!Object.keys(campos).length) return res.status(400).json({ ok: false, error: 'nada que actualizar' });
+
+    const r = await db.execute(
+      `UPDATE users SET ${Object.keys(campos).map((c) => '`' + c + '` = ?').join(', ')} WHERE id = ?`,
+      [...Object.values(campos), req.params.id]
+    );
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'usuario no encontrado' });
+    return res.json({ ok: true, id: req.params.id, actualizado: campos });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+   PERTENENCIA A COMPAÑÍAS · /api/v1/crm/usuarios/:id/companias
+   y NÓMINAS · /api/v1/crm/companias/:id/nomina
+   Sirven para que dirección/owner administre a quién pertenece cada usuario y
+   revise los datos de cada compañía (nómina) sin tocar la base a mano.
+   --------------------------------------------------------------------------- */
+function idCorto(prefijo) {
+  return `${prefijo}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`.slice(0, 36);
+}
+
+app.post('/api/v1/crm/usuarios/:id/companias', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const b = req.body || {};
+    if (!b.company_id) return res.status(400).json({ ok: false, error: 'falta company_id' });
+    const rol = String(b.role_in_company || 'coordinator');
+    if (!ROLES_COMPANIA.includes(rol)) {
+      return res.status(400).json({ ok: false, error: `rol de compañía inválido: ${ROLES_COMPANIA.join(', ')}` });
+    }
+    const db = getPool();
+    const [ya] = await db.execute(
+      'SELECT id FROM company_members WHERE user_id = ? AND company_id = ? LIMIT 1',
+      [req.params.id, b.company_id]
+    );
+    if (ya.length) {
+      await db.execute('UPDATE company_members SET role_in_company = ? WHERE id = ?', [rol, ya[0].id]);
+      return res.json({ ok: true, actualizado: true, id: ya[0].id, role_in_company: rol });
+    }
+    const id = idCorto('cm_');
+    await db.execute(
+      'INSERT INTO company_members (id, company_id, user_id, role_in_company) VALUES (?, ?, ?, ?)',
+      [id, b.company_id, req.params.id, rol]
+    );
+    return res.json({ ok: true, creado: true, id, role_in_company: rol });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.delete('/api/v1/crm/usuarios/:id/companias/:companyId', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const db = getPool();
+    const r = await db.execute(
+      'DELETE FROM company_members WHERE user_id = ? AND company_id = ?',
+      [req.params.id, req.params.companyId]
+    );
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'no pertenecía a esa compañía' });
+    return res.json({ ok: true, eliminado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Nómina de una compañía: quiénes la componen y con qué cargo
+app.get('/api/v1/crm/companias/:id/nomina', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const db = getPool();
+    const [c] = await db.execute('SELECT id, name, status, city, discipline FROM companies WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!c.length) return res.status(404).json({ ok: false, error: 'compañía no encontrada' });
+    const [personas] = await db.execute(
+      `SELECT id, full_name, role_title, character_name, kind, email, phone, notes
+         FROM company_people WHERE company_id = ?
+        ORDER BY (kind = 'socio') DESC, (kind = 'equipo') DESC, full_name`,
+      [req.params.id]
+    );
+    // usuarios del sistema que pertenecen a la compañía
+    const [miembros] = await db.execute(
+      `SELECT cm.id, cm.role_in_company, u.id AS user_id, u.display_name, u.email, u.role
+         FROM company_members cm JOIN users u ON u.id = cm.user_id
+        WHERE cm.company_id = ? ORDER BY cm.role_in_company`,
+      [req.params.id]
+    );
+    // avisos de datos: sin cargo o sin email se consideran incompletos
+    const incompletos = personas.filter((p) => !p.role_title).length;
+    return res.json({
+      ok: true, compania: c[0], total: personas.length,
+      personas, miembros, incompletos,
+      tipos_nomina: TIPOS_NOMINA, roles_compania: ROLES_COMPANIA,
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/v1/crm/companias/:id/nomina', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const b = req.body || {};
+    if (!String(b.full_name || '').trim()) return res.status(400).json({ ok: false, error: 'falta el nombre' });
+    const kind = String(b.kind || 'colaborador');
+    if (!TIPOS_NOMINA.includes(kind)) {
+      return res.status(400).json({ ok: false, error: `tipo inválido: ${TIPOS_NOMINA.join(', ')}` });
+    }
+    const db = getPool();
+    const id = idCorto('cp_');
+    await db.execute(
+      `INSERT INTO company_people (id, company_id, full_name, role_title, character_name, kind, email, phone, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, req.params.id, b.full_name, b.role_title || null, b.character_name || null, kind,
+       b.email || null, b.phone || null, b.notes || null]
+    );
+    return res.json({ ok: true, id });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.patch('/api/v1/crm/nomina/:id', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const b = req.body || {};
+    const campos = {};
+    for (const c of ['full_name', 'role_title', 'character_name', 'email', 'phone', 'notes']) {
+      if (b[c] !== undefined) campos[c] = b[c];
+    }
+    if (b.kind !== undefined) {
+      if (!TIPOS_NOMINA.includes(String(b.kind))) {
+        return res.status(400).json({ ok: false, error: `tipo inválido: ${TIPOS_NOMINA.join(', ')}` });
+      }
+      campos.kind = b.kind;
+    }
+    if (!Object.keys(campos).length) return res.status(400).json({ ok: false, error: 'nada que actualizar' });
+    const db = getPool();
+    const r = await db.execute(
+      `UPDATE company_people SET ${Object.keys(campos).map((c) => '`' + c + '` = ?').join(', ')} WHERE id = ?`,
+      [...Object.values(campos), req.params.id]
+    );
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'persona no encontrada' });
+    return res.json({ ok: true, id: req.params.id, actualizado: Object.keys(campos) });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.delete('/api/v1/crm/nomina/:id', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const db = getPool();
+    const r = await db.execute('DELETE FROM company_people WHERE id = ?', [req.params.id]);
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'persona no encontrada' });
+    return res.json({ ok: true, eliminado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/* --- LEADS: alta, edición y baja (los usa la pestaña "CRM" del CRM web) -------
+   Antes el CRM hacía POST a /api/leads, ruta que no existía: el guardado fallaba
+   en silencio y la pestaña "no hacía lo que decía". */
+async function permisoLeads(req, res) {
+  // OJO: en un lead, el campo `email` es el correo DEL LEAD, no el de la sesión.
+  // La identidad va SIEMPRE por header o query (nunca por el body).
+  const sesion = String(
+    req.headers['x-atha-email'] || (req.query && req.query.email) || ''
+  ).trim();
+  const alcance = await alcanceInventario(sesion);
+  const puede = alcance.total || (alcance.companies && alcance.companies.length > 0);
+  if (!puede) res.status(403).json({ ok: false, error: 'tu rol no puede gestionar leads' });
+  return puede;
+}
+
+const CAMPOS_LEAD = ['name', 'email', 'phone', 'status', 'notes', 'city', 'region',
+  'organization', 'segment', 'contact_role', 'interest_area', 'website', 'address',
+  'source', 'assigned_to', 'last_contact_at'];
+
+function leadDeBody(b) {
+  const v = {};
+  for (const c of CAMPOS_LEAD) {
+    if (c === 'contact_role' && b.contactRole !== undefined) v[c] = b.contactRole;
+    else if (c === 'interest_area' && b.interestArea !== undefined) v[c] = b.interestArea;
+    else if (c === 'last_contact_at' && (b.lastContactDate !== undefined)) v[c] = b.lastContactDate;
+    else if (c === 'assigned_to' && b.assignedTo !== undefined) v[c] = b.assignedTo;
+    else if (b[c] !== undefined) v[c] = b[c];
+  }
+  if (b.type !== undefined) v.lead_type = b.type;
+  if (b.estimatedValueCLP !== undefined) v.estimated_value_clp = Number(b.estimatedValueCLP) || 0;
+  return v;
+}
+
+app.post('/api/v1/crm/leads', async (req, res) => {
+  try {
+    if (!(await permisoLeads(req, res))) return;
+    const b = req.body || {};
+    if (!String(b.name || '').trim()) return res.status(400).json({ ok: false, error: 'el nombre es obligatorio' });
+    const db = getPool();
+    const id = String(b.id || `lead_${Date.now().toString(36)}` + Math.random().toString(36).slice(2, 6));
+    const v = leadDeBody(b);
+    // `owner_id` es obligatorio en la tabla: queda como dueño quien lo crea
+    if (!v.owner_id) {
+      const correo = String(b.email_sesion || b.sessionEmail || '').trim() ||
+        String((req.query && req.query.email) || req.headers['x-atha-email'] || '').trim();
+      let dueno = null;
+      if (correo) {
+        const [ur] = await db.execute('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [correo.toLowerCase()]);
+        dueno = ur.length ? ur[0].id : null;
+      }
+      if (dueno) v.owner_id = dueno;
+    }
+    // `kind` y `status` también son obligatorias en la tabla
+    if (!v.kind) v.kind = 'lead';
+    if (!v.status) v.status = 'prospecto';
+    if (!v.name) v.name = String(b.name || '').trim();
+    const cols = ['id', ...Object.keys(v)];
+    const vals = [id, ...Object.values(v)];
+    await db.execute(
+      `INSERT INTO leads (${cols.map((c) => '`' + c + '`').join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
+      vals
+    );
+    radarEmitir('lead_nuevo', { id, name: v.name });
+    return res.json({ ok: true, id, lead: { ...v, id } });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.patch('/api/v1/crm/leads/:id', async (req, res) => {
+  try {
+    if (!(await permisoLeads(req, res))) return;
+    const v = leadDeBody(req.body || {});
+    const campos = Object.keys(v);
+    if (!campos.length) return res.status(400).json({ ok: false, error: 'nada para actualizar' });
+    const db = getPool();
+    const r = await db.execute(
+      `UPDATE leads SET ${campos.map((c) => '`' + c + '` = ?').join(', ')} WHERE id = ?`,
+      [...campos.map((c) => v[c]), req.params.id]
+    );
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'lead no encontrado' });
+    radarEmitir('lead_actualizado', { id: req.params.id, campos });
+    return res.json({ ok: true, id: req.params.id, actualizado: campos });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.delete('/api/v1/crm/leads/:id', async (req, res) => {
+  try {
+    if (!(await permisoLeads(req, res))) return;
+    const db = getPool();
+    await db.execute('DELETE FROM lead_group_members WHERE lead_id = ?', [req.params.id]);
+    const r = await db.execute('DELETE FROM leads WHERE id = ?', [req.params.id]);
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'lead no encontrado' });
+    radarEmitir('lead_eliminado', { id: req.params.id });
+    return res.json({ ok: true, id: req.params.id, eliminado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
 app.get('/api/v1/crm/leads', async (req, res) => {
   try {
     const db = getPool();
@@ -912,8 +1334,53 @@ async function guardarObraEcosistema(req, res, idFijo) {
 }
 
 app.post('/api/v1/crm/portfolio/projects', (req, res) => guardarObraEcosistema(req, res, null));
-app.patch('/api/v1/crm/portfolio/projects/:id', (req, res) =>
-  guardarObraEcosistema(req, res, req.params.id));
+// Edición de una obra. Tolera actualizaciones PARCIALES: lo que no venga en el
+// body se completa con lo que ya está guardado (antes fallaba con "Falta el titulo").
+app.patch('/api/v1/crm/portfolio/projects/:id', async (req, res) => {
+  try {
+    const b = { ...(req.body || {}) };
+    const faltan = !b.title || !b.status || b.is_public === undefined || !b.category;
+    if (faltan) {
+      const db = getPool();
+      const [r] = await db.execute(
+        'SELECT title, status, is_public, category, owner_id FROM projects WHERE id = ? LIMIT 1',
+        [req.params.id]
+      );
+      if (!r.length) return res.status(404).json({ ok: false, error: 'obra no encontrada' });
+      const act = r[0];
+      if (!b.title) b.title = act.title;
+      if (!b.status) b.status = act.status;
+      if (b.is_public === undefined) b.is_public = act.is_public;
+      if (!b.category) b.category = act.category;
+      if (!b.owner_id) b.owner_id = act.owner_id;
+    }
+    return guardarObraEcosistema({ ...req, body: b }, res, req.params.id);
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// Baja de una obra (la usa el catálogo del CRM). Sólo administración/dirección.
+app.delete('/api/v1/crm/portfolio/projects/:id', async (req, res) => {
+  try {
+    const email = (req.body && req.body.email) || req.query.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
+    if (!alcance.total) {
+      return res.status(403).json({ ok: false, error: 'sólo administración puede eliminar obras' });
+    }
+    const db = getPool();
+    // limpia las relaciones que apuntan a la obra y después la obra
+    for (const tabla of ['project_people', 'project_documents', 'project_milestones']) {
+      try { await db.execute(`DELETE FROM ${tabla} WHERE project_id = ?`, [req.params.id]); } catch { /* tabla opcional */ }
+    }
+    const r = await db.execute('DELETE FROM projects WHERE id = ?', [req.params.id]);
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'obra no encontrada' });
+    radarEmitir('obra_eliminada', { id: req.params.id });
+    return res.json({ ok: true, id: req.params.id, eliminado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
 
 // ---------------------------------------------------------------------------
 // CONVOCATORIAS (Buscador de Fondos) · /api/v1/crm/convocatorias
@@ -1331,6 +1798,26 @@ async function guardarNodoRadar(req, res, id) {
 
 app.post('/api/v1/crm/radar/nodos', (req, res) => guardarNodoRadar(req, res, null));
 app.patch('/api/v1/crm/radar/nodos/:id', (req, res) => guardarNodoRadar(req, res, req.params.id));
+
+// Baja de un nodo (administración): limpia también sus relaciones
+app.delete('/api/v1/crm/radar/nodos/:id', async (req, res) => {
+  try {
+    const alcance = await alcanceInventario(
+      (req.body && req.body.email) || req.query.email || req.headers['x-atha-email'] || ''
+    );
+    if (!alcance.total) {
+      return res.status(403).json({ ok: false, error: 'sólo administración puede eliminar nodos' });
+    }
+    const db = getPool();
+    await db.execute('DELETE FROM radar_route_nodes WHERE node_id = ?', [req.params.id]);
+    await db.execute('DELETE FROM radar_discoveries WHERE node_id = ?', [req.params.id]);
+    await db.execute('DELETE FROM radar_nodes WHERE id = ?', [req.params.id]);
+    radarEmitir('nodo_eliminado', { node_id: req.params.id });
+    return res.json({ ok: true, id: req.params.id, eliminado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
 
 // Descubrimiento de un nodo (GPS o QR): otorga XP una sola vez
 app.post('/api/v1/crm/radar/descubrimientos', async (req, res) => {
@@ -2310,6 +2797,62 @@ app.get('/api/v1/crm/sesion', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// ECOSISTEMA · /api/v1/crm/ecosistema/artefactos
+//
+// Catálogo de artefactos del ecosistema (lo consume la app móvil como lanzador).
+// Los enlaces apuntan al PUENTE del CRM, así se abre cada artefacto con la
+// sesión ya puesta, sin pedir login de nuevo.
+// ---------------------------------------------------------------------------
+app.get('/api/v1/crm/ecosistema/artefactos', async (req, res) => {
+  const puente = (destino) => `https://atha-crm-web-frontend-897089213264.us-central1.run.app/puente?destino=${destino}`;
+  const artefactos = [
+    { id: 'crm', key: 'crm', name: 'CRM Central', description: 'Clientes, obras, equipo, inventario y finanzas',
+      icon: 'layout-dashboard', entry_point: 'https://atha-crm-web-frontend-897089213264.us-central1.run.app',
+      required_role: 'explorador', is_active: true },
+    { id: 'app-movil', key: 'app-movil', name: 'App FASE (móvil)', description: 'Radar cultural, rutas y comunidad en el celular',
+      icon: 'smartphone', entry_point: puente('app-movil'), required_role: 'explorador', is_active: true },
+    { id: 'planner', key: 'planner', name: 'Planner de Giras', description: 'Disponibilidad de elencos y planificación de temporada',
+      icon: 'calendar', entry_point: puente('planner'), required_role: 'explorador', is_active: true },
+    { id: 'arquitecto', key: 'arquitecto', name: 'Arquitecto de Proyectos', description: 'Estructura, etapas y presupuesto de proyectos',
+      icon: 'layers', entry_point: puente('arquitecto'), required_role: 'explorador', is_active: true },
+    { id: 'buscador', key: 'buscador', name: 'Buscador de Fondos', description: 'Convocatorias y financiamiento cultural',
+      icon: 'search', entry_point: puente('buscador'), required_role: 'explorador', is_active: true },
+    { id: 'ticketer', key: 'ticketer', name: 'Ticketer', description: 'Entradas, funciones y control de acceso',
+      icon: 'ticket', entry_point: puente('ticketer'), required_role: 'explorador', is_active: true },
+  ];
+  const rol = String(req.query.role || 'explorador').toLowerCase();
+  // el rol filtra qué artefactos se muestran (admin y dirección ven todo)
+  const esAdmin = (await alcanceInventario(req.query.email || req.headers['x-atha-email'] || '')).total;
+  return res.json({ ok: true, total: artefactos.length, rol, artefactos: esAdmin ? artefactos : artefactos.filter((a) => a.required_role === 'explorador') });
+});
+
+// ---------------------------------------------------------------------------
+// RADAR · perfil del explorador editable (bio, ciudad, visibilidad)
+// ---------------------------------------------------------------------------
+app.patch('/api/v1/crm/radar/perfil', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'];
+    if (!email) return res.status(400).json({ ok: false, error: 'falta email' });
+    const db = getPool();
+    const userId = await exploradorId(email, b.name);
+    const perfil = await perfilRadar(userId);
+    const bio = b.bio !== undefined ? String(b.bio).slice(0, 1000) : perfil.bio;
+    const city = b.city !== undefined ? String(b.city).slice(0, 120) : perfil.city;
+    const isPublic = b.is_public !== undefined ? (b.is_public ? 1 : 0) : perfil.is_public;
+    await db.execute('UPDATE radar_profiles SET bio = ?, city = ?, is_public = ? WHERE user_id = ?',
+      [bio, city, isPublic, userId]);
+    // también actualiza el nombre visible si viene
+    if (b.name) {
+      await db.execute('UPDATE users SET display_name = ? WHERE id = ?', [String(b.name).slice(0, 120), userId]);
+    }
+    return res.json({ ok: true, perfil: await perfilRadar(userId) });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // PUENTE DE SESIÓN · /puente?destino=arquitecto|planner|buscador|ticketer
 //
 // Para entrar a un artefacto SIN volver a loguearse: esta página se sirve desde
@@ -2325,6 +2868,9 @@ const DESTINOS_PUENTE = {
   planner: 'https://planner-frontend-897089213264.us-central1.run.app',
   buscador: 'https://buscardor-de-fondos-897089213264.us-central1.run.app',
   ticketer: 'https://ticketerapp-897089213264.us-central1.run.app',
+  // capa 3 del ecosistema: la app móvil entra con la misma sesión
+  'app-movil': 'https://fase-mobile-897089213264.us-central1.run.app',
+  app: 'https://fase-mobile-897089213264.us-central1.run.app',
 };
 
 app.get('/puente', (req, res) => {
