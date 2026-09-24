@@ -85,7 +85,6 @@ import { EcosistemaSection } from './components/sections/EcosistemaSection';
 import { AccesoAppReal } from './components/sections/AccesoAppReal';
 import { ArquitectoProyectosSection } from './components/sections/ArquitectoProyectosSection';
 import { AdminSection } from './components/sections/AdminSection';
-import { UsuariosRolesSection } from './components/sections/UsuariosRolesSection';
 
 export type ThemeMode = 'terracota' | 'dia';
 
@@ -706,7 +705,7 @@ export default function App() {
         {activeSection === 'arquitecto' && (<AccesoAppReal destino="arquitecto" theme={theme} />)}
 
         {/* Usuarios, roles y nóminas: sólo owner y dirección (el hub lo valida) */}
-        {activeSection === 'admin' && <UsuariosRolesSection theme={theme} />}
+        {activeSection === 'admin' && <AccesoAppReal destino="usuarios" theme={theme} />}
 
         {activeSection === 'admin' && (
           <AdminSection

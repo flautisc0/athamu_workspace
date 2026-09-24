@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UserSession } from '../types';
 import {
   X,
@@ -41,12 +41,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regRole, setRegRole] = useState('Artista');
   const [regEmail, setRegEmail] = useState('');
   const [regProvider, setRegProvider] = useState<'google' | 'apple' | 'email'>('google');
-  // Evita el doble clic y el "botón pegado" mientras carga la librería de Google.
-  const [cargandoGoogle, setCargandoGoogle] = useState(false);
 
   const isLight = theme === 'dia';
-
-  if (!isOpen) return null;
 
   // Google bloquea el login dentro de navegadores embebidos (Telegram, Instagram,
   // Facebook...): responde disallowed_useragent y el flujo muere sin aviso.
@@ -55,110 +51,85 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     /Telegram|TelegramBot|FBAN|FBAV|FB_IAB|Instagram|Line\/|WhatsApp|MicroMessenger/i.test(navigator.userAgent);
   const urlActual = typeof window !== 'undefined' ? window.location.href : '';
 
-  const handleGoogleLogin = async () => {
-    if (estaEnWebview) {
-      setAuthMethodFeedback(
-        'Abrí esta página en Safari o Chrome: Google bloquea el inicio de sesión dentro de Telegram.'
-      );
-      setTimeout(() => setAuthMethodFeedback(null), 7000);
-      return;
-    }
-    // Guarda contra doble clic: el botón se quedaba "pegado" sin salida.
-    if (cargandoGoogle) return;
-    setAuthMethodFeedback('Conectando con Google Workspace...');
+  // --- Botón de Google: se pinta NATIVO (patrón estándar de GIS) ---------------
+  // Antes se pintaba el botón de Google DENTRO de un <button> propio: anidar el
+  // iframe de Google dentro de un botón es HTML inválido y el clic no llegaba
+  // ("el botón no acciona"). Ahora Google pinta su botón en su propio contenedor.
+  const [estadoGoogle, setEstadoGoogle] = useState<'cargando' | 'listo' | 'fallo'>('cargando');
+  const contenedorGoogle = useRef<HTMLDivElement | null>(null);
+  const googleIniciado = useRef(false);
 
-    try {
-      if (!window.google?.accounts?.id) {
-        if (!document.getElementById('gis-script')) {
-          setCargandoGoogle(true);
-          const script = document.createElement('script');
-          script.id = 'gis-script';
-          script.src = 'https://accounts.google.com/gsi/client';
-          script.async = true;
-          script.defer = true;
-          script.onload = () => { setCargandoGoogle(false); performGoogleLogin(); };
-          // ANTES: script.onerror → setTimeout(handleGoogleLogin, 1500) en bucle
-          // infinito → el cartel quedaba en "Conectando…" para siempre sin decir
-          // nada. Ahora: un aviso claro y una salida.
-          script.onerror = () => {
-            setCargandoGoogle(false);
-            setAuthMethodFeedback('Google no cargó (bloqueado o sin conexión). Probá abrir esta página en Safari o Chrome.');
-          };
-          document.head.appendChild(script);
-          // Tope duro: si el script no responde en 8 s, se avisa y se corta.
-          setTimeout(() => {
-            setCargandoGoogle(false);
-            if (!window.google?.accounts?.id) {
-              setAuthMethodFeedback('Google no respondió. Recargá la página (Ctrl+Shift+R) o abrila en Safari/Chrome.');
-            }
-          }, 8000);
-          return;
-        }
-        setAuthMethodFeedback('La librería de Google no cargó. Recargá la página (Ctrl+Shift+R).');
-        return;
-      }
-      performGoogleLogin();
-    } catch (e: any) {
-      console.error('Google login error:', e);
-      setCargandoGoogle(false);
-      setAuthMethodFeedback('Error en la autenticación. Intentá de nuevo.');
-    }
-  };
+  /**
+   * CARGA Y PINTADO DEL BOTÓN DE GOOGLE (GIS).
+   *
+   * ANTES: se pintaba el botón de Google DENTRO del <button> propio (#google-btn).
+   * Anidar el iframe de Google dentro de un botón es HTML inválido: el navegador
+   * no entrega bien el clic → "el botón no acciona". Y dependía de One Tap
+   * (`prompt()`), que se bloquea en silencio sin decir por qué.
+   *
+   * AHORA: GIS se carga una vez, se inicializa UNA vez (repetirlo hace que Google
+   * avise y use solo la última) y Google pinta su propio botón en su contenedor.
+   * Sin One Tap, sin anidado, y con aviso visible si no carga.
+   */
+  useEffect(() => {
+    if (!isOpen) return;
+    let vivo = true;
+    const clientId = '897089213264-sg7hr4e5g269u1lirj19r349ahaheftr.apps.googleusercontent.com';
 
-  const performGoogleLogin = () => {
-    try {
-      const clientId = '897089213264-sg7hr4e5g269u1lirj19r349ahaheftr.apps.googleusercontent.com';
-
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: (response: any) => {
-          handleGoogleResponse(response);
-        },
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-
-      // One Tap es frágil (se bloquea sin avisar si el origen no está autorizado
-      // o si el navegador lo corta). Se pide, pero con red de seguridad: si en
-      // 2,5 s no pasó nada, se pinta el botón REAL de Google para poder entrar.
-      let respondio = false;
-      const marcar = () => { respondio = true; };
+    const pintar = () => {
+      if (!vivo || !contenedorGoogle.current || !window.google?.accounts?.id) return;
       try {
-        window.google.accounts.id.prompt((notification: any) => {
-          marcar();
-          if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
-            pintarBotonGoogle();
-          }
-        });
-      } catch { /* One Tap no disponible */ }
-
-      setTimeout(() => {
-        if (!respondio) {
-          setAuthMethodFeedback('Tocá el botón de Google para continuar.');
-          pintarBotonGoogle();
+        if (!googleIniciado.current) {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (r: any) => handleGoogleResponse(r),
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+          googleIniciado.current = true;
         }
-      }, 2500);
-    } catch (e: any) {
-      console.error('Google init error:', e);
-      setAuthMethodFeedback('No se pudo iniciar con Google. Revisá tu conexión y reintentá.');
-    }
-  };
+        window.google.accounts.id.renderButton(contenedorGoogle.current, {
+          type: 'standard',
+          theme: isLight ? 'outline' : 'filled_black',
+          size: 'large',
+          shape: 'rectangular',
+          text: 'signin_with',
+          locale: 'es',
+          // GIS RECHAZA '100%' ("Provided button width is invalid"): pide píxeles.
+          width: 300,
+        });
+        setEstadoGoogle('listo');
+      } catch (e) {
+        console.error('GIS renderButton:', e);
+        setEstadoGoogle('fallo');
+      }
+    };
 
-  /** Pinta el botón nativo de Google en el mismo lugar del botón propio. */
-  const pintarBotonGoogle = () => {
-    try {
-      const cont = document.getElementById('google-btn');
-      if (!cont || cont.dataset.googleListo === '1') return;
-      cont.dataset.googleListo = '1';
-      cont.innerHTML = '';
-      window.google.accounts.id.renderButton(cont, {
-        theme: 'outline', size: 'large', width: '100%', text: 'signin_with', locale: 'es',
-      });
-    } catch (e) {
-      console.error('renderButton error:', e);
-      setAuthMethodFeedback('Google bloqueó el botón. Abrí esta página en Safari o Chrome.');
+    if (estaEnWebview) { setEstadoGoogle('fallo'); return () => { vivo = false; }; }
+    if (window.google?.accounts?.id) { pintar(); return () => { vivo = false; }; }
+
+    const previo = document.getElementById('gis-script') as HTMLScriptElement | null;
+    if (previo) {
+      previo.addEventListener('load', pintar, { once: true });
+      const t = setTimeout(pintar, 1200);
+      return () => { vivo = false; clearTimeout(t); };
     }
-  };
+
+    const s = document.createElement('script');
+    s.id = 'gis-script';
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.defer = true;
+    s.onload = pintar;
+    s.onerror = () => { if (vivo) setEstadoGoogle('fallo'); };
+    document.head.appendChild(s);
+    // Tope: si en 10 s no cargó, se avisa en pantalla en vez de esperar siempre.
+    const tope = setTimeout(() => {
+      if (vivo && !window.google?.accounts?.id) setEstadoGoogle('fallo');
+    }, 10000);
+    return () => { vivo = false; clearTimeout(tope); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isLight, estaEnWebview]);
 
   const handleGoogleResponse = async (response: any) => {
     if (!response?.credential) {
@@ -267,6 +238,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setAuthMethodFeedback('No se pudo contactar al CRM. Reintentá en unos segundos.');
     }
   };
+
+  // OJO: el corte va ACÁ, después de todos los hooks y handlers. Antes estaba más
+  // arriba y el useEffect del botón de Google quedaba detrás de un return.
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
@@ -466,24 +441,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   Iniciar con Cuenta Corporativa
                 </p>
                 <div className="space-y-2.5">
-                  <button
-                    id="google-btn"
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer ${
-                      isLight
-                        ? 'bg-white hover:bg-stone-50 border-stone-200 text-stone-800 shadow-sm'
-                        : 'bg-[var(--bg-surface)] hover:bg-white/10 border-[var(--border-color)] text-white'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                    </svg>
-                    <span>Iniciar sesión con Google</span>
-                  </button>
+                  {/* Contenedor PROPIO para el botón de Google: GIS pinta su botón acá.
+                      No se envuelve en un <button> propio (eso rompía el clic). */}
+                  <div className="w-full flex justify-center min-h-[44px]">
+                    <div id="google-btn" ref={contenedorGoogle} className="w-full flex justify-center" />
+                  </div>
+
+                  {estadoGoogle === 'cargando' && (
+                    <p className={`text-[11px] text-center ${isLight ? 'text-stone-500' : 'text-[var(--text-secondary)]'}`}>
+                      Cargando el botón de Google…
+                    </p>
+                  )}
+
+                  {estadoGoogle === 'fallo' && (
+                    <div
+                      className={`p-3.5 rounded-xl border space-y-2 text-[11px] leading-relaxed ${
+                        isLight
+                          ? 'bg-amber-50 border-amber-300 text-amber-900'
+                          : 'bg-amber-500/10 border-amber-500/40 text-amber-200'
+                      }`}
+                    >
+                      <p className="font-semibold">No se pudo cargar el botón de Google.</p>
+                      <p>
+                        Suele ser el navegador bloqueando la librería. Probá recargar la página
+                        (<b>Ctrl+Shift+R</b>) o abrirla en <b>Safari</b> o <b>Chrome</b>. Mientras tanto
+                        podés pedir acceso con el formulario de abajo.
+                      </p>
+                    </div>
+                  )}
 
                 {estaEnWebview && (
                   <div

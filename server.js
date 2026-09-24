@@ -562,6 +562,53 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// SOLICITUDES DE ACCESO · /api/v1/crm/solicitudes
+//
+// El registro público ya no da sesión: deja una fila en `access_requests`. Estos
+// dos endpoints son los que hacen que esa solicitud sirva de algo — sin ellos la
+// petición quedaba anotada en la base y nadie la veía nunca.
+//   GET   → pendientes primero
+//   PATCH → { estado: 'aprobada' | 'rechazada' }  (lo decide administración)
+// El ROL no se aprueba acá: se asigna en la ficha del usuario (pestaña Usuarios),
+// que es donde se ve a quién le corresponde qué compañía y cargo.
+// ---------------------------------------------------------------------------
+app.get('/api/v1/crm/solicitudes', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const db = getPool();
+    await asegurarTablaSolicitudes(db);
+    const [filas] = await db.execute(
+      `SELECT s.id, s.email, s.display_name, s.rol_pedido, s.estado, s.created_at,
+              u.role AS rol_actual, u.id AS user_id
+         FROM access_requests s
+         LEFT JOIN users u ON LOWER(u.email) = LOWER(s.email)
+        ORDER BY (s.estado = 'pendiente') DESC, s.created_at DESC
+        LIMIT 200`
+    );
+    return res.json({ ok: true, total: filas.length, solicitudes: filas });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.patch('/api/v1/crm/solicitudes/:id', async (req, res) => {
+  try {
+    if (!(await permisoAdmin(req, res))) return;
+    const estado = String((req.body && req.body.estado) || '').toLowerCase();
+    if (!['aprobada', 'rechazada', 'pendiente'].includes(estado)) {
+      return res.status(400).json({ ok: false, error: 'estado inválido (aprobada|rechazada|pendiente)' });
+    }
+    const db = getPool();
+    await asegurarTablaSolicitudes(db);
+    const r = await db.execute('UPDATE access_requests SET estado = ? WHERE id = ?', [estado, req.params.id]);
+    if (!r[0].affectedRows) return res.status(404).json({ ok: false, error: 'solicitud no encontrada' });
+    return res.json({ ok: true, id: req.params.id, estado });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // LA LLAVE · ticket de un solo uso (Tanda B)
 //
 // Reemplaza el SSO por query (`?auth=1&email=…&role=…`), que exponía la identidad
@@ -3224,6 +3271,8 @@ const DESTINOS_PUENTE = {
   // capa 3 del ecosistema: la app móvil entra con la misma sesión
   'app-movil': 'https://fase-mobile-897089213264.us-central1.run.app',
   app: 'https://fase-mobile-897089213264.us-central1.run.app',
+  // El PANEL DE USUARIOS es un artefacto: dejó de ser sección interna del CRM.
+  usuarios: 'https://fase-user-pannel-897089213264.us-central1.run.app',
 };
 
 // ---------------------------------------------------------------------------

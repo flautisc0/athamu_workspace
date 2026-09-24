@@ -6,15 +6,15 @@
  * La sección muestra una tarjeta de acceso; la app real es la fuente de verdad.
  */
 import React from 'react';
-import { ExternalLink, Layers, CalendarDays } from 'lucide-react';
+import { ExternalLink, Layers, CalendarDays, Users } from 'lucide-react';
 import { leerSesionCrm } from '../../utils/sesionEcosistema';
 
 const HUB = 'https://atha-crm-web-frontend-897089213264.us-central1.run.app';
 const APPS_REALES = 'https://github.com/flautisc0/crm-atha';
 
 interface Props {
-  /** 'planner' | 'arquitecto' */
-  destino: 'planner' | 'arquitecto';
+  /** 'planner' | 'arquitecto' | 'usuarios' */
+  destino: 'planner' | 'arquitecto' | 'usuarios';
   theme?: any;
 }
 
@@ -30,6 +30,12 @@ const DATOS: Record<string, { nombre: string; descripcion: string; icono: any; p
     descripcion: 'Estructura, presupuesto y armado de proyectos escénicos.',
     icono: Layers,
     puerto: 'https://artha-arquitecto-897089213264.us-central1.run.app',
+  },
+  usuarios: {
+    nombre: 'Panel de Usuarios',
+    descripcion: 'Usuarios, roles, compañías, nóminas y solicitudes de acceso.',
+    icono: Users,
+    puerto: 'https://fase-user-pannel-897089213264.us-central1.run.app',
   },
 };
 
