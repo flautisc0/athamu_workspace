@@ -19,9 +19,56 @@ APP FASE (contenedor, 6 pestañas)
 | Pieza | Dónde |
 |---|---|
 | App (web) | https://fase-mobile-897089213264.us-central1.run.app — revisión `fase-mobile-00007-dvt` |
-| Hub | https://atha-crm-web-frontend-897089213264.us-central1.run.app — revisión `00040-kp4` |
-| APK | `/home/flautisc0/FASE.apk` · https://storage.googleapis.com/atha-crm-obras-897089213264/app/FASE.apk |
-| Código fuente | `/tmp/mobile-rev` (clon de `fase-mobile`) · Android: `/tmp/mobile-rev/android` |
+| Hub | https://atha-crm-web-frontend-897089213264.us-central1.run.app |
+| APK | `/home/flautisc0/athamu_workspace/FASE-Mobile-v2-login.apk` (5,14 MB, package `cc.fase.mobile`) |
+| Código fuente | `github.com/flautisc0/fase-mobile` (rama `main`) · Android: se genera con `npx cap add android` |
+
+## Login NATIVO (2026-09-25) — el navegador ya no se abre
+
+**Bug reportado**: al tocar "Entrar con mi cuenta ATHA" se abría el navegador.
+
+**Causa raíz**: el login hacía `window.location.href = <CRM>/puente?destino=app-movil`.
+Eso **saca el WebView de la app** y lo lleva al dominio del CRM, donde el login es
+Google **web**, que Google rechaza dentro de un WebView (y además sale del contenedor
+nativo). No era Capacitor: era el flujo de login.
+
+**Solución**: Google Sign-In **nativo** con `@capawesome/capacitor-google-sign-in`
+(Credential Manager de Android → selector de cuentas del propio teléfono).
+
+- `src/components/LoginCinematico.tsx`: `GoogleSignIn.initialize({ clientId })` +
+  `signIn()` → `idToken / email / displayName / imageUrl`. Se conserva el look
+  cinematográfico y los errores del plugin se traducen a mensajes útiles.
+- `mobile/services/api.ts`: `guardarSesion()` / `cerrarSesion()` / `haySesion()`
+  sobre la clave compartida `atha_user_session` (la misma del CRM).
+- `capacitor.config.ts`: **appId `cc.fase.mobile`**, que DEBE coincidir con el
+  `package name` del cliente OAuth Android. Si no: `UNREGISTERED_ON_API_CONSOLE`
+  justo al elegir la cuenta (el plugin lo reporta como `SIGN_IN_CANCELED`).
+- `.env`: `VITE_GOOGLE_CLIENT_ID` (SIEMPRE el client ID **web**, también en Android:
+  se pasa como `serverClientId`) y `VITE_CRM_API`.
+
+Cliente OAuth Android registrado: package `cc.fase.mobile` +
+SHA-1 debug `EA:13:F0:D1:85:8A:45:2E...` (verificar con
+`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey`).
+
+## Datos sembrados
+
+`radar_nodes`: 6 nodos culturales reales de Santiago (NAVE Yungay, Galería
+Metropolitana, Mural Yungay, MAC Parque Forestal, Taller Espacio O, Cineteca
+Nacional). Script reproducible: `scripts/seed-nodos.py` (idempotente, requiere
+correo admin). **Sin fotos todavía** (`cover_url` vacío): subirlas desde el CRM.
+
+Crear nodos **desde la app** ya funciona: `FaseApi.createNode()` +
+el panel de administración.
+
+## Estado de las dos líneas de trabajo (consolidadas)
+
+Estaban divergentes y una vivía **solo en `/tmp` sin commitear** (se perdía al
+reiniciar). Ya están unidas en `main`:
+- Línea A (23-24 sep): conexión al hub, `LoginCinematico`, SSE en vivo, sin capa mock.
+- Línea B (25 sep): sistema de tema claro/oscuro + 6 acentos (`src/theme.ts`).
+
+Se eliminó el header de desarrollo con selector de rol: el rol ahora lo determina
+la identidad real del hub, y un selector falso lo contradecía.
 
 ## Cómo se construye
 
