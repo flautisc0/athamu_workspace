@@ -21,7 +21,17 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Vary', 'Origin');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
+  // Reflejar los encabezados que pide el cliente en vez de una lista fija.
+  // Los artefactos mandan la identidad en `x-atha-email`, y al no estar en la
+  // lista el navegador bloqueaba TODAS las llamadas en el preflight
+  // ("Request header field x-atha-email is not allowed by Access-Control-
+  // Allow-Headers") y la app caía a sus datos mock sin ningún error visible.
+  const headersPedidos = req.headers['access-control-request-headers'];
+  res.header(
+    'Access-Control-Allow-Headers',
+    headersPedidos ||
+      'Content-Type, Authorization, Accept, X-Requested-With, X-atha-email'
+  );
   res.header('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
@@ -876,6 +886,83 @@ app.get('/api/v1/crm/usuarios', async (req, res) => {
     });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message, usuarios: [] });
+  }
+});
+
+/**
+ * ALTA MANUAL DE USUARIO · POST /api/v1/crm/usuarios
+ *
+ * Por qué existe: antes el único alta posible era la implícita del login, así que
+ * no se podía DAR DE ALTA a alguien desde Administración (había que esperar a que
+ * entrara para poder asignarle rol y compañía). Ahora se crea la ficha con su rol,
+ * cargo, disciplina y compañía, y cuando esa persona entra con Google (mismo
+ * correo) ADOPTA esa ficha en vez de entrar como `explorador`.
+ */
+app.post('/api/v1/crm/usuarios', async (req, res) => {
+  try {
+    const alcance = await permisoAdmin(req, res);
+    if (!alcance) return;
+    const b = req.body || {};
+    const email = String(b.email || '').toLowerCase().trim();
+    const nombre = String(b.display_name || b.name || '').trim();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ ok: false, error: 'email inválido' });
+    }
+    if (!nombre) return res.status(400).json({ ok: false, error: 'falta el nombre' });
+
+    const rol = String(b.role || ROL_ENTRADA).toLowerCase().trim();
+    if (!ROLES_VALIDOS.includes(rol)) {
+      return res.status(400).json({ ok: false, error: `rol inválido: usá ${ROLES_VALIDOS.join(', ')}` });
+    }
+    // Mismas guardias que en la edición: sólo el owner nombra owners.
+    const rolSolicitante = String((alcance.usuario && alcance.usuario.role) || '').toLowerCase();
+    if (rol === 'admin' && rolSolicitante !== 'admin') {
+      return res.status(403).json({ ok: false, error: 'sólo el owner puede nombrar otro owner' });
+    }
+    const disciplina = b.artist_kind ? String(b.artist_kind) : null;
+    if (disciplina && !DISCIPLINAS.map((d) => d.id).includes(disciplina)) {
+      return res.status(400).json({
+        ok: false, error: `disciplina inválida: ${DISCIPLINAS.map((d) => d.id).join(', ')}`,
+      });
+    }
+
+    const db = getPool();
+    const [ya] = await db.execute('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    if (ya.length) {
+      return res.status(409).json({
+        ok: false, error: 'ese correo ya está en el CRM: editalo desde la lista', id: ya[0].id,
+      });
+    }
+
+    const id = randomUUID();
+    await db.execute(
+      `INSERT INTO users (id, email, display_name, role, role_title, artist_kind, provider, public_profile, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'manual', 0, NOW(), NOW())`,
+      [id, email, nombre, rol, String(b.role_title || '').trim() || null, disciplina]
+    );
+
+    // Pertenencia opcional a una compañía: si la mandan, queda de una vez.
+    let compania = null;
+    const cid = String(b.company_id || '').trim();
+    if (cid) {
+      const rolCia = String(b.role_in_company || 'coordinator');
+      if (!ROLES_COMPANIA.includes(rolCia)) {
+        return res.status(400).json({ ok: false, error: `rol de compañía inválido: ${ROLES_COMPANIA.join(', ')}` });
+      }
+      await db.execute(
+        'INSERT INTO company_members (id, company_id, user_id, role_in_company) VALUES (?, ?, ?, ?)',
+        [idCorto('cm_'), cid, id, rolCia]
+      );
+      compania = { company_id: cid, role_in_company: rolCia };
+    }
+
+    return res.json({
+      ok: true, id, email, display_name: nombre, role: rol,
+      role_title: b.role_title || null, artist_kind: disciplina, compania,
+      mensaje: 'Usuario creado. Cuando entre con Google (mismo correo) adopta esta ficha.',
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
   }
 });
 
