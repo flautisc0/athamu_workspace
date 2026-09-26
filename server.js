@@ -3526,6 +3526,273 @@ app.get('/puente', (req, res) => {
 </script></body></html>`);
 });
 
+// ===========================================================================
+// AGRUPACIONES (compañías) · solicitudes de pertenencia
+// ===========================================================================
+// Una persona nueva no pertenece a NINGUNA compañía, así que no ve el
+// inventario de ninguna (el hub responde "no pertenece a ninguna compañía en un
+// rol de producción o técnico"). Hasta ahora la pertenencia se cargaba a mano:
+// no existía endpoint ni pantalla.
+//
+// Flujo: la persona SOLICITA entrar a una agrupación -> el pedido llega EN VIVO
+// a los administradores por el canal SSE -> un admin acepta o rechaza.
+// IMPORTANTE: solicitar NO da acceso. El acceso lo otorga únicamente el admin,
+// porque pertenecer a una compañía habilita ver SUS datos.
+// ---------------------------------------------------------------------------
+
+let tablaSolCompaniaLista = false;
+
+async function asegurarTablaSolCompania() {
+  if (tablaSolCompaniaLista) return;
+  const db = getPool();
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS company_requests (
+      id varchar(64) NOT NULL PRIMARY KEY,
+      company_id varchar(64) NOT NULL,
+      user_id varchar(64) NOT NULL,
+      role_in_company varchar(24) NOT NULL DEFAULT 'artist',
+      mensaje varchar(400) DEFAULT NULL,
+      status varchar(16) NOT NULL DEFAULT 'pendiente',
+      resuelto_por varchar(64) DEFAULT NULL,
+      resuelto_at datetime DEFAULT NULL,
+      created_at datetime DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_pendientes (status, company_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  tablaSolCompaniaLista = true;
+}
+
+/** ¿Este correo puede resolver solicitudes? (administración) */
+async function esAdministrador(correo) {
+  const email = String(correo || '').trim().toLowerCase();
+  if (!email) return false;
+  if (OWNER_EMAILS.includes(email)) return true;
+  const alcance = await alcanceInventario(email);
+  return !!alcance.total;
+}
+
+/**
+ * El usuario pide entrar a una agrupación.
+ * No otorga nada: crea el pedido y avisa a los admins en vivo.
+ */
+app.post('/api/v1/crm/companias/:id/solicitudes', async (req, res) => {
+  try {
+    await asegurarTablaSolCompania();
+    const ident = identidad(req);
+    if (!ident.email) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    const db = getPool();
+    const userId = await exploradorId(ident.email, ident.nombre, ident.foto);
+
+    const [comp] = await db.execute(
+      'SELECT id, name FROM companies WHERE id = ? LIMIT 1', [req.params.id]
+    );
+    if (!comp.length) return res.status(404).json({ ok: false, error: 'agrupación no encontrada' });
+
+    // ¿ya pertenece?
+    const [yaMiembro] = await db.execute(
+      'SELECT id FROM company_members WHERE user_id = ? AND company_id = ? LIMIT 1',
+      [userId, req.params.id]
+    );
+    if (yaMiembro.length) {
+      return res.json({ ok: true, ya_pertenece: true, mensaje: `Ya pertenecés a ${comp[0].name}.` });
+    }
+
+    // ¿ya hay un pedido pendiente?
+    const [pendiente] = await db.execute(
+      "SELECT id FROM company_requests WHERE user_id = ? AND company_id = ? AND status = 'pendiente' LIMIT 1",
+      [userId, req.params.id]
+    );
+    if (pendiente.length) {
+      return res.json({ ok: true, ya_solicitado: true, mensaje: 'Tu solicitud ya está esperando respuesta.' });
+    }
+
+    const rolPedido = ['artist', 'coordinator', 'viewer'].includes(req.body?.role_in_company)
+      ? req.body.role_in_company : 'artist';
+    const id = `sr_${randomUUID().slice(0, 8)}`;
+    await db.execute(
+      `INSERT INTO company_requests (id, company_id, user_id, role_in_company, mensaje)
+       VALUES (?, ?, ?, ?, ?)`,
+      [id, req.params.id, userId, rolPedido,
+       req.body?.mensaje ? String(req.body.mensaje).slice(0, 400) : null]
+    );
+
+    // Aviso EN VIVO a los administradores (mismo canal que usa el radar).
+    radarEmitir('solicitud_compania', {
+      id,
+      company_id: comp[0].id,
+      company_name: comp[0].name,
+      user_id: userId,
+      email: ident.email,
+      nombre: ident.nombre || ident.email,
+      foto: ident.foto || null,
+      role_in_company: rolPedido,
+      mensaje: req.body?.mensaje || null,
+      para_admins: true,
+      creado: new Date().toISOString(),
+    });
+
+    return res.json({ ok: true, id, status: 'pendiente', company_name: comp[0].name });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * Lista de solicitudes.
+ *  - administración: todas las pendientes (para aprobar/rechazar)
+ *  - el resto: las propias (para ver en qué quedaron)
+ */
+app.get('/api/v1/crm/companias/solicitudes', async (req, res) => {
+  try {
+    await asegurarTablaSolCompania();
+    const db = getPool();
+    const correo = String(req.query.email || req.headers['x-atha-email'] || '').trim().toLowerCase();
+    if (!correo) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    const admin = await esAdministrador(correo);
+    const userId = await exploradorId(correo);
+
+    const sql = `
+      SELECT s.id, s.company_id, c.name AS company_name, s.user_id,
+             u.display_name AS nombre, u.email AS email, u.picture AS foto,
+             s.role_in_company, s.mensaje, s.status, s.created_at, s.resuelto_at
+      FROM company_requests s
+      JOIN companies c ON c.id = s.company_id
+      JOIN users u ON u.id = s.user_id
+      ${admin ? '' : 'WHERE s.user_id = ?'}
+      ORDER BY s.created_at DESC
+      LIMIT 100`;
+    const [filas] = await db.execute(sql, admin ? [] : [userId]);
+
+    return res.json({ ok: true, admin, total: filas.length, solicitudes: filas });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * Resolver una solicitud: aceptar (agrega la membresía) o rechazar.
+ * Sólo administración.
+ */
+app.post('/api/v1/crm/companias/solicitudes/:id/resolver', async (req, res) => {
+  try {
+    await asegurarTablaSolCompania();
+    const ident = identidad(req);
+    if (!ident.email) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    if (!(await esAdministrador(ident.email))) {
+      return res.status(403).json({ ok: false, error: 'sólo administración puede resolver solicitudes' });
+    }
+
+    const decision = String(req.body?.decision || '').toLowerCase();
+    const aceptar = decision === 'aceptar' || decision === 'aprobar' || decision === 'si';
+    if (!['aceptar', 'aprobar', 'si', 'rechazar', 'negar', 'no'].includes(decision)) {
+      return res.status(400).json({ ok: false, error: "decision debe ser 'aceptar' o 'rechazar'" });
+    }
+
+    const db = getPool();
+    const [sol] = await db.execute(
+      `SELECT s.*, c.name AS company_name, u.email AS email, u.display_name AS nombre
+       FROM company_requests s
+       JOIN companies c ON c.id = s.company_id
+       JOIN users u ON u.id = s.user_id
+       WHERE s.id = ? LIMIT 1`,
+      [req.params.id]
+    );
+    if (!sol.length) return res.status(404).json({ ok: false, error: 'solicitud no encontrada' });
+    const s = sol[0];
+    if (s.status !== 'pendiente') {
+      return res.json({ ok: true, status: s.status, mensaje: `La solicitud ya estaba ${s.status}.` });
+    }
+
+    const yo = await exploradorId(ident.email, ident.nombre, ident.foto);
+    const nuevoEstado = aceptar ? 'aceptada' : 'rechazada';
+
+    if (aceptar) {
+      // El rol final lo puede ajustar el admin; por defecto, el pedido.
+      const rolFinal = ['owner', 'coordinator', 'director', 'artist', 'viewer'].includes(req.body?.role_in_company)
+        ? req.body.role_in_company : (s.role_in_company || 'artist');
+      const [ya] = await db.execute(
+        'SELECT id FROM company_members WHERE user_id = ? AND company_id = ? LIMIT 1',
+        [s.user_id, s.company_id]
+      );
+      if (ya.length) {
+        await db.execute('UPDATE company_members SET role_in_company = ? WHERE id = ?', [rolFinal, ya[0].id]);
+      } else {
+        await db.execute(
+          `INSERT INTO company_members (id, company_id, user_id, role_in_company)
+           VALUES (?, ?, ?, ?)`,
+          [`cm_${randomUUID().slice(0, 8)}`, s.company_id, s.user_id, rolFinal]
+        );
+      }
+    }
+
+    await db.execute(
+      'UPDATE company_requests SET status = ?, resuelto_por = ?, resuelto_at = NOW() WHERE id = ?',
+      [nuevoEstado, yo, req.params.id]
+    );
+
+    // Aviso en vivo: al solicitante (y a los admins para que la lista se actualice)
+    radarEmitir('solicitud_resuelta', {
+      id: req.params.id,
+      company_id: s.company_id,
+      company_name: s.company_name,
+      email: s.email,
+      nombre: s.nombre,
+      status: nuevoEstado,
+      decidido_por: ident.email,
+    });
+
+    return res.json({
+      ok: true, status: nuevoEstado, company_name: s.company_name,
+      mensaje: aceptar
+        ? `${s.nombre || s.email} ahora pertenece a ${s.company_name}.`
+        : `Se rechazó la solicitud de ${s.nombre || s.email} a ${s.company_name}.`,
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Asignación DIRECTA por un admin (sin solicitud previa). */
+app.post('/api/v1/crm/companias/:id/miembros', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    if (!ident.email) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    if (!(await esAdministrador(ident.email))) {
+      return res.status(403).json({ ok: false, error: 'sólo administración puede asignar agrupaciones' });
+    }
+    const correo = String(req.body?.email_destino || req.body?.emailDestino || '').trim().toLowerCase();
+    if (!correo) return res.status(400).json({ ok: false, error: 'falta email_destino' });
+
+    const db = getPool();
+    const [comp] = await db.execute('SELECT id, name FROM companies WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!comp.length) return res.status(404).json({ ok: false, error: 'agrupación no encontrada' });
+
+    const userId = await exploradorId(correo);
+    if (!userId) return res.status(404).json({ ok: false, error: 'ese correo no tiene usuario' });
+
+    const rol = ['owner', 'coordinator', 'director', 'artist', 'viewer'].includes(req.body?.role_in_company)
+      ? req.body.role_in_company : 'artist';
+    const [ya] = await db.execute(
+      'SELECT id FROM company_members WHERE user_id = ? AND company_id = ? LIMIT 1', [userId, comp[0].id]
+    );
+    if (ya.length) {
+      await db.execute('UPDATE company_members SET role_in_company = ? WHERE id = ?', [rol, ya[0].id]);
+    } else {
+      await db.execute(
+        'INSERT INTO company_members (id, company_id, user_id, role_in_company) VALUES (?, ?, ?, ?)',
+        [`cm_${randomUUID().slice(0, 8)}`, comp[0].id, userId, rol]
+      );
+    }
+    radarEmitir('solicitud_resuelta', {
+      company_id: comp[0].id, company_name: comp[0].name, email: correo,
+      status: 'aceptada', decidido_por: ident.email, directo: true,
+    });
+    return res.json({ ok: true, company_name: comp[0].name, mensaje: `${correo} quedó en ${comp[0].name} como ${rol}.` });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
 app.get('*', (req, res) => {
   // El index nunca se cachea: si no, el navegador sigue mostrando el bundle
   // viejo y parece que "las actualizaciones no llegan".
