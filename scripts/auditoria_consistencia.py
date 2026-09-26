@@ -22,7 +22,7 @@ CHECKS = [
      "SELECT email, display_name FROM users WHERE display_name IS NULL OR TRIM(display_name)=''"),
     ("B1b misma persona con DOS correos en la misma compania",
      "SELECT company_id, LOWER(full_name) n, COUNT(DISTINCT LOWER(email)) correos, GROUP_CONCAT(DISTINCT email) emails FROM company_people WHERE full_name IS NOT NULL AND TRIM(full_name)<>'' AND email IS NOT NULL AND email<>'' GROUP BY company_id, n HAVING correos>1"),
-    ("B7 usuarios activos por compania (miembros vs nomina)",
+    ("i) B7 usuarios activos por compania (miembros vs nomina)",
      "SELECT c.name, (SELECT COUNT(*) FROM company_members m WHERE m.company_id=c.id) miembros, (SELECT COUNT(*) FROM company_people p WHERE p.company_id=c.id) nomina FROM companies c WHERE EXISTS (SELECT 1 FROM company_members m WHERE m.company_id=c.id) OR EXISTS (SELECT 1 FROM company_people p WHERE p.company_id=c.id) ORDER BY c.name"),
     ("B1 nomina duplicada por compania",
      "SELECT company_id, LOWER(email) e, COUNT(*) n FROM company_people WHERE email IS NOT NULL AND email<>'' GROUP BY company_id,e HAVING n>1"),
@@ -47,7 +47,7 @@ CHECKS = [
     ("C5 reacciones/comentarios huerfanos",
      "SELECT 'reaccion' t, r.id FROM radar_reactions r LEFT JOIN users u ON u.id=r.user_id WHERE u.id IS NULL UNION ALL SELECT 'comentario', c.id FROM radar_comments c LEFT JOIN users u ON u.id=c.user_id WHERE u.id IS NULL"),
     ("C6 XP del perfil vs suma de descubrimientos",
-     "SELECT u.email, rp.xp, COALESCE(SUM(d.xp_awarded),0) xp_desc FROM radar_profiles rp JOIN users u ON u.id=rp.user_id LEFT JOIN radar_discoveries d ON d.user_id=rp.user_id GROUP BY u.email, rp.xp"),
+     "SELECT u.email, rp.xp, COALESCE(SUM(d.xp_awarded),0) xp_desc FROM radar_profiles rp JOIN users u ON u.id=rp.user_id LEFT JOIN radar_discoveries d ON d.user_id=rp.user_id GROUP BY u.email, rp.xp HAVING rp.xp <> COALESCE(SUM(d.xp_awarded),0)"),
     ("C7 insignias otorgadas huerfanas",
      "SELECT ub.user_id, ub.badge_id FROM radar_user_badges ub LEFT JOIN radar_badges b ON b.id=ub.badge_id LEFT JOIN users u ON u.id=ub.user_id WHERE b.id IS NULL OR u.id IS NULL"),
     ("C8 nodos publicados sin coordenadas (mapa)",
@@ -93,9 +93,10 @@ const checks = JSON.parse(process.argv[1]);
   for (const [label, sql] of checks) {
     try {
       const [r] = await c.query(sql);
+      const informativo = label.startsWith('i)');
       if (r.length === 0) { console.log('  OK    ' + label); continue; }
-      problemas++;
-      console.log('  ATENC ' + label + '  -> ' + r.length + ' fila(s)');
+      if (!informativo) problemas++;
+      console.log((informativo ? '  INFO  ' : '  ATENC ') + label + '  -> ' + r.length + ' fila(s)');
       for (const row of r.slice(0, 5)) console.log('          ' + JSON.stringify(row));
     } catch (e) { console.log('  ERR   ' + label + ' -> ' + e.message.slice(0, 110)); }
   }
