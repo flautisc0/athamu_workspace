@@ -252,3 +252,60 @@ gcloud run services update-traffic atha-crm-web-frontend --to-latest \
 - **Lección**: el working tree **no** es fuente de verdad — git sí. Restaurar a ciegas borra
   módulos que sólo viven ahí: **revisar el diff antes**.
 - **Revisión que quedó en vivo**: `atha-crm-web-frontend-00071-xig`.
+
+---
+
+# PARTE 4 · Prueba piloto con colaboradores (flujo, datos y pendientes)
+
+## Lo que ya está en vivo
+
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| Formulario de inscripción | `<hub>/piloto` | Público, sin sesión. Guarda en `piloto_inscripciones` (upsert por correo: no duplica). |
+| Listado de anotados | `GET /api/v1/crm/piloto/inscripciones` | Sólo administración (403 al resto). |
+| Botón "Reportar algo" | app FASE (todas las pestañas) | Reporta en el momento con contexto: pantalla, cuenta, versión, plataforma y **captura opcional**. |
+| Reportes | `GET /api/v1/crm/piloto/reportes` | Sólo administración. `piloto_reportes` guarda `imagen_url` (bucket, carpeta `piloto/reportes`). |
+
+Ninguna de las dos tablas toca datos de producción.
+
+## Herramientas del repo (correr con `python3 scripts/correr_en_hub.py <script.cjs>`)
+
+- `scripts/auditoria_consistencia.py` — 27 chequeos de datos cruzados CRM / radar-app / Planner. **Correr antes y después de la prueba.**
+- `scripts/reparar_consistencia_20260926.py` + `.cjs` — reparaciones de identidad y compañías (paso 1).
+- `scripts/reparar_consistencia_paso2.cjs` — cruce Planner → CRM (correos y personajes del elenco).
+- `scripts/reparar_consistencia_paso3.cjs` — identidades de la prueba (contacto, roles artista/admin) y Pipe Naranjo.
+- `scripts/socios_atha.cjs` — representantes legales de la entidad.
+- `scripts/renombrar_persona.cjs` — renombra a una persona en CRM + cuenta + Planner de una vez (simula sin `--aplicar`).
+- `scripts/vincular_correo_real.cjs` — cuando alguien da su correo real: actualiza su ficha, lo deja como miembro y borra la cuenta placeholder.
+- `scripts/ver_inscripciones_piloto.py` / `scripts/ver_reportes_piloto.py` — leer anotados y reportes.
+
+## Dato importante: correos sin casilla
+
+Los `@athaproducciones.cl` de la nómina **no tienen casilla real** (confirmado por Francisco). Esas
+personas figuran bien como ficha de nómina, pero **no pueden iniciar sesión**. Se resuelven con el
+correo real que captura el formulario del piloto + `vincular_correo_real.cjs`.
+
+## Pendiente para el final: notificaciones PUSH
+
+Lo que hay hoy: campanita **interna** de la app (funciona con la app abierta, vía SSE). No hay push
+cuando la app está cerrada. Estado real verificado:
+
+- La app **no tiene** plugin de push (`@capacitor/push-notifications` no está instalado).
+- El hub **no tiene** dónde guardar tokens de dispositivo ni envío (FCM/APNs).
+- `POST_NOTIFICATIONS` **sí** está declarado en el AndroidManifest, pero nadie lo pide en runtime.
+
+Para que funcione hay que: (1) proyecto Firebase + `google-services.json`, (2) plugin de push +
+permiso en runtime, (3) tabla de dispositivos + envío desde el hub en los eventos (publicación nueva
+en tu compañía, solicitud resuelta, reporte nuevo), (4) APK nuevo — y en iOS, APNs + Xcode 16.
+**Requiere recompilar**, así que queda para el final (decisión de Francisco).
+
+## Pendiente de decisión: nombre de la entidad
+
+Los 5 representantes legales están en la ficha que hoy se llama **"Compañía Teatral ATHA"**. Falta
+definir si esa ficha pasa a llamarse **"ATHA Producciones"** y si las demás agrupaciones (ATHA Kids,
+Tenoia Musicalis, TMLL) llevan la etiqueta de **grupo / proyecto** de ATHA Producciones.
+
+## Pendiente: importar el Drive de ATHA Producciones
+
+Conectar el Drive para importar datos y archivos de cada actor (ficha, fans, etc.). Diferido por
+decisión de Francisco. Los documentos oficiales de la compañía viven en la máquina "cerebro".
