@@ -2131,16 +2131,53 @@ function distanciaMetros(lat1, lng1, lat2, lng2) {
 const nivelPorXp = (xp) => Math.max(1, Math.floor(Math.sqrt(Math.max(0, Number(xp) || 0) / 100)) + 1);
 
 /** Id del explorador; si no existe, lo crea (registro público, rol no-admin). */
-async function exploradorId(email, nombre) {
+/**
+ * Identidad de quien llama: correo, nombre y FOTO.
+ *
+ * El nombre y la foto viajan tambien en cabeceras (`x-atha-name`,
+ * `x-atha-picture`, codificadas) porque no todas las rutas reciben un body:
+ * asi cualquier llamada autenticada alcanza para registrar bien al usuario.
+ */
+function identidad(req) {
+  const b = req.body || {};
+  const dec = (v) => {
+    if (v === undefined || v === null) return null;
+    try { return decodeURIComponent(String(v)); } catch { return String(v); }
+  };
+  return {
+    email: b.email || req.headers['x-atha-email'] || (req.query && req.query.email) || null,
+    nombre: b.name || dec(req.headers['x-atha-name']) || null,
+    foto: b.picture || b.avatar || dec(req.headers['x-atha-picture']) || null,
+  };
+}
+
+async function exploradorId(email, nombre, foto) {
   const correo = String(email || '').trim().toLowerCase();
   if (!correo) return null;
   const db = getPool();
-  const [filas] = await db.execute('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [correo]);
-  if (filas.length) return filas[0].id;
+  const [filas] = await db.execute(
+    'SELECT id, display_name, picture FROM users WHERE LOWER(email) = ? LIMIT 1', [correo]
+  );
+
+  // Ya existe: se completa nombre/foto si llegaron y antes faltaban.
+  // Sin esto, quien se registraba por Google quedaba SIN FOTO para siempre
+  // (su avatar caia al logo de ATHA en la app, que era lo que se veia).
+  if (filas.length) {
+    const actual = filas[0];
+    const nombreNuevo = nombre ? String(nombre).slice(0, 120) : actual.display_name;
+    const fotoNueva = foto ? String(foto).slice(0, 512) : actual.picture;
+    if (nombreNuevo !== actual.display_name || fotoNueva !== actual.picture) {
+      await db.execute('UPDATE users SET display_name = ?, picture = ? WHERE id = ?',
+        [nombreNuevo, fotoNueva, actual.id]);
+    }
+    return actual.id;
+  }
+
   const id = `usr_${randomUUID().slice(0, 8)}`;
   await db.execute(
-    'INSERT INTO users (id, email, display_name, role, provider, public_profile) VALUES (?, ?, ?, ?, ?, 1)',
-    [id, correo, String(nombre || correo.split('@')[0]).slice(0, 120), 'explorador', 'google']
+    'INSERT INTO users (id, email, display_name, role, provider, picture, public_profile) VALUES (?, ?, ?, ?, ?, ?, 1)',
+    [id, correo, String(nombre || correo.split('@')[0]).slice(0, 120), 'explorador', 'google',
+     foto ? String(foto).slice(0, 512) : null]
   );
   return id;
 }
@@ -2187,7 +2224,11 @@ app.get('/api/v1/crm/radar/nodos', async (req, res) => {
   try {
     const db = getPool();
     const { lat, lng, email, incluir_borradores } = req.query;
-    const userId = email ? await exploradorId(email) : null;
+    // Se registra/completa con la identidad completa (nombre y foto): la app
+    // llama a este endpoint cada vez que abre el radar, así que quien ya tenía
+    // cuenta sin foto la recibe al volver a entrar, sin esperar a que escriba.
+    const ident = identidad(req);
+    const userId = email ? await exploradorId(email, ident.nombre, ident.foto) : null;
 
     let sql = 'SELECT * FROM radar_nodes';
     if (!incluir_borradores) sql += ' WHERE is_published = 1';
@@ -2316,7 +2357,7 @@ app.post('/api/v1/crm/radar/descubrimientos', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'faltan email y nodeId' });
     }
     const db = getPool();
-    const userId = await exploradorId(email, b.name);
+    const userId = await exploradorId(email, b.name, identidad(req).foto);
 
     const [nodos] = await db.execute('SELECT * FROM radar_nodes WHERE id = ? LIMIT 1', [nodeId]);
     if (!nodos.length) return res.status(404).json({ ok: false, error: 'nodo no encontrado' });
@@ -2652,7 +2693,7 @@ app.post('/api/v1/crm/radar/posts', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'la publicación necesita texto o imagen' });
     }
     const db = getPool();
-    const userId = await exploradorId(email, b.name);
+    const userId = await exploradorId(email, b.name, identidad(req).foto);
     const id = `po_${randomUUID().slice(0, 8)}`;
 
     let media = b.media_url || null;
@@ -2686,7 +2727,7 @@ app.post('/api/v1/crm/radar/posts/:id/comentarios', async (req, res) => {
     const email = b.email || req.headers['x-atha-email'];
     if (!email || !b.content) return res.status(400).json({ ok: false, error: 'faltan email y content' });
     const db = getPool();
-    const userId = await exploradorId(email, b.name);
+    const userId = await exploradorId(email, b.name, identidad(req).foto);
     const [post] = await db.execute('SELECT * FROM radar_posts WHERE id = ? LIMIT 1', [req.params.id]);
     if (!post.length) return res.status(404).json({ ok: false, error: 'publicación no encontrada' });
     const id = `cm_${randomUUID().slice(0, 8)}`;
@@ -2717,7 +2758,7 @@ app.post('/api/v1/crm/radar/reacciones', async (req, res) => {
     const targetType = b.target_type === 'node' ? 'node' : 'post';
     if (!email || !target) return res.status(400).json({ ok: false, error: 'faltan email y target_id' });
     const db = getPool();
-    const userId = await exploradorId(email, b.name);
+    const userId = await exploradorId(email, b.name, identidad(req).foto);
     const [ya] = await db.execute(
       'SELECT * FROM radar_reactions WHERE user_id = ? AND target_type = ? AND target_id = ? LIMIT 1',
       [userId, targetType, target]
@@ -3322,7 +3363,7 @@ app.patch('/api/v1/crm/radar/perfil', async (req, res) => {
     const email = b.email || req.headers['x-atha-email'];
     if (!email) return res.status(400).json({ ok: false, error: 'falta email' });
     const db = getPool();
-    const userId = await exploradorId(email, b.name);
+    const userId = await exploradorId(email, b.name, identidad(req).foto);
     const perfil = await perfilRadar(userId);
     const bio = b.bio !== undefined ? String(b.bio).slice(0, 1000) : perfil.bio;
     const city = b.city !== undefined ? String(b.city).slice(0, 120) : perfil.city;
