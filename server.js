@@ -4058,6 +4058,251 @@ app.patch('/api/v1/crm/chat/messages/:id/read', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// PRUEBA PILOTO · inscripciones
+//
+// Página pública (/piloto) para que la gente se anote al piloto de flujo, más un
+// endpoint para listar las anotaciones (sólo administración). Vive en una tabla
+// aparte: no toca datos de producción ni requiere sesión para anotarse.
+//
+// La lista se lee desde /api/v1/crm/piloto/inscripciones con la identidad de una
+// cuenta de administración (x-atha-email), igual que el resto del panel.
+// ---------------------------------------------------------------------------
+let tablaPilotoLista = false;
+async function asegurarTablaPiloto(db) {
+  if (tablaPilotoLista) return;
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS piloto_inscripciones (
+       id             VARCHAR(40)  NOT NULL PRIMARY KEY,
+       nombre         VARCHAR(160) NOT NULL,
+       email          VARCHAR(255) NOT NULL,
+       telefono       VARCHAR(40)  NULL,
+       company_id     VARCHAR(64)  NULL,
+       company_name   VARCHAR(160) NULL,
+       rol            VARCHAR(40)  NULL,
+       dispositivo    VARCHAR(40)  NULL,
+       disponibilidad VARCHAR(400) NULL,
+       comentario     VARCHAR(1000) NULL,
+       estado         VARCHAR(20)  NOT NULL DEFAULT 'anotado',
+       created_at     DATETIME     NOT NULL,
+       updated_at     DATETIME     NOT NULL,
+       UNIQUE KEY uq_piloto_email (email)
+     )`
+  );
+  tablaPilotoLista = true;
+}
+
+/** Alta (o actualización) de una inscripción al piloto. Público, sin sesión. */
+app.post('/api/v1/crm/piloto/inscripciones', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const nombre = String(b.nombre || '').trim().slice(0, 160);
+    const email = String(b.email || '').trim().toLowerCase().slice(0, 255);
+    if (!nombre) return res.status(400).json({ ok: false, error: 'Falta el nombre.' });
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ ok: false, error: 'El correo no parece válido.' });
+    }
+    if (!b.acepta) return res.status(400).json({ ok: false, error: 'Hay que aceptar participar para anotarse.' });
+
+    const db = getPool();
+    await asegurarTablaPiloto(db);
+
+    let companyName = String(b.company_name || '').trim().slice(0, 160) || null;
+    const companyId = String(b.company_id || '').trim().slice(0, 64) || null;
+    if (companyId && !companyName) {
+      const [c] = await db.execute('SELECT name FROM companies WHERE id = ? LIMIT 1', [companyId]);
+      if (c.length) companyName = c[0].name;
+    }
+
+    const id = 'pi_' + randomBytes(8).toString('hex');
+    await db.execute(
+      `INSERT INTO piloto_inscripciones
+         (id, nombre, email, telefono, company_id, company_name, rol, dispositivo, disponibilidad, comentario, estado, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'anotado',NOW(),NOW())
+       ON DUPLICATE KEY UPDATE
+         nombre = VALUES(nombre), telefono = VALUES(telefono),
+         company_id = VALUES(company_id), company_name = VALUES(company_name),
+         rol = VALUES(rol), dispositivo = VALUES(dispositivo),
+         disponibilidad = VALUES(disponibilidad), comentario = VALUES(comentario),
+         updated_at = NOW()`,
+      [id, nombre, email, String(b.telefono || '').slice(0, 40) || null, companyId, companyName,
+       String(b.rol || '').slice(0, 40) || null, String(b.dispositivo || '').slice(0, 40) || null,
+       String(b.disponibilidad || '').slice(0, 400) || null, String(b.comentario || '').slice(0, 1000) || null]
+    );
+    return res.json({
+      ok: true,
+      mensaje: `${nombre}, quedaste anotado en la prueba del ecosistema FASE. Te vamos a contactar a ${email} con la fecha y el enlace.`,
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Lista de anotados (sólo administración). */
+app.get('/api/v1/crm/piloto/inscripciones', async (req, res) => {
+  try {
+    const alcance = await alcanceInventario(req.query.email || req.headers['x-atha-email'] || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const db = getPool();
+    await asegurarTablaPiloto(db);
+    const [filas] = await db.execute(
+      `SELECT id, nombre, email, telefono, company_name, rol, dispositivo, disponibilidad,
+              comentario, estado, created_at
+         FROM piloto_inscripciones ORDER BY created_at ASC`
+    );
+    const porCompania = {};
+    for (const f of filas) {
+      const k = f.company_name || '(sin compañía)';
+      porCompania[k] = (porCompania[k] || 0) + 1;
+    }
+    return res.json({ ok: true, total: filas.length, por_compania: porCompania, inscripciones: filas });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Página pública de inscripción. */
+app.get('/piloto', async (req, res) => {
+  let opciones = '<option value="">— Elegí tu compañía o agrupación —</option>';
+  try {
+    const db = getPool();
+    const [cs] = await db.execute(
+      `SELECT id, name, kind, discipline FROM companies WHERE status = 'active'
+        ORDER BY (kind = 'propia') DESC, name`
+    );
+    for (const c of cs) {
+      const extra = c.discipline ? ' — ' + String(c.discipline).slice(0, 60) : '';
+      opciones += '<option value="' + c.id + '">' + String(c.name) + extra + '</option>';
+    }
+  } catch (e) { /* sin catálogo: se anota igual */ }
+
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.set('Cache-Control', 'no-store');
+  return res.send(`<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba del ecosistema FASE · ATHA Producciones</title>
+<style>
+  :root { color-scheme: dark }
+  * { box-sizing: border-box }
+  body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height:1.5 }
+  .halo { position:fixed; inset:0; pointer-events:none; background: radial-gradient(circle at 50% 0%, rgba(110,231,183,.14) 0%, rgba(224,90,71,.10) 40%, transparent 70%) }
+  main { position:relative; max-width:640px; margin:0 auto; padding:28px 18px 60px }
+  img.logo { width:150px; display:block; margin:6px auto 14px }
+  h1 { font-size:21px; margin:0 0 6px; text-align:center; letter-spacing:.01em }
+  .sub { text-align:center; color:#a3a3a3; font-size:13px; margin:0 auto 22px; max-width:520px }
+  .tarjeta { background:#141414; border:1px solid #262626; border-radius:20px; padding:18px; margin-bottom:16px }
+  .tarjeta h2 { font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:#6ee7b7; margin:0 0 10px }
+  ul { margin:0; padding-left:18px; font-size:13px; color:#d4d4d4 }
+  ul li { margin-bottom:6px }
+  label { display:block; font-size:12px; font-weight:600; margin:14px 0 5px; color:#e5e5e5 }
+  input, select, textarea { width:100%; padding:11px 12px; border-radius:12px; border:1px solid #303030; background:#0f0f0f; color:#f5f5f5; font-size:14px; font-family:inherit }
+  textarea { min-height:74px; resize:vertical }
+  .chk { display:flex; gap:10px; align-items:flex-start; margin-top:16px; font-size:12.5px; color:#d4d4d4 }
+  .chk input { width:18px; height:18px; margin-top:2px; flex:0 0 auto }
+  button { width:100%; margin-top:18px; padding:14px; border:0; border-radius:14px; background:#34d399; color:#052e1b; font-weight:800; font-size:15px; cursor:pointer }
+  button:disabled { opacity:.6; cursor:progress }
+  .pie { text-align:center; color:#737373; font-size:11px; margin-top:18px }
+  .error { background:rgba(244,63,94,.12); border:1px solid rgba(244,63,94,.4); color:#fda4af; padding:10px 12px; border-radius:12px; font-size:12.5px; margin-top:14px }
+  .ok { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:#6ee7b7; padding:14px; border-radius:14px; font-size:13.5px; margin-top:16px }
+</style>
+</head>
+<body>
+<div class="halo"></div>
+<main>
+  <img class="logo" src="https://storage.googleapis.com/atha-crm-obras-897089213264/marca/atha-logo.png" alt="ATHA Producciones">
+  <h1>Probemos el ecosistema FASE</h1>
+  <p class="sub">Buscamos personas del equipo para probar el radar cultural, el muro comunitario y el chat de compañía — y decirnos dónde se traban. No hace falta ser técnico: hace falta usar la app como la usaría en terreno.</p>
+
+  <div class="tarjeta">
+    <h2>Qué vas a hacer</h2>
+    <ul>
+      <li>Entrar con tu cuenta de Google a la app <strong>FASE</strong> (celular o computador).</li>
+      <li>Descubrir un nodo cultural con el GPS, publicar una foto en el muro y comentar.</li>
+      <li>Ver el perfil de tu compañía, su equipo y sus montajes.</li>
+      <li>Contarnos qué te resultó confuso, con total honestidad. Eso es lo más valioso.</li>
+    </ul>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Anotate</h2>
+    <form id="f">
+      <label for="nombre">Nombre y apellido *</label>
+      <input id="nombre" name="nombre" required autocomplete="name" placeholder="Ej: Catalina Noa">
+
+      <label for="email">Correo (con el que entrás a Google) *</label>
+      <input id="email" name="email" type="email" required autocomplete="email" placeholder="tucorreo@gmail.com">
+
+      <label for="telefono">WhatsApp (opcional, para coordinar)</label>
+      <input id="telefono" name="telefono" inputmode="tel" placeholder="+56 9 ...">
+
+      <label for="company_id">Tu compañía o agrupación</label>
+      <select id="company_id" name="company_id">${opciones}</select>
+
+      <label for="rol">Tu rol ahí</label>
+      <select id="rol" name="rol">
+        <option value="">— Elegí —</option>
+        <option value="artist">Artista / elenco</option>
+        <option value="coordinator">Producción / coordinación</option>
+        <option value="director">Dirección</option>
+        <option value="viewer">Sólo mirar</option>
+        <option value="otro">Otro / externo</option>
+      </select>
+
+      <label for="dispositivo">¿Con qué vas a probar?</label>
+      <select id="dispositivo" name="dispositivo">
+        <option value="android">Celular Android</option>
+        <option value="ios">iPhone</option>
+        <option value="computador">Computador (navegador)</option>
+      </select>
+
+      <label for="disponibilidad">¿Qué días y horarios te acomodan?</label>
+      <input id="disponibilidad" name="disponibilidad" placeholder="Ej: martes y jueves después de las 18">
+
+      <label for="comentario">¿Algo que quieras que tengamos en cuenta?</label>
+      <textarea id="comentario" name="comentario" placeholder="Opcional"></textarea>
+
+      <label class="chk"><input type="checkbox" id="acepta" name="acepta" required>
+        <span>Quiero participar de la prueba y acepto que usen mis comentarios (y una captura si hace falta) para mejorar la app.</span></label>
+
+      <button id="b" type="submit">Anotarme en la prueba</button>
+    </form>
+    <div id="msg"></div>
+    <p class="pie">Tus datos se guardan en el CRM de ATHA Producciones y se usan sólo para coordinar esta prueba.</p>
+  </div>
+</main>
+<script>
+  var f = document.getElementById('f'), b = document.getElementById('b'), msg = document.getElementById('msg');
+  f.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    msg.innerHTML = '';
+    b.disabled = true; b.textContent = 'Enviando…';
+    var datos = {};
+    ['nombre','email','telefono','company_id','rol','dispositivo','disponibilidad','comentario'].forEach(function (k) {
+      var el = document.getElementById(k);
+      if (el && el.value) datos[k] = el.value;
+    });
+    var sel = document.getElementById('company_id');
+    if (sel && sel.selectedIndex > 0) datos.company_name = sel.options[sel.selectedIndex].text.split(' — ')[0];
+    datos.acepta = !!document.getElementById('acepta').checked;
+    fetch('/api/v1/crm/piloto/inscripciones', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) throw new Error(d.error || 'No se pudo enviar.');
+      f.style.display = 'none';
+      msg.innerHTML = '<div class="ok"><strong>¡Listo!</strong><br>' + d.mensaje + '</div>';
+    }).catch(function (e) {
+      msg.innerHTML = '<div class="error">' + (e.message || 'No se pudo enviar. Probá de nuevo.') + '</div>';
+      b.disabled = false; b.textContent = 'Anotarme en la prueba';
+    });
+  });
+</script>
+</body>
+</html>`);
+});
+
 app.get('*', (req, res) => {
   // El index nunca se cachea: si no, el navegador sigue mostrando el bundle
   // viejo y parece que "las actualizaciones no llegan".
