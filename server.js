@@ -3333,20 +3333,27 @@ app.get('/api/v1/crm/sesion', async (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/v1/crm/ecosistema/artefactos', async (req, res) => {
   const puente = (destino) => `https://atha-crm-web-frontend-897089213264.us-central1.run.app/puente?destino=${destino}`;
+  // URL DIRECTA del artefacto (sin pasar por el puente). La necesita la app
+  // móvil: pide un ticket en /api/auth/ticket y abre `<url>?t=<ticket>`, con lo
+  // que el artefacto entra con sesión SIN depender de que el navegador tenga la
+  // sesión del CRM guardada (que es lo que hace el puente). Un solo origen de
+  // verdad: las mismas URLs que usa el puente.
+  const directa = (clave) => (DESTINOS_PUENTE[clave] || '');
   const artefactos = [
     { id: 'crm', key: 'crm', name: 'CRM Central', description: 'Clientes, obras, equipo, inventario y finanzas',
       icon: 'layout-dashboard', entry_point: 'https://atha-crm-web-frontend-897089213264.us-central1.run.app',
+      url: directa('crm') || 'https://atha-crm-web-frontend-897089213264.us-central1.run.app',
       required_role: 'explorador', is_active: true },
     { id: 'app-movil', key: 'app-movil', name: 'App FASE (móvil)', description: 'Radar cultural, rutas y comunidad en el celular',
-      icon: 'smartphone', entry_point: puente('app-movil'), required_role: 'explorador', is_active: true },
+      icon: 'smartphone', entry_point: puente('app-movil'), url: directa('app-movil'), required_role: 'explorador', is_active: true },
     { id: 'planner', key: 'planner', name: 'Planner de Giras', description: 'Disponibilidad de elencos y planificación de temporada',
-      icon: 'calendar', entry_point: puente('planner'), required_role: 'explorador', is_active: true },
+      icon: 'calendar', entry_point: puente('planner'), url: directa('planner'), required_role: 'explorador', is_active: true },
     { id: 'arquitecto', key: 'arquitecto', name: 'Arquitecto de Proyectos', description: 'Estructura, etapas y presupuesto de proyectos',
-      icon: 'layers', entry_point: puente('arquitecto'), required_role: 'explorador', is_active: true },
+      icon: 'layers', entry_point: puente('arquitecto'), url: directa('arquitecto'), required_role: 'explorador', is_active: true },
     { id: 'buscador', key: 'buscador', name: 'Buscador de Fondos', description: 'Convocatorias y financiamiento cultural',
-      icon: 'search', entry_point: puente('buscador'), required_role: 'explorador', is_active: true },
+      icon: 'search', entry_point: puente('buscador'), url: directa('buscador'), required_role: 'explorador', is_active: true },
     { id: 'ticketer', key: 'ticketer', name: 'Ticketer', description: 'Entradas, funciones y control de acceso',
-      icon: 'ticket', entry_point: puente('ticketer'), required_role: 'explorador', is_active: true },
+      icon: 'ticket', entry_point: puente('ticketer'), url: directa('ticketer'), required_role: 'explorador', is_active: true },
   ];
   const rol = String(req.query.role || 'explorador').toLowerCase();
   // el rol filtra qué artefactos se muestran (admin y dirección ven todo)
