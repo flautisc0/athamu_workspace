@@ -2698,7 +2698,11 @@ app.post('/api/v1/crm/radar/posts', async (req, res) => {
 
     let media = b.media_url || null;
     if (!media && b.image) {
-      media = await subirFotoGcs(id, b.image, 'radar/publicaciones');
+      // OJO: acá se llamaba a `subirFotoGcs`, que NUNCA estuvo definida (sólo
+      // existe subirFotoInventario). Publicar con foto tiraba
+      // "subirFotoGcs is not defined" y la publicación no se guardaba: era el
+      // reporte "no se postean las publicaciones cuando subo la foto".
+      media = await subirFotoInventario(id, b.image, 'radar/publicaciones');
     }
     const alcance = await alcanceInventario(email);
     const status = (alcance.total && b.status) ? String(b.status).slice(0, 16) : 'approved';
@@ -3569,6 +3573,45 @@ async function asegurarTablaSolCompania() {
   tablaSolCompaniaLista = true;
 }
 
+/**
+ * AVISO POR TELEGRAM
+ *
+ * Para lo que NO puede esperar a que el usuario abra la app: una solicitud de
+ * agrupación que hay que aprobar. El canal en vivo (SSE) sólo llega con la app
+ * abierta; esto suena en el bolsillo.
+ *
+ * Se configura con `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`. Sin esas
+ * variables no hace nada (y lo deja anotado en el log): un aviso que falta
+ * nunca debe romper la petición que lo dispara.
+ */
+async function avisarTelegram(texto, opciones = {}) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chat = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chat) {
+    console.log('[telegram] sin configurar: no se envía el aviso');
+    return { ok: false, motivo: 'telegram sin configurar' };
+  }
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat,
+        text: texto,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...opciones,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!d?.ok) console.warn('[telegram] no se pudo enviar:', d?.description || r.status);
+    return { ok: !!d?.ok, error: d?.description };
+  } catch (e) {
+    console.warn('[telegram] error al enviar:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 /** ¿Este correo puede resolver solicitudes? (administración) */
 async function esAdministrador(correo) {
   const email = String(correo || '').trim().toLowerCase();
@@ -3638,7 +3681,142 @@ app.post('/api/v1/crm/companias/:id/solicitudes', async (req, res) => {
       creado: new Date().toISOString(),
     });
 
+    // Aviso al BOLSILLO del admin. El canal en vivo (SSE) sólo llega con la app
+    // abierta; esto suena aunque la tenga cerrada.
+    avisarTelegram(
+      `🔔 <b>Solicitud de agrupación</b>\n\n` +
+      `<b>${ident.nombre || ident.email}</b> quiere entrar a <b>${comp[0].name}</b>` +
+      (req.body?.mensaje ? `\n\n“${String(req.body.mensaje).slice(0, 300)}”` : '') +
+      `\n\nResolvelo en la app: <b>Perfil → Apariencia y Colores → Pedidos por resolver</b>.`
+    ).catch(() => { /* un aviso que falla no rompe la solicitud */ });
+
     return res.json({ ok: true, id, status: 'pendiente', company_name: comp[0].name });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * PERFIL PÚBLICO DE OTRA PERSONA · /radar/perfil-publico?usuario=<email|id>
+ *
+ * Hace falta un endpoint aparte porque el hub PISA `?email=` con la identidad
+ * verificada de quien llama (así nadie puede suplantar a otro). O sea que
+ * `/radar/perfil?email=<otro>` devuelve EL PROPIO perfil, no el del otro: por
+ * eso no se podía ver el perfil de otra persona.
+ *
+ * Acá el destinatario va en `usuario` (que el middleware no toca) y sólo se
+ * devuelven datos PÚBLICOS. Si la persona marcó su perfil como privado, se
+ * devuelve apenas lo mínimo para poder mostrarla en el muro (nombre y foto),
+ * sin progreso ni ciudad.
+ */
+app.get('/api/v1/crm/radar/perfil-publico', async (req, res) => {
+  try {
+    const objetivo = String(req.query.usuario || req.query.user || '').trim();
+    if (!objetivo) return res.status(400).json({ ok: false, error: 'falta ?usuario=' });
+    const db = getPool();
+
+    const [usuarios] = await db.execute(
+      'SELECT id, email, display_name, picture, role, role_title FROM users WHERE LOWER(email) = LOWER(?) OR id = ? LIMIT 1',
+      [objetivo, objetivo]
+    );
+    if (!usuarios.length) return res.status(404).json({ ok: false, error: 'no existe esa persona' });
+    const u = usuarios[0];
+
+    const [perfiles] = await db.execute('SELECT * FROM radar_profiles WHERE user_id = ? LIMIT 1', [u.id]);
+    const p = perfiles[0] || {};
+    const esPublico = p.is_public === undefined ? true : !!p.is_public;
+
+    // Insignias ganadas (nombre + icono), sin exponer nada privado
+    let insignias = [];
+    try {
+      const [b] = await db.execute(
+        `SELECT b.id, b.name, b.description, b.icon, ub.earned_at
+           FROM radar_user_badges ub JOIN radar_badges b ON b.id = ub.badge_id
+          WHERE ub.user_id = ? ORDER BY ub.earned_at DESC`,
+        [u.id]
+      );
+      insignias = b;
+    } catch { /* la tabla puede no existir todavía */ }
+
+    return res.json({
+      ok: true,
+      persona: {
+        id: u.id,
+        email: u.email,
+        nombre: u.display_name || u.email,
+        foto: u.picture || null,
+        cargo: u.role_title || '',
+        // el rol interno no se expone: sólo si es parte de dirección
+        es_direccion: ['admin', 'director'].includes(String(u.role || '').toLowerCase()),
+        explorer_number: p.explorer_number || '',
+        nivel: p.level || 1,
+        xp: p.xp || 0,
+        ciudad: esPublico ? (p.city || '') : '',
+        bio: esPublico ? (p.bio || '') : '',
+        descubiertos: p.descubiertos || 0,
+        es_publico: esPublico,
+        insignias,
+      },
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * MIS AGRUPACIONES · a cuáles pertenezco DE VERDAD (no los pedidos).
+ *
+ * Faltaba: el panel mostraba sólo las solicitudes, así que alguien que YA
+ * pertenecía a una compañía (cargada en el CRM) la veía como si no estuviera.
+ * Reportado: "cuando me registré en Tenoia Musicalis eso debería haberme
+ * añadido como miembro y no se ve reflejado".
+ */
+app.get('/api/v1/crm/companias/mias', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    if (!ident.email) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    const db = getPool();
+    const userId = await exploradorId(ident.email, ident.nombre, ident.foto);
+    const [filas] = await db.execute(
+      `SELECT cm.company_id, c.name AS company_name, cm.role_in_company, cm.joined_at
+         FROM company_members cm
+         JOIN companies c ON c.id = cm.company_id
+        WHERE cm.user_id = ?
+        ORDER BY c.name`,
+      [userId]
+    );
+    const [nomina] = await db.execute(
+      `SELECT cp.company_id, c.name AS company_name, cp.role_title, cp.kind
+         FROM company_people cp
+         JOIN companies c ON c.id = cp.company_id
+        WHERE LOWER(cp.email) = LOWER(?)
+        ORDER BY c.name`,
+      [ident.email]
+    );
+    return res.json({
+      ok: true,
+      total: filas.length,
+      agrupaciones: filas,
+      // La nómina es otro vínculo (equipo/elenco) y también da alcance de datos.
+      nomina: nomina || [],
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Prueba del aviso por Telegram (sólo administración). */
+app.post('/api/v1/crm/avisos/probar', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    if (!ident.email) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    if (!(await esAdministrador(ident.email))) {
+      return res.status(403).json({ ok: false, error: 'sólo administración' });
+    }
+    const r = await avisarTelegram(
+      '✅ <b>Avisos de ATHA configurados</b>\n\nAsí te voy a avisar cuando alguien pida entrar a una agrupación.'
+    );
+    return res.json({ ok: !!r.ok, ...r });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
   }
