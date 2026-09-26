@@ -6,3 +6,47 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# --- Rendimiento de build / upload ---
+# Directorios y archivos grandes que NO se necesitan para compilar el frontend.
+# Tailwind v4 respeta .gitignore al escanear fuentes, asi que excluirlos
+# evita que el build escanee decenas de miles de archivos irrelevantes.
+.venv/
+athamu_app_new/
+athomu_app_new/
+atha-app/
+athamu_api/
+athamu_content_ops/
+athamu-multiagent-redesign/
+athamu_ops/
+ATHAMU_OPS/
+athamu_sis/
+crm_data/
+entrega_pipeline/
+instance/
+output/
+notebooklm_pack/
+*.zip
+*.xlsx
+*.csv
+*.pdf
+# Los assets del sitio (public/) SI se suben: fotos, portadas y dossieres del catalogo
+!public/**
+
+# Los assets del catalogo se sirven desde GCS (bucket atha-crm-obras-897089213264):
+# no se suben en cada build para que el deploy sea rapido.
+public/obras/
+
+# --- secretos y artefactos que NO van a GitHub ---
+token_drive.json
+client_secret*.json
+*-credentials.json
+.aider.chat.history.md
+*.apk
+*.keystore
+*.jks
+backups/
+*.tar.gz
+*.zip
+__pycache__/
+*.pyc

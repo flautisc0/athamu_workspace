@@ -85,6 +85,7 @@ import { EcosistemaSection } from './components/sections/EcosistemaSection';
 import { AccesoAppReal } from './components/sections/AccesoAppReal';
 import { ArquitectoProyectosSection } from './components/sections/ArquitectoProyectosSection';
 import { AdminSection } from './components/sections/AdminSection';
+import { MiPerfilSection } from './components/sections/MiPerfilSection';
 
 export type ThemeMode = 'terracota' | 'dia';
 
@@ -101,7 +102,7 @@ export default function App() {
       const ir = String(q.get('ir') || '').trim();
       const seccionesValidas = ['inicio', 'companias', 'obras', 'crm', 'ventas',
         'venues', 'inventario', 'finanzas', 'riders', 'equipo',
-        'planner', 'arquitecto', 'ecosistema', 'admin'];
+        'planner', 'arquitecto', 'ecosistema', 'perfil', 'admin'];
       if (ir && seccionesValidas.includes(ir)) setActiveSection(ir);
       const email = String(q.get('email') || '').trim();
       if (email.includes('@')) {
@@ -705,6 +706,9 @@ export default function App() {
         {activeSection === 'arquitecto' && (<AccesoAppReal destino="arquitecto" theme={theme} />)}
 
         {/* Usuarios, roles y nóminas: sólo owner y dirección (el hub lo valida) */}
+        {/* Mi Perfil: quién sos en el ecosistema (lee del hub, no de localStorage) */}
+        {activeSection === 'perfil' && <MiPerfilSection theme={theme} />}
+
         {activeSection === 'admin' && <AccesoAppReal destino="usuarios" theme={theme} />}
 
         {activeSection === 'admin' && (

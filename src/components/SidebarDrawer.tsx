@@ -112,6 +112,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
     {
       name: 'Administración del Sitio',
       items: [
+        { id: 'perfil', label: 'Mi Perfil', icon: UserIcon, accentColor: 'var(--accent-terracota)' },
         { id: 'admin', label: 'Consola de Administración', icon: Shield, badge: 'Admin', accentColor: 'var(--accent-terracota)' },
         { id: 'sql-hub', label: 'Base de Datos SQL & Archivos PHP', icon: Database, badge: 'PostgreSQL', accentColor: '#34d399' }
       ]

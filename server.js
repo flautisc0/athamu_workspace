@@ -3604,7 +3604,13 @@ async function avisarTelegram(texto, opciones = {}) {
       }),
     });
     const d = await r.json().catch(() => ({}));
-    if (!d?.ok) console.warn('[telegram] no se pudo enviar:', d?.description || r.status);
+    if (!d?.ok) {
+      console.warn('[telegram] no se pudo enviar:', d?.description || r.status);
+    } else {
+      // Se registra el ÉXITO también: sin esto, un aviso que sale y uno que
+      // nunca se intentó se ven igual en los logs (los dos sin línea).
+      console.log(`[telegram] aviso enviado (mensaje ${d?.result?.message_id})`);
+    }
     return { ok: !!d?.ok, error: d?.description };
   } catch (e) {
     console.warn('[telegram] error al enviar:', e.message);
@@ -3975,6 +3981,80 @@ app.post('/api/v1/crm/companias/:id/miembros', async (req, res) => {
     return res.json({ ok: true, company_name: comp[0].name, mensaje: `${correo} quedó en ${comp[0].name} como ${rol}.` });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// CHAT INTERNO DE COMPANIA (módulo recuperado del working tree)
+// ---------------------------------------------------------------------------
+app.get('/api/v1/crm/chat/messages', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = req.headers['x-atha-email'];
+    if (!email) return res.status(401).json({ success: false, error: 'No email provided' });
+    const companyId = req.query.company_id;
+    const since = req.query.since;
+    let query = 'SELECT m.id, m.company_id, m.sender_id, m.content, m.sent_at, u.display_name as sender_name, u.picture as sender_picture FROM chat_messages m JOIN users u ON m.sender_id = u.id WHERE 1=1';
+    const params = [];
+    if (companyId) {
+      query += ' AND m.company_id = ?';
+      params.push(companyId);
+    }
+    if (since) {
+      query += ' AND m.sent_at > ?';
+      params.push(since);
+    }
+    query += ' ORDER BY m.sent_at ASC';
+    const [rows] = await db.execute(query, params);
+    return res.json({ success: true, messages: rows });
+  } catch (e) {
+    console.error('[chat messages GET] error:', e);
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/v1/crm/chat/messages', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = req.headers['x-atha-email'];
+    if (!email) return res.status(401).json({ success: false, error: 'No email provided' });
+    const [userRows] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (!userRows.length) return res.status(404).json({ success: false, error: 'User not found' });
+    const senderId = userRows[0].id;
+    const { company_id, content } = req.body;
+    if (!company_id) return res.status(400).json({ success: false, error: 'company_id required' });
+    if (!content || !content.trim()) return res.status(400).json({ success: false, error: 'content required' });
+    // Validate that sender is a member of the company
+    const [memberRows] = await db.execute('SELECT 1 FROM company_members WHERE company_id = ? AND user_id = ?', [company_id, senderId]);
+    if (!memberRows.length) return res.status(403).json({ success: false, error: 'User is not a member of the company' });
+    const id = randomUUID();
+    await db.execute(
+      'INSERT INTO chat_messages (id, company_id, sender_id, content) VALUES (?, ?, ?, ?)',
+      [id, company_id, senderId, content.trim()]
+    );
+    // Emit SSE? For now just return success.
+    return res.json({ success: true, data: { id } });
+  } catch (e) {
+    console.error('[chat messages POST] error:', e);
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+app.patch('/api/v1/crm/chat/messages/:id/read', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = req.headers['x-atha-email'];
+    if (!email) return res.status(401).json({ success: false, error: 'No email provided' });
+    const [userRows] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (!userRows.length) return res.status(404).json({ success: false, error: 'User not found' });
+    const userId = userRows[0].id;
+    const messageId = req.params.id;
+    // For now, we just return success; the client can keep track of last read timestamp.
+    // In a future version, we could add a read_at column to the table.
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('[chat messages PATCH] error:', e);
+    return res.status(503).json({ success: false, error: e.message });
   }
 });
 

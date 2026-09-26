@@ -4,7 +4,7 @@
 > 1. **¿Cómo llegan los datos al CRM?** (flujo entre sitio web, app, artefactos y hub)
 > 2. **¿Cómo funciona el hub?** (su anatomía interna)
 >
-> Última actualización: 2026-09-23
+> Última actualización: 2026-09-26 (PARTE 3 · estructura canónica y deploy seguro)
 
 ---
 
@@ -149,3 +149,106 @@ gcloud run deploy atha-crm-web-frontend --source . --project athamubot \
 4. **Medios en GCS**, en la base sólo la URL.
 5. **Los cambios se prueban en un servicio aparte** antes de promover al vivo.
 6. **Todo endpoint se documenta acá** (y en `docs/ARTEFACTOS_API.md`).
+
+---
+
+## PARTE 3 · ESTRUCTURA CANÓNICA Y DESPLIEGUE SEGURO
+
+> Añadido 2026-09-26 tras el incidente del `server.js` mutilado (ver abajo).
+
+### Regla cero: `server.js` es el archivo crítico
+
+El hub es **un solo archivo**: `~/athamu_workspace/server.js`. Su tamaño canónico es
+**≈4.000 líneas** (HEAD de git). Si el archivo del working tree pesa mucho menos,
+**está mutilado y el deploy va a romper el ecosistema**.
+
+**Chequeo obligatorio ANTES de cada deploy** (tarda 2 segundos):
+
+```bash
+cd ~/athamu_workspace
+echo "HEAD=$(git show HEAD:server.js | wc -l)  working=$(wc -l < server.js)"
+# Deben ser del mismo orden. Si difieren en cientos de líneas: PARAR.
+for P in crm/radar/feed crm/radar/nodos crm/radar/perfil crm/radar/stream \
+         ecosistema/artefactos companias/mias "/api/v1/crm/sesion" alcanceInventario; do
+  printf "%-24s HEAD=%s working=%s\n" "$P" \
+    "$(git show HEAD:server.js | grep -c "$P")" "$(grep -c "$P" server.js)"
+done
+```
+
+### Inventario real de rutas (verificado en producción)
+
+**Identidad, perfil y preferencias**
+
+| Ruta | Método | Notas |
+|---|---|---|
+| `/api/auth/google` · `/register` · `/ticket` · `/exchange` | POST | login del ecosistema |
+| `/api/auth/me` | GET | |
+| `/api/v1/crm/sesion?email=` | GET | **la usa `fase-mobile` al abrir** |
+| `/api/v1/perfil` | GET | perfil + companias + preferencias + permisos |
+| `/api/users/:email/preferences` | GET/POST | tema y barra por usuario |
+
+**Radar + red social** (lo que consume `fase-mobile`)
+
+| Ruta | Método |
+|---|---|
+| `/api/v1/crm/radar/perfil` · `/perfil-publico` | GET |
+| `/api/v1/crm/radar/nodos` · `/nodos/:id` | GET/POST/PATCH/DELETE |
+| `/api/v1/crm/radar/descubrimientos` | POST (otorga XP) |
+| `/api/v1/crm/radar/rutas` | GET/POST |
+| `/api/v1/crm/radar/feed` | GET (`?node_id=` · `?limite=`) |
+| `/api/v1/crm/radar/posts` · `/posts/:id/comentarios` · `/posts/:id/moderar` | POST/PATCH |
+| `/api/v1/crm/radar/reacciones` | POST (toggle) |
+| `/api/v1/crm/radar/badges` | GET |
+| `/api/v1/crm/radar/stream` (+ `/stream/estado`) | GET (SSE) |
+
+**Compañías, usuarios, CRM y artefactos**
+
+| Ruta | Notas |
+|---|---|
+| `/api/v1/crm/companias/mias` · `/companias/:id/solicitudes` · `/companias/solicitudes[/:id/resolver]` | agrupaciones y aprobación de admin |
+| `/api/v1/crm/usuarios` · `/usuarios/:id/companias` · `/companias/:id/nomina` · `/nomina/:id` | panel de usuarios y nóminas |
+| `/api/v1/crm/leads` · `/lead-groups` · `/lead-groups/:id/members` | mini-CRM |
+| `/api/v1/crm/chat/messages` (+ `/:id/read`) | **chat interno de compañía** (módulo que sólo vivía en el working tree) |
+| `/api/v1/crm/ecosistema/artefactos` | catálogo con URL directa |
+| `/api/v1/crm/solicitudes` | solicitudes de acceso |
+
+> La app FASE usa como base `https://atha-crm-web-frontend-…/api/v1/crm`, por eso **todas**
+> las rutas del radar llevan el prefijo `/crm/`. Un 404 sistemático ahí = hub mutilado.
+
+### Despliegue seguro (obligatorio)
+
+```bash
+cd ~/athamu_workspace
+# 1) chequeo de estructura (arriba) — si falla, PARAR
+# 2) desplegar SIN tráfico y con tag
+gcloud run deploy atha-crm-web-frontend --source . --region us-central1 \
+  --project athamubot --allow-unauthenticated --no-traffic --tag=candidato
+# 3) validar en la URL del tag (no toca a los usuarios)
+U=https://candidato---atha-crm-web-frontend-o4pqpocl5q-uc.a.run.app
+for P in /api/v1/perfil /api/v1/crm/radar/perfil /api/v1/crm/radar/feed \
+         /api/v1/crm/radar/nodos /api/v1/crm/sesion; do
+  printf "%-34s -> " "$P"
+  curl -s -o /dev/null -w "%{http_code}\n" -H "x-atha-email: panxo.sms@gmail.com" "$U$P"
+done
+# 4) sólo si TODO da 200, mover el tráfico
+gcloud run services update-traffic atha-crm-web-frontend --to-latest \
+  --region us-central1 --project athamubot
+```
+
+### Incidente 2026-09-26 · `server.js` mutilado
+
+- **Síntoma**: la app FASE mostraba sólo nombre y foto (lo que trae el login de Google),
+  sin XP, nivel, muro ni chat; el CRM parecía vacío. Se atribuyó a la sesión y no lo era.
+- **Causa**: el `server.js` del working tree había sido **sobrescrito** y pasó de ~4.000 a
+  **1.721 líneas**: desaparecieron `radar/*`, `ecosistema/artefactos`, `companias/*`,
+  `alcanceInventario` y `/api/v1/crm/sesion`. Como el deploy usa `--source .`, publicaba
+  ese archivo incompleto.
+- **Diagnóstico**: comparar `git show HEAD:server.js | wc -l` vs `wc -l server.js` y contar
+  familias de rutas. En producción `/api/v1/perfil` daba 200 y `/api/v1/crm/radar/*` daba 404
+  → el backend funcionaba; la API del radar **no existía**.
+- **Arreglo**: restaurar desde git (`git show HEAD:server.js > server.js`) y **reinsertar el
+  módulo de chat**, que existía *sólo* en el archivo mutilado (3 rutas). Quedó en 4.074 líneas.
+  Backup del archivo roto: `/tmp/server.js.working-1721.bak`.
+- **Lección**: el working tree **no** es fuente de verdad — git sí. Restaurar a ciegas borra
+  módulos que sólo viven ahí: **revisar el diff antes**.
+- **Revisión que quedó en vivo**: `atha-crm-web-frontend-00071-xig`.

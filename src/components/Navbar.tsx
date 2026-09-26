@@ -30,7 +30,8 @@ import {
   Users,
   Send,
   LogIn,
-  UserPlus
+  UserPlus,
+  User
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { UserProfile, Obra, Lead, Venue } from '../types';
@@ -154,6 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'planner', label: 'Planner', icon: CalendarDays, badge: 'App' },
     { id: 'arquitecto', label: 'Arquitecto', icon: FlaskConical, badge: 'App' },
     { id: 'ecosistema', label: 'Ecosistema ATHA', icon: Workflow },
+    { id: 'perfil', label: 'Mi Perfil', icon: User },
     { id: 'admin', label: 'Administración', icon: Shield }
   ];
 

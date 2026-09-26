@@ -1,0 +1,23 @@
+{
+  "name": "F.A.S.E · CRM ATHA",
+  "short_name": "FASE CRM",
+  "description": "Plataforma de gestión escénica y cultural de ATHA Producciones",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1115",
+  "theme_color": "#E05A47",
+  "lang": "es-CL",
+  "icons": [
+    { "src": "/atha-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/atha-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/atha-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Leads", "short_name": "Leads", "url": "/?ir=crm" },
+    { "name": "Obras", "short_name": "Obras", "url": "/?ir=obras" },
+    { "name": "Inventario", "short_name": "Inventario", "url": "/?ir=inventario" },
+    { "name": "Administración", "short_name": "Admin", "url": "/?ir=admin" }
+  ]
+}

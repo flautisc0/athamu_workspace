@@ -86,6 +86,7 @@ const NAVBAR_ITEMS: { id: string; label: string }[] = [
   { id: 'planner', label: 'Planner (app real)' },
   { id: 'arquitecto', label: 'Arquitecto (app real)' },
   { id: 'ecosistema', label: 'Ecosistema ATHA' },
+  { id: 'perfil', label: 'Mi Perfil' },
   { id: 'admin', label: 'Administración' },
 ];
 

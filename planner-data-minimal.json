@@ -1,0 +1,287 @@
+{
+  "artists": [
+    {
+      "id": "art_1",
+      "name": "Josefa CSL",
+      "role": "CEO / Representante",
+      "email": "josefa.csl@athaproducciones.cl",
+      "phone": "Dirección general",
+      "avatarBg": "bg-rose-900/60 border-rose-500/40 text-rose-300",
+      "avatarTextColor": "text-rose-400",
+      "initials": "JC",
+      "availability_csv": "Alta",
+      "contract": "Vigente",
+      "last_rehearsal": "2026-07-20"
+    },
+    {
+      "id": "art_2",
+      "name": "Francisco Schultz",
+      "role": "Flautista / Piccolo",
+      "email": "francisco.schultz@athaproducciones.cl",
+      "phone": "Flauta traversa, piccolo",
+      "avatarBg": "bg-emerald-900/60 border-emerald-500/40 text-emerald-300",
+      "avatarTextColor": "text-emerald-400",
+      "initials": "FS",
+      "availability_csv": "Alta",
+      "contract": "Vigente",
+      "last_rehearsal": "2026-07-19"
+    },
+    {
+      "id": "art_3",
+      "name": "Nicolás Schultz",
+      "role": "Técnico",
+      "email": "nicolas.schultz@athaproducciones.cl",
+      "phone": "Sonido, coordenadas",
+      "avatarBg": "bg-amber-900/60 border-amber-500/40 text-amber-300",
+      "avatarTextColor": "text-amber-400",
+      "initials": "NS",
+      "availability_csv": "Media",
+      "contract": "Por definir",
+      "last_rehearsal": "2026-07-18"
+    }
+  ],
+  "availabilityMap": {
+    "art_1": [
+      {
+        "date": "2026-06-20",
+        "startTime": "14:00",
+        "endTime": "22:30",
+        "period": "pm",
+        "reason": "Pre-ensayo (Alta disponibilidad) - Dirección general"
+      },
+      {
+        "date": "2026-07-20",
+        "startTime": "14:00",
+        "endTime": "22:30",
+        "period": "pm",
+        "reason": "Último ensayo: Dirección general"
+      },
+      {
+        "date": "2026-07-25",
+        "startTime": "07:00",
+        "endTime": "22:30",
+        "period": "full",
+        "reason": "Filmación Dossier ATHA (Audiovisual) - Confirmado: Cámara y equipo listos"
+      },
+      {
+        "date": "2026-08-15",
+        "startTime": "14:00",
+        "endTime": "18:00",
+        "period": "pm",
+        "reason": "Evento Cultural X (Producción) - Por confirmar: Locación pendiente"
+      },
+      {
+        "date": "2026-08-19",
+        "startTime": "14:00",
+        "endTime": "22:30",
+        "period": "pm",
+        "reason": "Post-ensayo (Alta disponibilidad) - Dirección general"
+      },
+      {
+        "date": "2026-09-01",
+        "startTime": "14:00",
+        "endTime": "18:00",
+        "period": "pm",
+        "reason": "Función Teatro Y (Teatro) - Por confirmar: Ensayo general 08/30"
+      },
+      {
+        "date": "2026-10-01",
+        "startTime": "19:00",
+        "endTime": "22:00",
+        "period": "pm",
+        "reason": "Gira Musical Z (Música) - Por confirmar: Presupuesto en revisión"
+      },
+      {
+        "date": "2026-10-09",
+        "startTime": "14:00",
+        "endTime": "22:30",
+        "period": "pm",
+        "reason": "Función en teatro alternativo (PM)"
+      },
+      {
+        "date": "2026-10-10",
+        "startTime": "07:00",
+        "endTime": "22:30",
+        "period": "full",
+        "reason": "Viaje personal"
+      },
+      {
+        "date": "2026-10-16",
+        "startTime": "07:00",
+        "endTime": "14:00",
+        "period": "am",
+        "reason": "Cátedra docente matutina (AM)"
+      },
+      {
+        "date": "2026-11-06",
+        "startTime": "07:00",
+        "endTime": "22:30",
+        "period": "full",
+        "reason": "Grabación comercial audiovisual"
+      }
+    ],
+    "art_2": [
+      {
+        "date": "2026-06-19",
+        "startTime": "14:00",
+        "endTime": "22:30",
+        "period": "pm",
+        "reason": "Pre-ensayo (Alta disponibilidad) - Flauta traversa, piccolo"
+      },
+      {
+        "date": "2026-07-19",
+        "startTime": "14:00",
+        "endTime": "22:30",
+        "period": "pm",
+        "reason": "Último ensayo: Flauta traversa, piccolo"
+      },
+      {
+        "date": "2026-07-25",
+        "startTime": "07:00",
+        "endTime": "22:30",
+        "period": "full",
+        "reason": "Filmación Dossier ATHA (Audiovisual) - Confirmado: Cámara y equipo listos"
+      },
+      {
+        "date": "2026-08-15",
+        "startTime": "14:00",
+        "endTime": "18:00",
+        "period": "pm",
+        "reason": "Evento Cultural X (Producción) - Por confirmar: Locación pendiente"
+      },
+      {
+        "date": "2026-08-18",
+        "startTime": "14:00",
+        "endTime": "22:30",
+        "period": "pm",
+        "reason": "Post-ensayo (Alta disponibilidad) - Flauta traversa, piccolo"
+      },
+      {
+        "date": "2026-09-01",
+        "startTime": "14:00",
+        "endTime": "18:00",
+        "period": "pm",
+        "reason": "Función Teatro Y (Teatro) - Por confirmar: Ensayo general 08/30"
+      },
+      {
+        "date": "2026-10-01",
+        "startTime": "19:00",
+        "endTime": "22:00",
+        "period": "pm",
+        "reason": "Gira Musical Z (Música) - Por confirmar: Presupuesto en revisión"
+      },
+      {
+        "date": "2026-10-14",
+        "startTime": "17:00",
+        "endTime": "21:00",
+        "period": "custom",
+        "reason": "Ensayo orquestal sinfónico"
+      },
+      {
+        "date": "2026-10-21",
+        "startTime": "07:00",
+        "endTime": "13:30",
+        "period": "am",
+        "reason": "Sesión de doblaje matutino"
+      },
+      {
+        "date": "2026-10-25",
+        "startTime": "07:00",
+        "endTime": "22:30",
+        "period": "full",
+        "reason": "Disponibilidad bloqueada"
+      }
+    ],
+    "art_3": [
+      {
+        "date": "2026-06-18",
+        "startTime": "07:00",
+        "endTime": "14:00",
+        "period": "am",
+        "reason": "Pre-ensayo (Media disponibilidad) - Sonido, coordenadas"
+      },
+      {
+        "date": "2026-07-18",
+        "startTime": "07:00",
+        "endTime": "14:00",
+        "period": "am",
+        "reason": "Último ensayo: Sonido, coordenadas"
+      },
+      {
+        "date": "2026-07-25",
+        "startTime": "07:00",
+        "endTime": "22:30",
+        "period": "full",
+        "reason": "Filmación Dossier ATHA (Audiovisual) - Confirmado: Cámara y equipo listos"
+      },
+      {
+        "date": "2026-08-15",
+        "startTime": "14:00",
+        "endTime": "18:00",
+        "period": "pm",
+        "reason": "Evento Cultural X (Producción) - Por confirmar: Locación pendiente"
+      },
+      {
+        "date": "2026-08-17",
+        "startTime": "07:00",
+        "endTime": "14:00",
+        "period": "am",
+        "reason": "Post-ensayo (Media disponibilidad) - Sonido, coordenadas"
+      },
+      {
+        "date": "2026-09-01",
+        "startTime": "14:00",
+        "endTime": "18:00",
+        "period": "pm",
+        "reason": "Función Teatro Y (Teatro) - Por confirmar: Ensayo general 08/30"
+      },
+      {
+        "date": "2026-10-01",
+        "startTime": "19:00",
+        "endTime": "22:00",
+        "period": "pm",
+        "reason": "Gira Musical Z (Música) - Por confirmar: Presupuesto en revisión"
+      }
+    ]
+  },
+  "projects": [
+    {
+      "id": "proj_001",
+      "name": "Todo acuerdo escrito es una mentira",
+      "premiereDate": "2027-11-01",
+      "rehearsalsPerWeek": 3,
+      "requiredTotalRehearsals": 18,
+      "synopsis": "Distopía chilena situada en el año 2079, donde la ciudadanía se organiza para derrocar un régimen neoliberal. Una profunda reflexión sobre los pactos sociales, la memoria política y los límites de la representación comunitaria.",
+      "rehearsalStartTime": "18:30",
+      "rehearsalEndTime": "21:30",
+      "rehearsalPeriodLabel": "Vespertino (18:30 - 21:30 PM)",
+      "category": "Teatro",
+      "year": 2024,
+      "status": "En circulación",
+      "duration": "75 min",
+      "company": "Compañía Proyecto TAEM",
+      "director": "Jesús Urqueta / Francisco Pérez",
+      "cast": "Josefa Schultz, Karla Meriño, Adrián Díaz",
+      "isFeatured": true
+    },
+    {
+      "id": "proj_002",
+      "name": "Tiny Patio Concerts",
+      "premiereDate": "2027-11-18",
+      "rehearsalsPerWeek": 4,
+      "requiredTotalRehearsals": 24,
+      "synopsis": "Ciclo de conciertos acústicos e íntimos realizados en patios patrimoniales y espacios culturales no convencionales, generando una cercanía única entre creadores musicales y la audiencia.",
+      "rehearsalStartTime": "19:00",
+      "rehearsalEndTime": "22:00",
+      "rehearsalPeriodLabel": "Vespertino (19:00 - 22:00)",
+      "category": "Música",
+      "year": 2024,
+      "status": "Temporada Activa",
+      "duration": "90 min",
+      "company": "ATHA Producciones / AD BACULUM",
+      "director": "Francisco Pérez Quinteros",
+      "cast": "Varios solistas y ensambles independientes",
+      "isFeatured": true
+    }
+  ]
+}
