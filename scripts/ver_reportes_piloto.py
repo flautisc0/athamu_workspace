@@ -42,6 +42,8 @@ def main():
         print(f"{i:2}. [{tipo}] {x.get('nombre') or '(sin nombre)'} <{x.get('email') or 'sin sesión'}>")
         print(f"     pantalla: {x.get('pantalla') or '?'} · v{x.get('version') or '?'} · {x.get('plataforma') or '?'}")
         print('     ' + (x.get('texto') or '').replace('\n', '\n     '))
+        if x.get('imagen_url'):
+            print('     captura: ' + x['imagen_url'])
         print(f"     estado: {x.get('estado')} · {str(x.get('created_at'))[:16]}")
         print()
     if not d.get('reportes'):

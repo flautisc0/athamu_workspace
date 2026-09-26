@@ -4324,11 +4324,20 @@ async function asegurarTablaReportes(db) {
        pantalla   VARCHAR(60)  NULL,
        plataforma VARCHAR(30)  NULL,
        version    VARCHAR(40)  NULL,
+       imagen_url VARCHAR(500) NULL,
        estado     VARCHAR(20)  NOT NULL DEFAULT 'nuevo',
        created_at DATETIME     NOT NULL,
        KEY idx_reportes_fecha (created_at)
      )`
   );
+  // La tabla ya existía en producción sin la columna de la captura: se agrega sin
+  // perder los reportes que haya.
+  const [colsRep] = await db.execute(
+    `SELECT COUNT(*) n FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'piloto_reportes' AND COLUMN_NAME = 'imagen_url'`);
+  if (!colsRep[0].n) {
+    await db.execute('ALTER TABLE piloto_reportes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER version');
+  }
   tablaReportesLista = true;
 }
 
@@ -4348,16 +4357,22 @@ app.post('/api/v1/crm/piloto/reportes', async (req, res) => {
       try { nombre = decodeURIComponent(String(req.headers['x-atha-name'])).slice(0, 160); } catch (e) { nombre = ''; }
     }
     const id = 'rep_' + randomBytes(8).toString('hex');
+    // Captura adjunta (opcional): si la subida falla, el reporte se guarda igual.
+    let imagenUrl = null;
+    if (b.imagen) {
+      try { imagenUrl = await subirFotoInventario(id, b.imagen, 'piloto/reportes'); }
+      catch (e) { imagenUrl = null; }
+    }
     await db.execute(
-      `INSERT INTO piloto_reportes (id, email, nombre, categoria, texto, pantalla, plataforma, version, estado, created_at)
-       VALUES (?,?,?,?,?,?,?,?,'nuevo',NOW())`,
+      `INSERT INTO piloto_reportes (id, email, nombre, categoria, texto, pantalla, plataforma, version, imagen_url, estado, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,'nuevo',NOW())`,
       [id, email, nombre || null,
        String(b.categoria || '').slice(0, 40) || 'otro', texto,
        String(b.pantalla || '').slice(0, 60) || null,
        String(b.plataforma || '').slice(0, 30) || null,
-       String(b.version || '').slice(0, 40) || null]
+       String(b.version || '').slice(0, 40) || null, imagenUrl]
     );
-    return res.json({ ok: true, id, mensaje: '¡Gracias! Tu reporte llegó al equipo.' });
+    return res.json({ ok: true, id, imagen_url: imagenUrl, mensaje: '¡Gracias! Tu reporte llegó al equipo.' });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
   }
@@ -4371,7 +4386,7 @@ app.get('/api/v1/crm/piloto/reportes', async (req, res) => {
     const db = getPool();
     await asegurarTablaReportes(db);
     const [filas] = await db.execute(
-      `SELECT id, email, nombre, categoria, texto, pantalla, plataforma, version, estado, created_at
+      `SELECT id, email, nombre, categoria, texto, pantalla, plataforma, version, imagen_url, estado, created_at
          FROM piloto_reportes ORDER BY created_at DESC LIMIT 500`
     );
     const porCategoria = {};
