@@ -221,8 +221,11 @@ try {
 }
 
 // Middleware: JSON body
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+// 12mb: la app reduce las fotos a ~300 KB, pero si algún teléfono entrega un
+// formato que el navegador no puede reducir (HEIC/HEIF), antes se cortaba con un
+// 413 en HTML. Mejor margen + error claro (ver manejador de errores al final).
+app.use(express.json({ limit: '12mb' }));
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
 // JWT secret: firma el TOKEN DE SESIÓN del hub (no sólo el viejo token admin).
 const JWT_SECRET = process.env.JWT_SECRET_KEY || 'atha-crm-admin-secret-key';
@@ -2697,12 +2700,26 @@ app.post('/api/v1/crm/radar/posts', async (req, res) => {
     const id = `po_${randomUUID().slice(0, 8)}`;
 
     let media = b.media_url || null;
+    // Un data URL que llegue en media_url (app vieja, o el Muro que mandaba la foto
+    // en los dos campos) se sube igual: guardarlo en la columna es VARCHAR(512) y
+    // rompía la publicación con 503 "Data too long for column 'media_url'".
+    if (media && /^data:/i.test(media)) {
+      if (!b.image) b.image = media;
+      media = null;
+    }
     if (!media && b.image) {
       // OJO: acá se llamaba a `subirFotoGcs`, que NUNCA estuvo definida (sólo
       // existe subirFotoInventario). Publicar con foto tiraba
       // "subirFotoGcs is not defined" y la publicación no se guardaba: era el
       // reporte "no se postean las publicaciones cuando subo la foto".
       media = await subirFotoInventario(id, b.image, 'radar/publicaciones');
+    }
+    // Nunca un 503 mudo por una URL larga: se explica y se corta.
+    if (media && media.length > 512) {
+      return res.status(400).json({
+        ok: false,
+        error: 'La imagen es demasiado grande. Probá con otra foto (o más chica).',
+      });
     }
     const alcance = await alcanceInventario(email);
     const status = (alcance.total && b.status) ? String(b.status).slice(0, 16) : 'approved';
@@ -4417,6 +4434,25 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(distDir, 'index.html'), {
     headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
   });
+});
+
+// ---------------------------------------------------------------------------
+// Manejador de errores (último): convierte lo que antes salía como HTML opaco en
+// un JSON que la app puede mostrar. El caso típico era subir una foto y recibir
+// "PayloadTooLargeError: request entity too large" en HTML — la app no podía
+// explicarle nada al usuario.
+// ---------------------------------------------------------------------------
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  const grande = err.type === 'entity.too.large' || err.status === 413 || err.statusCode === 413;
+  if (grande) {
+    return res.status(413).json({
+      ok: false,
+      error: 'La foto es muy pesada para subirla. Probá de nuevo o elegí otra más chica.',
+    });
+  }
+  console.error('[error]', req.method, req.originalUrl, err.message);
+  return res.status(err.status || err.statusCode || 500).json({ ok: false, error: err.message });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
