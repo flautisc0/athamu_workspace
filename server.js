@@ -107,6 +107,9 @@ async function handleGoogleAuth(req, res) {
     let esNuevo = false;
     let rol = isOwner ? 'admin' : ROL_ENTRADA;
     let roleTitle = isOwner ? 'Direccion General & Produccion Ejecutiva' : '';
+    // Nombre visible con el que se firma la sesión: si la persona ya tiene uno propio,
+    // es ESE (no el de Google), para que la app no vuelva a cachear el nombre viejo.
+    let nombreVisible = name;
 
     try {
       const db = getPool();
@@ -120,13 +123,24 @@ async function handleGoogleAuth(req, res) {
         // El ROL y el CARGO son de la base: NO se pisan con lo que mande el cliente.
         rol = rows[0].role || ROL_ENTRADA;
         roleTitle = rows[0].role_title || '';
+        // El NOMBRE tampoco: si la persona ya eligió uno (en la app o el CRM), el
+        // nombre de Google no lo pisa. Antes esta línea escribía el nombre de Google en
+        // cada login y deshacía el cambio hecho en el perfil ("no persiste el nombre").
+        const [previoFilas] = await db.execute(
+          'SELECT display_name, picture FROM users WHERE id = ? LIMIT 1', [userId]
+        );
+        const previo = (previoFilas && previoFilas[0]) || {};
+        const nombreFinal = (!nombreProvisional(previo.display_name, email) && previo.display_name !== name)
+          ? previo.display_name : name;
+        const fotoFinal = String(previo.picture || '').trim() ? previo.picture : picture;
+        nombreVisible = nombreFinal;
         await db.execute(
           `UPDATE users SET display_name = ?, picture = ?, provider = 'google',
              google_id = COALESCE(google_id, ?), google_email = COALESCE(google_email, ?),
              google_name = COALESCE(google_name, ?), google_picture = COALESCE(google_picture, ?),
              updated_at = NOW()
            WHERE id = ?`,
-          [name, picture, googleSub, email, name, picture, userId]
+          [nombreFinal, fotoFinal, googleSub, email, name, picture, userId]
         );
         if (isOwner && rol !== 'admin') {
           await db.execute("UPDATE users SET role = 'admin' WHERE id = ?", [userId]);
@@ -177,14 +191,14 @@ async function handleGoogleAuth(req, res) {
 
     // TOKEN DE SESIÓN DEL HUB: es la única credencial que sirve para llamar la API.
     const token = firmarSesion({
-      email, name, display_name: name, role: rol, role_title: roleTitle, picture,
+      email, name: nombreVisible, display_name: nombreVisible, role: rol, role_title: roleTitle, picture,
     });
 
     return res.json({
       success: true,
       data: {
         id: userId || googleSub,
-        name,
+        name: nombreVisible,
         email,
         role: rol,
         role_title: roleTitle,
@@ -2154,6 +2168,65 @@ function identidad(req) {
   };
 }
 
+/**
+ * Columnas de la AGENDA (lo que hace posible la cartelera real con hora y "cerca de mí").
+ *
+ * - `radar_nodes.hours`: horario de atención del lugar ("Lun a Sáb 10:00 a 18:45").
+ *   Es texto a propósito: se muestra tal cual lo cargue el CRM; inventar una
+ *   estructura de horarios que nadie va a completar sería peor que no tenerla.
+ * - `events.*`: lugar geolocalizado (`venue_id` → `venues.lat/lng`, o `lat/lng` del
+ *   propio evento), ciudad, imagen, link de entradas y la FUENTE del dato
+ *   (`source` = manual | atha | externo, `source_url`). Sin fuente no hay cartelera
+ *   externa: no se copian eventos sin decir de dónde salieron.
+ * Todo idempotente, como el resto de las columnas que crecen en producción.
+ */
+const CAMPOS_AGENDA = [
+  ['radar_nodes', 'hours', 'varchar(160) NULL'],
+  ['events', 'venue_id', 'varchar(36) NULL'],
+  ['events', 'city', 'varchar(120) NULL'],
+  ['events', 'lat', 'decimal(10,7) NULL'],
+  ['events', 'lng', 'decimal(10,7) NULL'],
+  ['events', 'is_public', 'tinyint(1) NOT NULL DEFAULT 1'],
+  ['events', 'image_url', 'varchar(512) NULL'],
+  ['events', 'ticket_url', 'varchar(512) NULL'],
+  ['events', 'source', "varchar(40) NULL DEFAULT 'manual'"],
+  ['events', 'source_url', 'varchar(512) NULL'],
+];
+
+let columnasAgendaListas = false;
+async function asegurarColumnasAgenda() {
+  if (columnasAgendaListas) return;
+  const db = getPool();
+  for (const tabla of [...new Set(CAMPOS_AGENDA.map((c) => c[0]))]) {
+    const [cols] = await db.execute(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+      [tabla]
+    );
+    const hay = new Set(cols.map((c) => c.COLUMN_NAME));
+    for (const [t, nombre, tipo] of CAMPOS_AGENDA.filter((c) => c[0] === tabla)) {
+      if (!hay.has(nombre)) {
+        await db.execute(`ALTER TABLE ${t} ADD COLUMN ${nombre} ${tipo}`);
+        console.log(`[agenda] columna agregada: ${t}.${nombre}`);
+      }
+    }
+  }
+  columnasAgendaListas = true;
+}
+
+/**
+ * ¿El nombre guardado es apenas un relleno, no un nombre elegido?
+ * Cuenta como provisional: vacío, o el prefijo del correo ("panxo.sms").
+ * Sirve para decidir si el nombre de Google (o el del teléfono) PUEDE reemplazarlo.
+ * Todo nombre real que la persona ya tiene NUNCA se pisa solo.
+ */
+function nombreProvisional(nombre, email) {
+  const n = String(nombre || '').trim();
+  if (!n) return true;
+  const prefijo = String(email || '').split('@')[0].toLowerCase().trim();
+  return !!prefijo && n.toLowerCase() === prefijo;
+}
+
 async function exploradorId(email, nombre, foto) {
   const correo = String(email || '').trim().toLowerCase();
   if (!correo) return null;
@@ -2162,13 +2235,23 @@ async function exploradorId(email, nombre, foto) {
     'SELECT id, display_name, picture FROM users WHERE LOWER(email) = ? LIMIT 1', [correo]
   );
 
-  // Ya existe: se completa nombre/foto si llegaron y antes faltaban.
+  // Ya existe: se completa nombre/foto SÓLO si faltaban.
   // Sin esto, quien se registraba por Google quedaba SIN FOTO para siempre
   // (su avatar caia al logo de ATHA en la app, que era lo que se veia).
+  //
+  // PERO hay que respetar lo que ya está: la app manda `x-atha-name` con el nombre
+  // guardado en el teléfono en CADA llamada, así que sobrescribir siempre convertía
+  // cada request en un "revertidor": alguien cambiaba su nombre, y la siguiente
+  // llamada le volvía a escribir el viejo. (Reportado: "no persiste su cambio de
+  // nombre en el perfil; los otros datos del perfil sí"). Por eso ahora:
+  //   - el nombre se completa si la cuenta no tiene (o tiene el prefijo del correo)
+  //   - la foto se completa si la cuenta no tiene
+  // Un cambio explícito de nombre/foto se hace por PATCH /radar/perfil, no por acá.
   if (filas.length) {
     const actual = filas[0];
-    const nombreNuevo = nombre ? String(nombre).slice(0, 120) : actual.display_name;
-    const fotoNueva = foto ? String(foto).slice(0, 512) : actual.picture;
+    const sinNombre = nombreProvisional(actual.display_name, correo);
+    const nombreNuevo = (sinNombre && nombre) ? String(nombre).slice(0, 120) : actual.display_name;
+    const fotoNueva = (!actual.picture && foto) ? String(foto).slice(0, 512) : actual.picture;
     if (nombreNuevo !== actual.display_name || fotoNueva !== actual.picture) {
       await db.execute('UPDATE users SET display_name = ?, picture = ? WHERE id = ?',
         [nombreNuevo, fotoNueva, actual.id]);
@@ -2183,6 +2266,37 @@ async function exploradorId(email, nombre, foto) {
      foto ? String(foto).slice(0, 512) : null]
   );
   return id;
+}
+
+/* ---------------------------------------------------------------------------
+ * Columnas del perfil que la app ofrece editar.
+ *
+ * `radar_profiles` nació con bio/city/is_public, nada más: por eso la "Organización"
+ * y las "Disciplinas" del panel de perfil se guardaban… en el teléfono y nunca en el
+ * CRM (el hub las ignoraba en silencio). Se agregan acá, idempotente, igual que las
+ * otras tablas que crecen en producción.
+ * ------------------------------------------------------------------------- */
+const CAMPOS_PERFIL_RADAR = [
+  ['org_name', "varchar(160) NULL"],
+  ['disciplines', "varchar(512) NULL"],
+];
+
+let columnasPerfilListas = false;
+async function asegurarColumnasPerfilRadar() {
+  if (columnasPerfilListas) return;
+  const db = getPool();
+  const [cols] = await db.execute(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'radar_profiles'`
+  );
+  const hay = new Set(cols.map((c) => c.COLUMN_NAME));
+  for (const [nombre, tipo] of CAMPOS_PERFIL_RADAR) {
+    if (!hay.has(nombre)) {
+      await db.execute(`ALTER TABLE radar_profiles ADD COLUMN ${nombre} ${tipo}`);
+      console.log(`[perfil] columna agregada: radar_profiles.${nombre}`);
+    }
+  }
+  columnasPerfilListas = true;
 }
 
 /** Perfil de explorador (se crea al vuelo con 0 XP). */
@@ -2213,6 +2327,8 @@ const nodoSalida = (n, distancia, descubrimiento) => ({
   cover_url: n.cover_url,
   unlock_radius_m: n.unlock_radius_m,
   qr_code: n.qr_code,
+  /** Horario de atención del lugar, si el CRM lo cargó (si no, null: no se inventa) */
+  hours: n.hours || null,
   is_published: !!n.is_published,
   created_by: n.created_by,
   created_at: n.created_at,
@@ -2234,6 +2350,8 @@ app.get('/api/v1/crm/radar/nodos', async (req, res) => {
     const userId = email ? await exploradorId(email, ident.nombre, ident.foto) : null;
 
     let sql = 'SELECT * FROM radar_nodes';
+    // Antes del SELECT *: si falta la columna del horario, se agrega ahora.
+    await asegurarColumnasAgenda();
     if (!incluir_borradores) sql += ' WHERE is_published = 1';
     sql += ' ORDER BY created_at DESC';
     const [nodos] = await db.execute(sql);
@@ -2411,6 +2529,7 @@ app.get('/api/v1/crm/radar/perfil', async (req, res) => {
     const email = req.query.email || req.headers['x-atha-email'];
     if (!email) return res.status(400).json({ ok: false, error: 'falta email' });
     const db = getPool();
+    await asegurarColumnasPerfilRadar();
     const userId = await exploradorId(email);
     const perfil = await perfilRadar(userId);
     const [desc] = await db.execute(
@@ -3385,22 +3504,60 @@ app.get('/api/v1/crm/ecosistema/artefactos', async (req, res) => {
 // ---------------------------------------------------------------------------
 // RADAR · perfil del explorador editable (bio, ciudad, visibilidad)
 // ---------------------------------------------------------------------------
+/**
+ * GUARDAR PERFIL · PATCH /api/v1/crm/radar/perfil
+ *
+ * Antes sólo guardaba bio/city/is_public: el NOMBRE venía en el body desde la app
+ * pero la app no lo mandaba (mandaba userId, bio, disciplines, city, is_public), así
+ * que el cambio de nombre se veía en pantalla y desaparecía al recargar (reportado
+ * en la prueba: "no persiste su cambio de nombre, los otros datos sí").
+ *
+ * Ahora: nombre y foto van a la CUENTA (users, que es lo que la app lee al entrar) y
+ * organización/disciplinas al perfil del radar. El `userId` del body se ignora a
+ * propósito: manda la identidad, no lo que diga el teléfono.
+ */
 app.patch('/api/v1/crm/radar/perfil', async (req, res) => {
   try {
     const b = req.body || {};
-    const email = b.email || req.headers['x-atha-email'];
+    // La identidad verificada manda: `body.email` es spoofeable (el middleware sólo
+    // normaliza cabecera y query). Sin esto, cualquiera podía cambiar el nombre de otro.
+    const email = req.headers['x-atha-email'] || b.email;
     if (!email) return res.status(400).json({ ok: false, error: 'falta email' });
     const db = getPool();
+    await asegurarColumnasPerfilRadar();
     const userId = await exploradorId(email, b.name, identidad(req).foto);
     const perfil = await perfilRadar(userId);
     const bio = b.bio !== undefined ? String(b.bio).slice(0, 1000) : perfil.bio;
     const city = b.city !== undefined ? String(b.city).slice(0, 120) : perfil.city;
     const isPublic = b.is_public !== undefined ? (b.is_public ? 1 : 0) : perfil.is_public;
-    await db.execute('UPDATE radar_profiles SET bio = ?, city = ?, is_public = ? WHERE user_id = ?',
-      [bio, city, isPublic, userId]);
-    // también actualiza el nombre visible si viene
-    if (b.name) {
-      await db.execute('UPDATE users SET display_name = ? WHERE id = ?', [String(b.name).slice(0, 120), userId]);
+    const orgName = b.org_name !== undefined ? String(b.org_name).slice(0, 160) : perfil.org_name;
+    const disciplines = b.disciplines !== undefined
+      ? JSON.stringify(
+          (Array.isArray(b.disciplines) ? b.disciplines : String(b.disciplines).split(','))
+            .map((d) => String(d).trim()).filter(Boolean).slice(0, 20)
+        ).slice(0, 512)
+      : perfil.disciplines;
+    await db.execute(
+      'UPDATE radar_profiles SET bio = ?, city = ?, is_public = ?, org_name = ?, disciplines = ? WHERE user_id = ?',
+      [bio, city, isPublic, orgName, disciplines, userId]
+    );
+
+    // Nombre visible y foto: en la CUENTA, porque /sesion (lo que la app lee al
+    // abrir) sale de users. Guardarlos sólo en radar_profiles dejaba el nombre viejo.
+    const campos = [];
+    const valores = [];
+    if (b.name !== undefined && String(b.name).trim()) {
+      campos.push('display_name = ?');
+      valores.push(String(b.name).trim().replace(/\s+/g, ' ').slice(0, 120));
+    }
+    const fotoNueva = b.avatar_url ?? b.picture;
+    if (fotoNueva !== undefined && String(fotoNueva).trim()) {
+      campos.push('picture = ?');
+      valores.push(String(fotoNueva).trim().slice(0, 500));
+    }
+    if (campos.length) {
+      valores.push(userId);
+      await db.execute(`UPDATE users SET ${campos.join(', ')} WHERE id = ?`, valores);
     }
     return res.json({ ok: true, perfil: await perfilRadar(userId) });
   } catch (e) {
@@ -3787,6 +3944,42 @@ app.get('/api/v1/crm/radar/perfil-publico', async (req, res) => {
 });
 
 /**
+ * ¿Esta cuenta puede CREAR una agrupación nueva?
+ *
+ * Dirección y producción sí; el resto pide entrar a una que ya existe (y la aprueba
+ * un administrador). Se mira el rol de la cuenta, el rol dentro de alguna compañía y
+ * la ficha de la nómina, porque las tres capas usan vocabularios distintos:
+ *   - cuenta (`users.role`): admin | director | productor/producer
+ *   - compañía (`company_members.role_in_company`): owner | director | coordinator
+ *   - nómina (`company_people`): kind 'socio' o cargo con dirección/producción
+ * Los cargos van sin acento en la comparación (`direcc%`, `producc%`) porque en el CRM
+ * conviven "Dirección General" y "Direccion General".
+ */
+const ROLES_CUENTA_DIRECCION = ['admin', 'director', 'productor', 'producer', 'ceo'];
+const ROLES_COMPANIA_DIRECCION = ['owner', 'director', 'coordinator', 'productor', 'producer'];
+
+async function puedeCrearAgrupacion(userId) {
+  const db = getPool();
+  const marcadores = ROLES_COMPANIA_DIRECCION.map(() => '?').join(', ');
+  const [filas] = await db.execute(
+    `SELECT u.role,
+            (SELECT COUNT(*) FROM company_members cm
+              WHERE cm.user_id = u.id
+                AND LOWER(COALESCE(cm.role_in_company, '')) IN (${marcadores})) AS en_compania,
+            (SELECT COUNT(*) FROM company_people cp
+              WHERE LOWER(COALESCE(cp.email, '')) = LOWER(COALESCE(u.email, ''))
+                AND (LOWER(COALESCE(cp.kind, '')) IN ('socio', 'direccion', 'director')
+                     OR LOWER(COALESCE(cp.role_title, '')) LIKE '%direcc%'
+                     OR LOWER(COALESCE(cp.role_title, '')) LIKE '%producc%')) AS en_nomina
+       FROM users u WHERE u.id = ? LIMIT 1`,
+    [...ROLES_COMPANIA_DIRECCION, userId]
+  );
+  if (!filas.length) return false;
+  const rol = String(filas[0].role || '').toLowerCase();
+  return ROLES_CUENTA_DIRECCION.includes(rol) || !!filas[0].en_compania || !!filas[0].en_nomina;
+}
+
+/**
  * MIS AGRUPACIONES · a cuáles pertenezco DE VERDAD (no los pedidos).
  *
  * Faltaba: el panel mostraba sólo las solicitudes, así que alguien que YA
@@ -3822,7 +4015,277 @@ app.get('/api/v1/crm/companias/mias', async (req, res) => {
       agrupaciones: filas,
       // La nómina es otro vínculo (equipo/elenco) y también da alcance de datos.
       nomina: nomina || [],
+      // Dirección/producción: la app muestra "crear agrupación" en el mismo selector.
+      puede_crear: await puedeCrearAgrupacion(userId),
     });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * CREAR UNA AGRUPACIÓN · POST /api/v1/crm/companias/nueva
+ *
+ * Sólo dirección/producción (ver `puedeCrearAgrupacion`). El creador NO queda como
+ * pedido: entra directo como `owner` de la compañía nueva y además se le deja ficha en
+ * la nómina, porque la app lee `company_members` y el CRM lee `company_people`; si se
+ * creara sólo una de las dos, la agrupación nacía "sin nadie" en alguno de los dos lados.
+ */
+app.post('/api/v1/crm/companias/nueva', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    // Identidad verificada antes que el body (el body es spoofeable).
+    const emailSesion = emailDeSesion(req) || ident.email;
+    if (!emailSesion) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    ident.email = emailSesion;
+    const db = getPool();
+    const userId = await exploradorId(ident.email, ident.nombre, ident.foto);
+    if (!(await puedeCrearAgrupacion(userId))) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Sólo dirección o producción puede crear una agrupación. Podés pedir entrar a una de las que ya existen.',
+      });
+    }
+
+    const nombre = String(req.body?.name || '').trim().replace(/\s+/g, ' ');
+    if (nombre.length < 3) return res.status(400).json({ ok: false, error: 'El nombre necesita al menos 3 letras.' });
+    if (nombre.length > 120) return res.status(400).json({ ok: false, error: 'El nombre es muy largo (máx. 120).' });
+
+    const [repetida] = await db.execute(
+      'SELECT id, name FROM companies WHERE LOWER(name) = LOWER(?) LIMIT 1', [nombre]
+    );
+    if (repetida.length) {
+      return res.status(409).json({
+        ok: false, error: `Ya existe una agrupación con ese nombre (${repetida[0].name}).`,
+        company_id: repetida[0].id,
+      });
+    }
+
+    // 'propia' (marca ATHA) sólo para administración: quien crea su agrupación entra
+    // como colaboradora, que es lo que es.
+    const kind = (req.body?.kind === 'propia' && (await esAdministrador(ident.email))) ? 'propia' : 'colaboradora';
+    const disciplina = String(req.body?.discipline || '').slice(0, 160);
+    const descripcion = String(req.body?.description || '').slice(0, 2000);
+    const ciudad = String(req.body?.city || '').slice(0, 120);
+    const contacto = String(req.body?.contactEmail || ident.email).slice(0, 255);
+    const id = 'comp_' + randomUUID().replace(/-/g, '').slice(0, 12);
+    const slug = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || id;
+
+    await db.execute(
+      `INSERT INTO companies (id, name, legal_name, slug, status, created_by, discipline, kind,
+         description, contact_email, city, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [id, nombre, nombre, slug, userId, disciplina, kind, descripcion, contacto, ciudad]
+    );
+
+    // El creador queda DENTRO, como owner.
+    await db.execute(
+      'INSERT INTO company_members (id, company_id, user_id, role_in_company) VALUES (?, ?, ?, ?)',
+      [idCorto('cm_'), id, userId, 'owner']
+    );
+
+    // Y con ficha en la nómina, para que el CRM la muestre igual que a las demás.
+    const [cuenta] = await db.execute('SELECT display_name, email FROM users WHERE id = ? LIMIT 1', [userId]);
+    await db.execute(
+      `INSERT INTO company_people (id, company_id, full_name, role_title, character_name, kind,
+         email, phone, created_at, updated_at)
+       VALUES (?, ?, ?, ?, '', 'equipo', ?, '', NOW(), NOW())`,
+      [randomUUID(), id, (cuenta[0] && cuenta[0].display_name) || ident.email, 'Dirección',
+       (cuenta[0] && cuenta[0].email) || ident.email]
+    );
+
+    radarEmitir('agrupacion_nueva', {
+      id, name: nombre, kind, owner: ident.email,
+      nombre_owner: ident.nombre || ident.email, para_admins: true,
+      creado: new Date().toISOString(),
+    });
+    avisarTelegram(
+      `🏛️ <b>Agrupación nueva</b>\n\n<b>${nombre}</b> la creó ${ident.nombre || ident.email}` +
+      (disciplina ? `\nDisciplina: ${disciplina}` : '') +
+      `\n\nQueda como <b>${kind}</b> y su creador entra como <b>owner</b>.`
+    ).catch(() => { /* un aviso que falla no rompe la creación */ });
+
+    return res.json({
+      ok: true,
+      company: { id, name: nombre, kind, discipline: disciplina, city: ciudad },
+      role_in_company: 'owner',
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * AGENDA CULTURAL · GET /api/v1/crm/radar/eventos
+ *
+ * Alimenta el INICIO de la app. Dos fuentes REALES, sin inventar nada:
+ *   - `eventos`: la tabla `events` (la misma que usa el calendario del CRM), con los
+ *     que todavía no pasaron y ordenados por fecha.
+ *   - `cartelera`: las obras públicas (`projects.is_public = 1`) con su agrupación.
+ * Si no hay eventos cargados, la app lo dice y muestra la cartelera; nunca rellena
+ * con datos de ejemplo (regla de la casa: si falta el dato, se ve que falta).
+ *
+ * GEOLOCALIZACIÓN: con `?lat=&lng=` cada evento trae `distance_m` (desde el lugar
+ * —`events.lat/lng` o, si falta, el `venues` del evento—) y la lista se ordena por
+ * cercanía; los eventos sin coordenadas van al final, ordenados por fecha. `radio_km`
+ * filtra por distancia (sólo aplica a los que tienen coordenadas).
+ */
+app.get('/api/v1/crm/radar/eventos', async (req, res) => {
+  try {
+    const db = getPool();
+    await asegurarColumnasAgenda();
+    const hoy = new Date().toISOString().slice(0, 10);
+    const desde = String(req.query.desde || hoy);
+    const lat = req.query.lat !== undefined ? Number(req.query.lat) : null;
+    const lng = req.query.lng !== undefined ? Number(req.query.lng) : null;
+    const radioKm = req.query.radio_km !== undefined ? Number(req.query.radio_km) : null;
+    const [eventos] = await db.execute(
+      `SELECT e.id, e.title, e.obra_id, e.obra_title, e.type, e.date, e.time_start, e.time_end,
+              e.venue, e.venue_id, e.status, e.notes, e.city, e.ticket_url, e.image_url,
+              e.lat AS lat_propia, e.lng AS lng_propia,
+              v.name AS venue_name, v.lat AS lat_venue, v.lng AS lng_venue,
+              p.discipline, p.image_url AS obra_imagen, p.location,
+              c.id AS company_id, c.name AS company_name
+         FROM events e
+         LEFT JOIN venues v ON v.id = e.venue_id
+         LEFT JOIN projects p ON p.id = e.obra_id
+         LEFT JOIN companies c ON c.id = p.company_id
+        WHERE e.date >= ? AND (e.is_public IS NULL OR e.is_public = 1)
+        ORDER BY e.date ASC, e.time_start ASC
+        LIMIT 120`,
+      [desde]
+    );
+
+    const conDistancia = eventos.map((e) => {
+      const la = e.lat_propia !== null && e.lat_propia !== undefined ? Number(e.lat_propia) : (e.lat_venue !== null ? Number(e.lat_venue) : null);
+      const lo = e.lng_propia !== null && e.lng_propia !== undefined ? Number(e.lng_propia) : (e.lng_venue !== null ? Number(e.lng_venue) : null);
+      const tiene = la !== null && lo !== null && isFinite(la) && isFinite(lo);
+      const distance = (tiene && lat !== null && lng !== null && isFinite(lat) && isFinite(lng))
+        ? Math.round(distanciaMetros(lat, lng, la, lo))
+        : null;
+      const { lat_propia, lng_propia, lat_venue, lng_venue, ...resto } = e;
+      return { ...resto, lat: la, lng: lo, tiene_coords: tiene, distance_m: distance };
+    });
+
+    let lista = conDistancia;
+    if (radioKm !== null && isFinite(radioKm) && radioKm > 0) {
+      lista = lista.filter((e) => e.distance_m === null || e.distance_m <= radioKm * 1000);
+    }
+    if (lat !== null && lng !== null) {
+      // Cercanía primero; lo que no tiene coordenadas conserva el orden por fecha.
+      const conDist = lista.filter((e) => e.distance_m !== null).sort((a, b) => a.distance_m - b.distance_m);
+      const sinDist = lista.filter((e) => e.distance_m === null);
+      lista = [...conDist, ...sinDist];
+    }
+
+    const [cartelera] = await db.execute(
+      `SELECT p.id, p.title, p.discipline, p.status, p.synopsis, p.image_url, p.location,
+              p.premiere_date, p.category, p.year,
+              c.id AS company_id, c.name AS company_name
+         FROM projects p
+         LEFT JOIN companies c ON c.id = p.company_id
+        WHERE p.is_public = 1
+        ORDER BY p.title
+        LIMIT 60`
+    );
+    return res.json({
+      ok: true, desde, eventos: lista, cartelera,
+      total_eventos: lista.length,
+      // Los que tienen lugar geolocalizado: es lo que hace posible "cerca de mí".
+      con_ubicacion: lista.filter((e) => e.tiene_coords).length,
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message, eventos: [], cartelera: [] });
+  }
+});
+
+/**
+ * PUBLICAR UN EVENTO · POST /api/v1/crm/radar/eventos
+ *
+ * Cómo se puebla la cartelera (lo que pidió Francisco): la producción carga sus
+ * funciones acá y quedan visibles en el inicio de la app con hora y lugar. Después
+ * el mismo camino sirve para lo externo (ver `source`/`source_url`: manual | atha |
+ * externo), pero cada alta externa tiene que traer SU fuente, no inventarse.
+ *
+ * Permiso: administración, o quien manda en la compañía dueña de la obra.
+ */
+app.post('/api/v1/crm/radar/eventos', async (req, res) => {
+  try {
+    await asegurarColumnasAgenda();
+    const ident = identidad(req);
+    const email = emailDeSesion(req) || ident.email;
+    if (!email) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    const db = getPool();
+    const userId = await exploradorId(email, ident.nombre, ident.foto);
+
+    const b = req.body || {};
+    const titulo = String(b.title || '').trim().replace(/\s+/g, ' ');
+    if (titulo.length < 3) return res.status(400).json({ ok: false, error: 'El título necesita al menos 3 letras.' });
+    const fecha = String(b.date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return res.status(400).json({ ok: false, error: 'La fecha va como AAAA-MM-DD.' });
+    const hora = b.time_start ? String(b.time_start).slice(0, 8) : null;
+    if (hora && !/^\d{2}:\d{2}(:\d{2})?$/.test(hora)) {
+      return res.status(400).json({ ok: false, error: 'La hora va como HH:MM.' });
+    }
+
+    // ¿Puede publicar? Admin, o dueño/dirección/coordinación de la compañía de la obra.
+    const esAdmin = await esAdministrador(email);
+    let empresaObra = null;
+    if (b.obra_id) {
+      const [o] = await db.execute('SELECT company_id FROM projects WHERE id = ? LIMIT 1', [String(b.obra_id)]);
+      empresaObra = (o[0] && o[0].company_id) || null;
+    }
+    let puede = esAdmin;
+    if (!puede && empresaObra) {
+      const [m] = await db.execute(
+        `SELECT role_in_company FROM company_members
+          WHERE user_id = ? AND company_id = ? AND LOWER(role_in_company) IN ('owner','director','coordinator','productor') LIMIT 1`,
+        [userId, empresaObra]
+      );
+      puede = m.length > 0;
+    }
+    if (!puede) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Sólo la producción de la agrupación (o administración) puede publicar eventos.',
+      });
+    }
+
+    // Lugar: venue del CRM, coordenadas propias o texto libre.
+    let venueId = b.venue_id ? String(b.venue_id).slice(0, 36) : null;
+    if (!venueId && b.venue) {
+      const [v] = await db.execute('SELECT id FROM venues WHERE LOWER(name) = LOWER(?) LIMIT 1', [String(b.venue).trim()]);
+      venueId = (v[0] && v[0].id) || null;
+    }
+    const lat = b.lat !== undefined && b.lat !== null && b.lat !== '' ? Number(b.lat) : null;
+    const lng = b.lng !== undefined && b.lng !== null && b.lng !== '' ? Number(b.lng) : null;
+
+    const id = `ev_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    const tipo = String(b.type || 'Función').slice(0, 50);
+    const estado = String(b.status || 'Confirmado').slice(0, 20);
+    await db.execute(
+      `INSERT INTO events (id, owner_id, title, obra_id, obra_title, type, date, time_start, time_end,
+         venue, venue_id, cast_count, status, notes, city, lat, lng, is_public, image_url, ticket_url,
+         source, source_url, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [id, userId, titulo, b.obra_id || null, String(b.obra_title || '').slice(0, 255) || null, tipo,
+       fecha, hora, b.time_end ? String(b.time_end).slice(0, 8) : null,
+       String(b.venue || '').slice(0, 255) || null, venueId, Number(b.cast_count) || null, estado,
+       String(b.notes || '') || null, String(b.city || '').slice(0, 120) || null,
+       isFinite(lat) ? lat : null, isFinite(lng) ? lng : null,
+       b.is_public === false ? 0 : 1, String(b.image_url || '').slice(0, 512) || null,
+       String(b.ticket_url || '').slice(0, 512) || null,
+       String(b.source || 'atha').slice(0, 40), String(b.source_url || '').slice(0, 512) || null]
+    );
+
+    radarEmitir('evento_nuevo', { id, title: titulo, date: fecha, time_start: hora, venue: b.venue || null });
+    avisarTelegram(
+      `🎭 <b>Función publicada</b>\n\n<b>${titulo}</b>\n${fecha}${hora ? ` · ${hora.slice(0, 5)}` : ''}` +
+      (b.venue ? `\n${b.venue}` : '') + `\n\nLa publicó ${ident.nombre || email}.`
+    ).catch(() => { /* un aviso que falla no rompe la publicación */ });
+
+    return res.json({ ok: true, id, title: titulo, date: fecha });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
   }
@@ -4148,7 +4611,7 @@ app.post('/api/v1/crm/piloto/inscripciones', async (req, res) => {
     );
     return res.json({
       ok: true,
-      mensaje: `${nombre}, quedaste anotado en la prueba del ecosistema FASE. Te vamos a contactar a ${email} con la fecha y el enlace.`,
+      mensaje: `${nombre}, quedaste anotado en la prueba del ecosistema FASE. Podés empezar ahora mismo con los botones de abajo.`,
     });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
@@ -4317,7 +4780,15 @@ app.get('/piloto', async (req, res) => {
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d.ok) throw new Error(d.error || 'No se pudo enviar.');
       f.style.display = 'none';
-      msg.innerHTML = '<div class="ok"><strong>¡Listo!</strong><br>' + d.mensaje + '</div>';
+      msg.innerHTML =
+        '<div class="ok"><strong>¡Listo!</strong><br>' + d.mensaje + '</div>' +
+        '<div class="ok" style="margin-top:12px">' +
+          '<strong>Empezá ahora:</strong>' +
+          '<a class="boton" style="margin-top:10px" href="https://fase-mobile-897089213264.us-central1.run.app">Abrir FASE en el navegador</a>' +
+          '<a class="boton" style="margin-top:8px;background:#a3a3a3" href="https://storage.googleapis.com/atha-crm-obras-897089213264/fase-mobile/FASE-Mobile-1.0-piloto.apk">Descargar la app (Android · APK)</a>' +
+          '<p style="font-size:11.5px;color:#a3a3a3;margin:10px 0 0">Con el mismo correo que ingresaste entrás a la app (con tu cuenta de Google). ' +
+          'Guardá este enlace: si querés, te lo reenviamos cuando coordinemos la sesión.</p>' +
+        '</div>';
     }).catch(function (e) {
       msg.innerHTML = '<div class="error">' + (e.message || 'No se pudo enviar. Probá de nuevo.') + '</div>';
       b.disabled = false; b.textContent = 'Anotarme en la prueba';
