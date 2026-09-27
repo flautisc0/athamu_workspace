@@ -4206,6 +4206,7 @@ app.get('/piloto', async (req, res) => {
   button:disabled { opacity:.6; cursor:progress }
   .pie { text-align:center; color:#737373; font-size:11px; margin-top:18px }
   .error { background:rgba(244,63,94,.12); border:1px solid rgba(244,63,94,.4); color:#fda4af; padding:10px 12px; border-radius:12px; font-size:12.5px; margin-top:14px }
+  .boton { display:block; text-align:center; margin-top:6px; padding:14px; border-radius:14px; background:#34d399; color:#052e1b; font-weight:800; font-size:15px; text-decoration:none }
   .ok { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:#6ee7b7; padding:14px; border-radius:14px; font-size:13.5px; margin-top:16px }
 </style>
 </head>
@@ -4227,7 +4228,14 @@ app.get('/piloto', async (req, res) => {
   </div>
 
   <div class="tarjeta">
-    <h2>Anotate</h2>
+    <h2>1 · Bajá la app</h2>
+    <p style="font-size:13px;color:#d4d4d4;margin:0 0 10px">Android: descargá el APK e instalalo. Si te avisa que es de un origen desconocido, elegí <strong>“Instalar de todos modos”</strong> (pasa con toda app que no viene de la Play Store). Después abrila y entrá con tu cuenta de Google.</p>
+    <a class="boton" href="https://storage.googleapis.com/atha-crm-obras-897089213264/fase-mobile/FASE-Mobile-1.0-piloto.apk">Descargar FASE Mobile · APK 14 MB</a>
+    <p style="font-size:11.5px;color:#737373;margin:10px 0 0">iPhone: todavía no hay app para iOS. Abrí <strong>fase-mobile-897089213264.us-central1.run.app</strong> en Safari y usala desde el navegador (funciona igual, con el mismo botón de reportar).</p>
+  </div>
+
+  <div class="tarjeta">
+    <h2>2 · Anotate</h2>
     <form id="f">
       <label for="nombre">Nombre y apellido *</label>
       <input id="nombre" name="nombre" required autocomplete="name" placeholder="Ej: Catalina Noa">
