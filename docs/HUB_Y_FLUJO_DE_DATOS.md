@@ -309,3 +309,19 @@ Tenoia Musicalis, TMLL) llevan la etiqueta de **grupo / proyecto** de ATHA Produ
 
 Conectar el Drive para importar datos y archivos de cada actor (ficha, fans, etc.). Diferido por
 decisión de Francisco. Los documentos oficiales de la compañía viven en la máquina "cerebro".
+
+## Rumbo acordado (2026-09-26)
+
+1. **Probar en vivo** los datos que se vayan ingresando → después de cada carga, correr
+   `scripts/auditoria_consistencia.py` (27 chequeos) para detectar cruces rotos al instante.
+2. **Poblar las rutas culturales** (nodos y rutas del radar). Pendiente de armar: importador
+   masivo CSV/JSON → `radar_nodes` / `radar_rutas`, con validación de coordenadas, portada y QR,
+   para no cargar de a uno.
+3. **Mejorar la interacción app ↔ CRM.** Regla vigente: **el CRM es la fuente de verdad**; la app
+   lee por endpoints y el teléfono es caché offline. La auditoría es la brújula.
+4. **Sitio web oficial de ATHA Producciones / F.A.S.E**, a diseñar en conjunto con Zowen. Debe
+   consumir el MISMO catálogo (compañías, artistas, nodos, montajes) para no divergir de la app
+   y el CRM.
+
+La página `/piloto` ya hace las dos cosas: descargar el APK (paso 1) y anotarse (paso 2), con la
+salida para iPhone (web).
