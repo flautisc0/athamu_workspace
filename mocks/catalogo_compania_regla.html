@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock 4 · Regla de compañía: inscribir elenco y obra nueva</title>
+<style>
+  :root{
+    --bg:#0F0D0C; --bg2:#180F0E; --bg3:#261614; --linea:rgba(255,255,255,.10);
+    --tinta:#F5F1EC; --tinta2:#A79E96; --t1:#C7563A; --t1s:rgba(199,86,58,.15);
+    --ok:#34d399; --amber:#FBBF24; --vio:#A78BFA;
+    --serif:Georgia,'Times New Roman',serif;
+    --sans:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tinta);font:13px/1.45 var(--sans)}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px}
+  h1{font:700 20px var(--serif);margin:0 0 3px}
+  h4{font:700 11px var(--sans);text-transform:uppercase;letter-spacing:.07em;color:var(--t1);margin:0 0 9px}
+  .fila{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pill{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 7px;border-radius:999px;border:1px solid var(--linea);color:var(--tinta2)}
+  .pill.ok{color:var(--ok);border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.10)}
+  .pill.amb{color:var(--amber);border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.10)}
+  .pill.vio{color:var(--vio);border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.10)}
+  .pill.ter{color:#F0A48D;border-color:rgba(199,86,58,.45);background:var(--t1s)}
+  .btn{font:600 11.5px var(--sans);padding:6px 10px;border-radius:9px;border:1px solid var(--linea);background:var(--bg3);color:var(--tinta)}
+  .btn.principal{background:var(--t1);border-color:var(--t1);color:#fff}
+  .btn.ghost{background:transparent;color:var(--tinta2)}
+  .btn.chico{font-size:10.5px;padding:3px 7px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .panel{background:var(--bg2);border:1px solid var(--linea);border-radius:16px;padding:15px}
+  .panel.dest{border-color:rgba(199,86,58,.4)}
+  .paso{display:inline-flex;align-items:center;gap:6px;font:700 10px var(--sans);color:var(--t1);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+  .num{width:17px;height:17px;border-radius:999px;background:var(--t1);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px}
+  .campo{margin-bottom:9px}
+  .campo label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--tinta2);margin-bottom:3px;font-weight:700}
+  .input{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--linea);border-radius:9px;padding:7px 9px;color:var(--tinta);font:12px var(--sans)}
+  .opcion{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--linea);border-radius:12px;padding:10px;margin-bottom:7px;background:rgba(0,0,0,.2)}
+  .opcion.on{border-color:var(--t1);background:var(--t1s)}
+  .radio{width:14px;height:14px;border-radius:999px;border:1.5px solid var(--tinta2);flex:0 0 auto;margin-top:2px}
+  .radio.on{border-color:var(--t1);background:radial-gradient(circle,var(--t1) 42%,transparent 46%)}
+  .opcion b{font-size:12px;display:block}
+  .opcion .mini{font-size:10.5px;color:var(--tinta2)}
+  table{width:100%;border-collapse:collapse}
+  td{padding:7px 5px;border-bottom:1px solid var(--linea);vertical-align:middle;font-size:12px}
+  tr:last-child td{border-bottom:0}
+  .av{width:26px;height:26px;border-radius:999px;background:linear-gradient(135deg,#C7563A,#7A3223);display:flex;align-items:center;justify-content:center;font:700 9.5px var(--sans);color:#fff}
+  .nom{font-weight:600}.mini{font-size:10px;color:var(--tinta2)}
+  .check{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--tinta2);display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent}
+  .check.on{border-color:var(--ok);background:rgba(52,211,153,.18);color:var(--ok)}
+  .aviso{display:flex;gap:7px;font-size:10.5px;color:var(--tinta2);background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.25);border-radius:10px;padding:8px 9px;margin-top:10px}
+  .aviso.amb{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.28)}
+  .nota{font-size:10.5px;color:var(--tinta2);margin-top:8px}
+  .marca{position:fixed;right:12px;bottom:10px;font-size:10px;color:var(--tinta2);background:rgba(0,0,0,.65);border:1px solid var(--linea);padding:4px 8px;border-radius:999px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Regla de compañía · inscribir elenco y obra nueva</h1>
+  <p class="mini" style="max-width:760px">Todo integrante inscrito en una obra pertenece a una <b>compañía registrada</b>. Nunca se escriben nombres sueltos: se eligen de una nómina, o se crea la compañía/elenco ahí mismo.</p>
+
+  <div class="grid2">
+    <!-- ================= A: inscribir elenco ================= -->
+    <div class="panel dest">
+      <div class="paso"><span class="num">A</span> Inscribir elenco en la obra «Radojka»</div>
+      <div class="campo"><label>De dónde sale el elenco</label>
+        <div class="opcion on"><div class="radio on"></div><div><b>Nómina de la compañía que presenta: TMLL</b><div class="mini">Elenco estable · 11 integrantes registrados · vienen preseleccionados los que ya trabajan acá</div></div></div>
+        <div class="opcion"><div class="radio"></div><div><b>Buscar en otra compañía registrada</b><div class="mini">Coproducción o invitado: se marca «de otra compañía» y queda el rastro de dónde viene</div></div></div>
+        <div class="opcion"><div class="radio"></div><div><b>Crear compañía / elenco nuevo</b><div class="mini">Si el elenco es nuevo: se crea la compañía (colaboradora) + sus integrantes, y desde ahí se inscribe</div></div></div>
+      </div>
+
+      <table style="margin-top:4px">
+        <tr><td style="width:26px"><div class="check on">✓</div></td><td style="width:32px"><span class="av">MR</span></td>
+            <td><div class="nom">Marion Ramírez <span class="pill ok">cuenta</span></div><div class="mini">Olga · elenco · TMLL</div></td>
+            <td class="mini" style="text-align:right">rol en la obra ▾</td></tr>
+        <tr><td><div class="check on">✓</div></td><td><span class="av" style="background:linear-gradient(135deg,#4A5D8A,#2E3A57)">JT</span></td>
+            <td><div class="nom">Joaquín Toledo <span class="pill amb">sin cuenta</span></div><div class="mini">Raquel · elenco + dirección · TMLL</div></td>
+            <td class="mini" style="text-align:right">invitar por correo</td></tr>
+        <tr><td><div class="check"></div></td><td><span class="av" style="background:linear-gradient(135deg,#6B7A5A,#3E4A34)">CL</span></td>
+            <td><div class="nom">Claudia León</div><div class="mini">Vestuario · equipo · TMLL</div></td>
+            <td class="mini" style="text-align:right">rol en la obra ▾</td></tr>
+        <tr><td><div class="check"></div></td><td><span class="av" style="background:linear-gradient(135deg,#8A5D9E,#4B3160)">MM</span></td>
+            <td><div class="nom">Miyalí Irigoin <span class="pill vio">de otra compañía</span></div><div class="mini">Lumínica · TMLL · invitada</div></td>
+            <td class="mini" style="text-align:right">rol en la obra ▾</td></tr>
+      </table>
+      <div class="fila" style="justify-content:flex-end;margin-top:10px"><button class="btn">Cancelar</button><button class="btn principal">Inscribir 2 integrantes</button></div>
+    </div>
+
+    <!-- ================= B: obra nueva ================= -->
+    <div class="panel dest">
+      <div class="paso"><span class="num">B</span> Nueva obra</div>
+      <div class="campo"><label>Título</label><input class="input" value="El día que se apagó la radio" /></div>
+      <div class="campo"><label>¿Quién la presenta?</label>
+        <div class="opcion on"><div class="radio on"></div><div><b>Compañía registrada</b><div class="mini">Se elige de las 11 registradas (TMLL, ATHA Kids, Tenoia Musicalis, …) y su elenco queda como <b>elenco estable por defecto</b></div></div></div>
+        <div class="opcion"><div class="radio"></div><div><b>Crear compañía / elenco nuevo</b><div class="mini">Se crea acá mismo: nombre, tipo (propia / colaboradora) y su nómina inicial. La obra queda bajo esa compañía</div></div></div>
+      </div>
+      <div class="campo"><label>Elenco estable por defecto</label><select class="input"><option>TMLL — 11 integrantes (preseleccionados)</option><option>TMLL — sólo elencO artístico (5)</option><option>Sin elenco por ahora (se inscribe después)</option></select></div>
+      <div class="campo"><label>Disciplina / sub-disciplina</label><input class="input" value="Teatro · comedia" /></div>
+      <div class="aviso amb"><span>⚠</span><div>Sin compañía no se guarda la obra: es la que da <b>elenco, logo y permisos</b>. Si es una obra de una compañía que no está registrada, se crea en este paso (crear la compañía no es un módulo aparte: son 3 campos).</div></div>
+      <div class="fila" style="justify-content:flex-end;margin-top:10px"><button class="btn">Cancelar</button><button class="btn principal">Crear obra y seguir con la ficha</button></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <h4>Qué cambia con esta regla</h4>
+    <div class="fila" style="align-items:flex-start">
+      <div style="flex:1;min-width:230px"><div class="nom">Sin nombres sueltos</div><div class="mini">Cada integrante de una obra existe en la nómina de una compañía → la red queda coherente (es lo que ya usan Compañías y la app).</div></div>
+      <div style="flex:1;min-width:230px"><div class="nom">Se deja de reescribir</div><div class="mini">Al montar la siguiente obra, el elenco estable llega marcado: inscribes con un clic.</div></div>
+      <div style="flex:1;min-width:230px"><div class="nom">Doble rol, sin ambigüedad</div><div class="mini">Rol en la compañía (socio/elenco/equipo) + rol en la obra (dirección/elenco/técnica, con personaje). Los privilegios cuelgan del rol en la obra.</div></div>
+      <div style="flex:1;min-width:230px"><div class="nom">Una sola puerta</div><div class="mini">Dirección/producción inscribe; si no tiene cuenta, se invita por correo y entra con ese rol.</div></div>
+    </div>
+  </div>
+</div>
+<div class="marca">MOCK 4 · nada guardado</div>
+</body>
+</html>

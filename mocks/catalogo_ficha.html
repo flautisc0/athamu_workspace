@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock 2 · Ficha de registro por disciplina + archivos anexos</title>
+<style>
+  :root {
+    --bg-base:#0F0D0C; --bg-2:#180F0E; --bg-3:#261614; --linea:rgba(255,255,255,.10);
+    --tinta:#F5F1EC; --tinta2:#A79E96; --terracota:#C7563A; --terracota-suave:rgba(199,86,58,.15);
+    --ok:#34d399; --amber:#FBBF24; --violeta:#A78BFA; --cielo:#7DD3FC;
+    --serif:Georgia,'Times New Roman',serif;
+    --sans:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg-base); color:var(--tinta); font:13px/1.45 var(--sans); }
+  .top { display:flex; align-items:center; gap:10px; padding:11px 18px; border-bottom:1px solid var(--linea); background:var(--bg-2); }
+  .logo { font:700 14px var(--serif); } .logo span { color:var(--terracota); }
+  .tabs { display:flex; gap:5px; margin-left:16px; flex-wrap:wrap; }
+  .tab { font-size:11px; padding:4px 9px; border-radius:8px; color:var(--tinta2); }
+  .tab.on { color:var(--tinta); background:var(--bg-3); border:1px solid var(--linea); }
+  .wrap { max-width:1180px; margin:0 auto; padding:18px 18px 40px; }
+  h1 { font:700 22px var(--serif); margin:0 0 3px; }
+  h4 { font:700 11px var(--sans); text-transform:uppercase; letter-spacing:.07em; color:var(--terracota); margin:14px 0 8px; }
+  h5 { font:700 11px var(--sans); text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); margin:12px 0 7px; }
+  .sub { color:var(--tinta2); font-size:12px; max-width:660px; }
+  .fila { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .pill { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:3px 7px; border-radius:999px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.teatro { color:#F0A48D; border-color:rgba(199,86,58,.45); background:var(--terracota-suave); }
+  .pill.musica { color:var(--cielo); border-color:rgba(125,211,252,.35); background:rgba(125,211,252,.10); }
+  .pill.inter { color:var(--violeta); border-color:rgba(167,139,250,.35); background:rgba(167,139,250,.10); }
+  .btn { font:600 11.5px var(--sans); padding:6px 11px; border-radius:9px; border:1px solid var(--linea); background:var(--bg-3); color:var(--tinta); cursor:pointer; }
+  .btn.principal { background:var(--terracota); border-color:var(--terracota); color:#fff; }
+  .btn.ghost { background:transparent; color:var(--tinta2); }
+  .btn.chico { font-size:10.5px; padding:3px 8px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px; }
+  .card { background:var(--bg-2); border:1px solid var(--linea); border-radius:15px; overflow:hidden; }
+  .card .foto { height:112px; background:linear-gradient(135deg,#2A1815,#3A231D); position:relative; display:flex; align-items:flex-end; padding:9px; }
+  .card .foto .tipo { position:absolute; top:8px; left:8px; }
+  /* logo de la compañía que presenta */
+  .card .logo-comp { position:absolute; top:8px; right:8px; display:flex; align-items:center; gap:5px; background:rgba(0,0,0,.55); border:1px solid var(--linea); border-radius:999px; padding:3px 8px 3px 3px; }
+  .card .logo-comp .cubo { width:20px; height:20px; border-radius:6px; background:linear-gradient(135deg,#C7563A,#8A3B2A); display:flex; align-items:center; justify-content:center; font:700 9px var(--sans); color:#fff; }
+  .card .logo-comp b { font-size:9.5px; font-weight:600; color:#EDE7E1; }
+  .card .cuerpo { padding:11px 12px 13px; }
+  .card h3 { font:700 14.5px var(--serif); margin:0 0 2px; }
+  .card .meta { color:var(--tinta2); font-size:11px; margin-bottom:8px; }
+  .estado { display:flex; align-items:center; gap:6px; font-size:10.5px; margin-bottom:9px; color:var(--tinta2); }
+  .dot { width:6px; height:6px; border-radius:50%; } .dot.si { background:var(--ok); } .dot.parcial { background:var(--amber); }
+  .panel { background:var(--bg-2); border:1px solid var(--linea); border-radius:16px; padding:16px; margin-top:14px; }
+  .dos { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .tres { display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; }
+  .campo { margin-bottom:9px; }
+  .campo label { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); margin-bottom:3px; font-weight:700; }
+  .input { width:100%; background:rgba(0,0,0,.35); border:1px solid var(--linea); border-radius:9px; padding:7px 9px; color:var(--tinta); font:12px var(--sans); }
+  .bloque { background:rgba(0,0,0,.22); border:1px solid var(--linea); border-radius:13px; padding:11px 12px; margin-top:10px; }
+  .bloque .cab { display:flex; align-items:center; gap:7px; margin-bottom:8px; }
+  .bloque .cab b { font:700 12px var(--sans); }
+  .bloque .cab .pill { margin-left:auto; }
+  .apagado { opacity:.42; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:8px 5px; border-bottom:1px solid var(--linea); vertical-align:middle; font-size:12px; }
+  tr:last-child td { border-bottom:0; }
+  .ico { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:12px; background:var(--bg-3); border:1px solid var(--linea); }
+  .nom { font-weight:600; } .mini { font-size:10px; color:var(--tinta2); }
+  .acciones { display:flex; gap:4px; justify-content:flex-end; }
+  .upload { border:1.5px dashed rgba(199,86,58,.45); background:var(--terracota-suave); border-radius:12px; padding:12px; text-align:center; }
+  .upload b { display:block; font-size:12px; } .upload span { font-size:10.5px; color:var(--tinta2); }
+  .aviso { display:flex; gap:7px; font-size:11px; color:var(--tinta2); background:rgba(52,211,153,.07); border:1px solid rgba(52,211,153,.25); border-radius:11px; padding:8px 10px; margin-top:10px; }
+  .nota { font-size:11px; color:var(--tinta2); margin-top:8px; }
+  .sep { border-top:1px solid var(--linea); margin:13px 0; }
+  .marca { position:fixed; right:12px; bottom:10px; font-size:10px; color:var(--tinta2); background:rgba(0,0,0,.65); border:1px solid var(--linea); padding:4px 8px; border-radius:999px; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">ATHA <span>·</span> CRM</div>
+  <div class="tabs">
+    <div class="tab">Dashboard</div><div class="tab">Compañías</div>
+    <div class="tab on">Catálogo de obras</div><div class="tab">CRM / Leads</div>
+    <div class="tab">Ventas</div><div class="tab">Inventario</div><div class="tab">Finanzas</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="fila" style="justify-content:space-between;align-items:flex-start">
+    <div>
+      <h1>Catálogo de obras & espectáculos</h1>
+      <p class="sub">13 obras · 3 disciplinas en uso. <b>La ficha es la fuente de verdad</b> (de acá salen la cartelera, el cruce con espacios y el dossier); los archivos son anexos.</p>
+    </div>
+    <button class="btn principal">+ Nueva obra</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="foto">
+        <span class="pill teatro tipo">Teatro · comedia</span>
+        <span class="logo-comp"><span class="cubo">TM</span><b>TMLL</b></span>
+      </div>
+      <div class="cuerpo">
+        <h3>Radojka</h3>
+        <div class="meta">Comedia de humor negro · 80 min</div>
+        <div class="estado"><span class="dot si"></span> Ficha completa · 2 anexos</div>
+        <div class="fila"><button class="btn chico">Abrir ficha</button><button class="btn chico principal">⤓ Dossier</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="foto">
+        <span class="pill musica tipo">Música · orquesta</span>
+        <span class="logo-comp"><span class="cubo">Te</span><b>Tenoia</b></span>
+      </div>
+      <div class="cuerpo">
+        <h3>Tenoia Musicalis</h3>
+        <div class="meta">Orquesta / ensamble · dossier 2026</div>
+        <div class="estado"><span class="dot parcial"></span> Faltan rider y set list</div>
+        <div class="fila"><button class="btn chico">Abrir ficha</button><button class="btn chico principal">⤓ Dossier</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="foto">
+        <span class="pill teatro tipo">Teatro · infantil</span>
+        <span class="logo-comp"><span class="cubo">AK</span><b>ATHA Kids</b></span>
+      </div>
+      <div class="cuerpo">
+        <h3>Robo navideño</h3>
+        <div class="meta">Musical familiar · 8 en elenco</div>
+        <div class="estado"><span class="dot parcial"></span> Sin dossier · ficha a medias</div>
+        <div class="fila"><button class="btn chico">Abrir ficha</button><button class="btn chico">Completar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="fila" style="justify-content:space-between;align-items:flex-start">
+      <div class="fila">
+        <div class="ico" style="width:42px;height:42px;font-size:17px">🎭</div>
+        <div>
+          <div class="fila"><h1 style="font-size:19px;margin:0">Radojka</h1><span class="pill teatro">Teatro · comedia</span></div>
+          <div class="mini" style="color:var(--tinta2)">Presenta: <b style="color:#EDE7E1">TMLL</b> · estreno 2024 · 80 min · todo espectador</div>
+        </div>
+      </div>
+      <div class="fila">
+        <button class="btn">Editar ficha</button><button class="btn">Ver en la app</button>
+        <button class="btn principal">⤓ Dossier (PDF)</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="dos">
+      <!-- FICHA DE REGISTRO -->
+      <div>
+        <h4>1 · Ficha de registro</h4>
+        <div class="tres">
+          <div class="campo"><label>Disciplina</label><select class="input"><option>Teatro</option><option>Música</option><option>Interdisciplinar</option><option>Danza</option><option>Performance</option><option>Circo</option></select></div>
+          <div class="campo"><label>Sub-disciplina</label><select class="input"><option>Comedia</option><option>Drama</option><option>Infantil</option><option>Musical</option><option>Calle</option></select></div>
+          <div class="campo"><label>Compañía que presenta</label><select class="input"><option>TMLL</option><option>ATHA Kids</option><option>Tenoia Musicalis</option></select></div>
+        </div>
+        <div class="campo"><label>Sinopsis (1–2 líneas, para la cartelera)</label><input class="input" value="Comedia de humor negro: dos hermanas, un velorio y una herencia." /></div>
+        <div class="campo"><label>Descripción larga</label><input class="input" value="Obra de teatro con música en vivo, para sala mediana." /></div>
+        <div class="tres">
+          <div class="campo"><label>Duración</label><input class="input" value="80 min" /></div>
+          <div class="campo"><label>Público</label><input class="input" value="+14" /></div>
+          <div class="campo"><label>Estado</label><select class="input"><option>En cartelera</option><option>En repertorio</option><option>En creación</option></select></div>
+        </div>
+
+        <h4>Bloques según la disciplina</h4>
+        <div class="bloque">
+          <div class="cab"><span>🎭</span><b>Teatro</b><span class="pill teatro">aplica</span></div>
+          <div class="tres">
+            <div class="campo"><label>Dramaturgia</label><input class="input" value="J. Toledo" /></div>
+            <div class="campo"><label>Dirección</label><input class="input" value="A. Fernández" /></div>
+            <div class="campo"><label>Elenco en gira</label><input class="input" value="3" /></div>
+          </div>
+          <div class="campo"><label>Elenco y personajes (por obra, no en la compañía)</label>
+            <input class="input" value="M. Ramírez → Olga · J. Toledo → Raquel · F. Naranjo → El cura" /></div>
+        </div>
+
+        <div class="bloque apagado">
+          <div class="cab"><span>🎼</span><b>Música</b><span class="pill">no aplica</span></div>
+          <div class="nota">Formación e instrumentos · set list · backline · rider de sonido y luces. Se activa si la disciplina es Música o si la obra lleva música en vivo.</div>
+        </div>
+
+        <div class="bloque apagado">
+          <div class="cab"><span>🎪</span><b>Performance / Circo</b><span class="pill">no aplica</span></div>
+          <div class="nota">Espacio (interior/exterior), medidas y altura, rigging, seguridad, aforo, duración por función.</div>
+        </div>
+
+        <div class="bloque">
+          <div class="cab"><span>🛠</span><b>Técnico (común)</b><span class="pill">aplica</span></div>
+          <div class="tres">
+            <div class="campo"><label>Ancho mín.</label><input class="input" value="6 m" /></div>
+            <div class="campo"><label>Profundidad mín.</label><input class="input" value="5 m" /></div>
+            <div class="campo"><label>Alto mín.</label><input class="input" value="3 m" /></div>
+          </div>
+          <div class="tres">
+            <div class="campo"><label>Carga / descarga</label><input class="input" value="3 h" /></div>
+            <div class="campo"><label>Personal requerido</label><input class="input" value="2 técnicos" /></div>
+            <div class="campo"><label>Electricidad</label><input class="input" value="2 × 32 A" /></div>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <div class="cab"><span>💵</span><b>Económico (común)</b><span class="pill">aplica</span></div>
+          <div class="tres">
+            <div class="campo"><label>Fee por función</label><input class="input" value="$450.000" /></div>
+            <div class="campo"><label>% taquilla</label><input class="input" value="70 %" /></div>
+            <div class="campo"><label>Traslados</label><input class="input" value="aparte" /></div>
+          </div>
+        </div>
+
+        <div class="fila" style="margin-top:12px">
+          <button class="btn principal">Guardar ficha</button>
+          <button class="btn">Descartar</button>
+          <span class="mini" style="color:var(--tinta2)">Guardado explícito, sin autoguardado.</span>
+        </div>
+      </div>
+
+      <!-- ANEXOS -->
+      <div>
+        <h4>2 · Anexos de la obra</h4>
+        <div class="upload">
+          <b>Arrastra el archivo o elige uno</b>
+          <span>PDF, Word, imágenes · hasta 25 MB · videos como enlace</span>
+          <div class="fila" style="justify-content:center;margin-top:8px">
+            <button class="btn principal chico">Subir archivo</button><button class="btn chico">Agregar enlace</button>
+          </div>
+        </div>
+        <table style="margin-top:10px">
+          <tr><td style="width:32px"><div class="ico">📄</div></td>
+              <td><div class="nom">Dossier Radojka 2026.pdf</div><div class="mini">Dossier · 2,4 MB · Panxo · 12/09</div></td>
+              <td class="acciones"><button class="btn chico">Abrir</button><button class="btn chico ghost">Borrar</button></td></tr>
+          <tr><td><div class="ico">🗞</div></td>
+              <td><div class="nom">Nota en El Rancagüino</div><div class="mini">Prensa · enlace</div></td>
+              <td class="acciones"><button class="btn chico">Abrir</button><button class="btn chico ghost">Borrar</button></td></tr>
+          <tr><td><div class="ico">▶</div></td>
+              <td><div class="nom">Trailer oficial</div><div class="mini">Video (enlace) · youtube.com/watch?v=DOWcxVmBMt0</div></td>
+              <td class="acciones"><button class="btn chico">Abrir</button><button class="btn chico ghost">Borrar</button></td></tr>
+          <tr><td><div class="ico">🛠</div></td>
+              <td><div class="nom">Rider técnico</div><div class="mini">Ficha técnica · sin archivo</div></td>
+              <td class="acciones"><button class="btn chico">Subir</button></td></tr>
+        </table>
+
+        <div class="aviso">
+          <span>✓</span>
+          <div><b>Sin repetir trabajo:</b> el <b>dossier se genera desde la ficha</b> (título, sinopsis, elenco, técnico, económico, fotos). Si igual quieres subir tu PDF armado, va acá como anexo y manda el tuyo.</div>
+        </div>
+        <div class="nota"><b>Logo de la compañía:</b> se sube en Compañías y aparece en la tarjeta, en la ficha y en el dossier generado. Hoy la tabla de compañías no tiene logo: hay que agregarlo (cambio chico).</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="marca">MOCK 2 · nada guardado</div>
+</body>
+</html>

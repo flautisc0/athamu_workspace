@@ -118,11 +118,31 @@ export function rolParaArtefacto(u: SesionCrm): string {
   return 'artist';
 }
 
-/** URL del artefacto con la identidad y el rol puestos (si hay sesión). */
-export function urlConSesion(id: string, url: string): string {
-  if (!CON_SESION.has(id)) return url;
+/**
+ * URL del artefacto con la identidad y el rol puestos (si hay sesión).
+ *
+ * `extra` agrega datos del contexto: por ejemplo `{ obra: '<id de la obra>' }` para que el
+ * Planner o el Arquitecto abran el montaje que se estaba mirando en el CRM.
+ */
+export function urlConSesion(id: string, url: string, extra?: Record<string, string>): string {
+  const agregar = (p: URLSearchParams) => {
+    if (extra) for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
+  };
+  if (!CON_SESION.has(id)) {
+    if (!extra) return url;
+    const q = new URLSearchParams();
+    agregar(q);
+    const cadena = q.toString();
+    return cadena ? `${url}${url.includes('?') ? '&' : '?'}${cadena}` : url;
+  }
   const u = leerSesionCrm();
-  if (!u || !u.email) return url;
+  if (!u || !u.email) {
+    if (!extra) return url;
+    const q = new URLSearchParams();
+    agregar(q);
+    const cadena = q.toString();
+    return cadena ? `${url}${url.includes('?') ? '&' : '?'}${cadena}` : url;
+  }
 
   const p = new URLSearchParams();
   p.set('auth', '1');
@@ -131,6 +151,7 @@ export function urlConSesion(id: string, url: string): string {
   p.set('role', rolParaArtefacto(u));
   p.set('roleTitle', u.roleTitle || u.role);
   if (u.avatar) p.set('picture', u.avatar);
+  agregar(p);
 
   return `${url}${url.includes('?') ? '&' : '?'}${p.toString()}`;
 }

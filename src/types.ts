@@ -33,8 +33,18 @@ export interface Obra {
   premiereDate: string;
   image: string;
   dossierHighlights: string[];
-  /** Ruta al dossier PDF completo alojado en el sitio (ej: /obras/kelu/dossier.pdf) */
+  /** URL del dossier PDF real (sale de la tabla de archivos de la obra, tipo `dossier`). */
   dossierPdf?: string;
+  /** El mismo dato con el nombre que usa el hub en el catálogo enriquecido. */
+  dossierUrl?: string;
+  /** Compañía que presenta la obra (y su logo). */
+  companyId?: string;
+  companyName?: string;
+  logoUrl?: string;
+  /** Archivos de la obra: dossier, rider, prensa, fotos, video. */
+  files?: any[];
+  /** Bloques por disciplina (música, teatro, técnico…) guardados en `projects.ficha`. */
+  ficha?: any;
   notes?: string;
 }
 

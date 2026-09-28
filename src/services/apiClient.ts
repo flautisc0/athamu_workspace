@@ -130,15 +130,22 @@ export function normalizeObra(p: any): any {
     ? highlightsRaw
     : safeJson<string[]>(highlightsRaw, []);
 
-  const dossierPdf = highlights.find(
-    (h) => typeof h === 'string' && h.trim().startsWith('/obras/')
-  ) || '';
+  // El dossier REAL sale de la tabla de archivos de la obra (`dossier_url`), no de adivinar
+  // dentro de dossier_highlights: esa regla (`empieza con /obras/`) no coincidía con las URLs
+  // guardadas, así que el botón "Dossier PDF" nunca mostró nada aunque el archivo existía.
+  const dossierPdf = p.dossier_url || p.dossierUrl || (typeof p.dossierPdf === 'string' ? p.dossierPdf : '');
 
   return {
     ...p,
     image: p.image || p.image_url || '',
     dossierHighlights: highlights,
     dossierPdf,
+    dossierUrl: dossierPdf,
+    companyId: p.company_id || p.companyId || '',
+    companyName: p.company_name || p.companyName || '',
+    logoUrl: p.logo_url || p.logoUrl || '',
+    files: Array.isArray(p.files) ? p.files : [],
+    ficha: p.ficha && typeof p.ficha === 'object' ? p.ficha : {},
     targetAudience: p.targetAudience || p.target_audience || 'Todo espectador',
     premiereDate: p.premiereDate || p.premiere_date || '',
     castTeam: p.castTeam && typeof p.castTeam === 'object'

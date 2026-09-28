@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tablero del piloto · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A; --alerta:#C98A1E; --malo:#8A3B6B;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  a { color:var(--acento); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1120px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .marca img { width:26px; height:26px; }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  main { max-width:1120px; margin:0 auto; padding:16px 16px 40px; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-bottom:8px; }
+  .kpi { background:var(--tarjeta); border:1px solid var(--linea); border-radius:16px; padding:12px 14px; }
+  .kpi .n { font:700 26px var(--serif); line-height:1.1; }
+  .kpi .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); margin-top:2px; }
+  .kpi .sub { font-size:11px; color:var(--tinta2); margin-top:4px; }
+  .kpi.acento .n { color:var(--acento); }
+  .kpi.ok .n { color:var(--ok); }
+  .kpi.alerta .n { color:var(--alerta); }
+  h2 { font:700 15px var(--serif); margin:22px 0 8px; }
+  .dos { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:12px; }
+  .panel { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:12px 14px; }
+  .panel h3 { font:700 13px var(--serif); margin:0 0 6px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:6px 6px; border-bottom:1px solid var(--linea); font-size:12px; vertical-align:top; }
+  th { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); }
+  tr:last-child td { border-bottom:0; }
+  .mini { font-size:11px; color:var(--tinta2); }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 6px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.ok { border-color:var(--ok); color:var(--ok); }
+  .pill.nuevo { border-color:var(--acento); color:var(--acento); background:var(--acento-suave); }
+  .pill.ext { border-color:var(--malo); color:var(--malo); }
+  .barras { display:flex; align-items:flex-end; gap:3px; height:54px; margin-top:6px; }
+  .barras div { flex:1; background:var(--acento); border-radius:3px 3px 0 0; min-height:2px; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .aviso-sesion { background:#FDF6E8; border:1px solid var(--alerta); color:#7a5410; border-radius:12px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> Tablero del piloto</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="sinSesion" class="aviso-sesion" style="display:none"></div>
+
+  <div class="barra">
+    <button class="btn" id="btnRecargar">Recargar</button>
+    <span class="mini" id="generado"></span>
+  </div>
+
+  <div id="contenido"></div>
+
+  <div class="mini" style="margin-top:22px">
+    Es la lectura del plan de prueba: <b>descubrimientos por persona</b> es la métrica estrella
+    (que el radar lleve a la puerta), y <b>reportes por pantalla</b> dice dónde duele. El ritual es
+    semanal: mirar esto 30 minutos, cerrar los reportes con nota y elegir <b>máximo dos arreglos</b>.
+  </div>
+</main>
+
+<script>
+var EMAIL = '';
+try {
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['user_session', 'atha_user_session', 'atha_user_profile'];
+  for (var i = 0; i < CLAVES.length && !EMAIL; i++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[i]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function cabeceras() { var c = { 'Content-Type': 'application/json' }; if (EMAIL) c['x-atha-email'] = EMAIL; return c; }
+function kpi(n, t, sub, clase) {
+  return '<div class="kpi ' + (clase || '') + '"><div class="n">' + n + '</div><div class="t">' + t + '</div>' +
+    (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>';
+}
+function tabla(filas, cols) {
+  if (!filas || !filas.length) return '<p class="mini">Sin datos todavía.</p>';
+  var head = '<tr>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '</tr>';
+  var body = filas.map(function (f) {
+    return '<tr>' + cols.map(function (c) { return '<td>' + c[1](f) + '</td>'; }).join('') + '</tr>';
+  }).join('');
+  return '<table>' + head + body + '</table>';
+}
+function fechaCorta(t) { return String(t || '').slice(0, 16).replace('T', ' '); }
+function lista(obj) {
+  if (!obj || !obj.length) return '<p class="mini">Sin datos.</p>';
+  return obj.map(function (o) {
+    var k = o.c || o.e || o.p || o.s || o.t || o.dia || o.nombre || o.title || o.destino || '(sin dato)';
+    var v = (o.n !== undefined) ? o.n : '';
+    return '<span class="pill">' + esc(k) + (v !== '' ? ' · ' + v : '') + '</span> ';
+  }).join('');
+}
+
+function pintar(d) {
+  var cont = document.getElementById('contenido');
+  if (!d || !d.ok) { cont.innerHTML = ''; return; }
+  var html = '';
+  var rad = d.radar || {}, rep = d.reportes || {}, ins = d.inscripciones || {};
+  var muro = d.muro || {}, ag = d.agenda || {}, ru = d.rutas || {}, agru = d.agrupaciones || {}, cor = d.correos || {}, disp = d.dispositivos || {};
+  var desc = rad.descubrimientos || {}, nodos = rad.nodos || {}, posts = muro.posts || {};
+  var nuevos = ((rep.por_estado || []).find(function (x) { return x.e === 'nuevo'; }) || {}).n || 0;
+
+  /* --- lo que importa de un vistazo --- */
+  html += '<div class="grid">' +
+    kpi(desc.total || 0, 'lugares descubiertos', (desc.personas || 0) + ' personas', 'acento') +
+    kpi(ins.total || 0, 'anotados al piloto', lista(ins.por_estado).replace(/<[^>]+>/g, '').trim() || '', '') +
+    kpi(nuevos, 'reportes sin leer', 'total ' + ((rep.por_estado || []).reduce(function (a, x) { return a + x.n; }, 0)) || 0, nuevos > 0 ? 'acento' : 'ok') +
+    kpi(posts.total || 0, 'publicaciones en el muro', (posts.autores || 0) + ' autores', '') +
+    kpi((ag.eventos || {}).publicados || 0, 'funciones publicadas', ((ag.eventos || {}).externos || 0) + ' con fuente externa', '') +
+    kpi((nodos.publicados || 0), 'lugares en el radar', (nodos.sin_coordenada || 0) + ' sin coordenada', '') +
+    '</div>';
+
+  /* --- uso de los últimos 7 días: ¿la gente está volviendo? --- */
+  html += '<h2>Uso de los últimos 7 días</h2><div class="grid">' +
+    kpi((disp.activos_7d || [{}])[0].personas || 0, 'descubrieron algo', '', '') +
+    kpi((disp.publicaron_7d || [{}])[0].personas || 0, 'publicaron', '', '') +
+    kpi((disp.reportaron_7d || [{}])[0].personas || 0, 'reportaron', '', '') +
+    kpi((ru.rutas || {}).total || 0, 'rutas cargadas', (ru.paradas || 0) + ' paradas · ' + (ru.con_progreso || 0) + ' con avance', '') +
+    '</div>';
+
+  html += '<div class="dos">';
+
+  /* --- quién avanza --- */
+  html += '<div class="panel"><h3>Quiénes avanzan</h3>' +
+    tabla(rad.top_exploradores, [
+      ['Persona', function (f) { return '<b>' + esc(f.display_name || f.email || '—') + '</b><div class="mini">' + esc(f.email || '') + '</div>'; }],
+      ['Lugares', function (f) { return f.n; }],
+      ['Último', function (f) { return '<span class="mini">' + fechaCorta(f.ultimo) + '</span>'; }],
+    ]) +
+    '<div class="mini" style="margin-top:8px">Descubrimientos por día (14 días)</div>' +
+    '<div class="barras">' + (function () {
+      var dias = rad.ultimos_14_dias || [];
+      var max = Math.max.apply(null, dias.map(function (x) { return x.n; }).concat([1]));
+      if (!dias.length) return '<div style="background:transparent"></div>';
+      return dias.map(function (x) { return '<div style="height:' + Math.max(2, Math.round(x.n / max * 54)) + 'px" title="' + esc(x.dia) + ': ' + x.n + '"></div>'; }).join('');
+    })() + '</div></div>';
+
+  /* --- reportes --- */
+  html += '<div class="panel"><h3>Reportes de la app</h3>' +
+    '<div class="mini" style="margin-bottom:6px">' + lista(rep.por_estado) + '</div>' +
+    tabla(rep.ultimos, [
+      ['Reporte', function (f) { return esc(String(f.texto || '').slice(0, 70)) + '<div class="mini">' + esc(f.nombre || '') + ' · ' + esc(f.categoria || '') + '</div>'; }],
+      ['Estado', function (f) { var e = f.estado || 'nuevo'; return '<span class="pill ' + (e === 'nuevo' ? 'nuevo' : e === 'resuelto' ? 'ok' : '') + '">' + esc(e) + '</span>'; }],
+    ]) +
+    '<div class="mini" style="margin-top:8px">Por pantalla: ' + lista(rep.por_pantalla) + '</div>' +
+    '<p class="mini" style="margin-top:8px"><a href="/reportes">Abrir el buzón y responder →</a></p></div>';
+
+  /* --- agenda --- */
+  html += '<div class="panel"><h3>Agenda (lo que ve la app)</h3>' +
+    tabla(ag.proximos, [
+      ['Función', function (f) { return '<b>' + esc(String(f.title || '').slice(0, 60)) + '</b><div class="mini">' + esc(f.venue || '') + ' · ' + esc(f.city || '') + '</div>'; }],
+      ['Cuándo', function (f) { return '<span class="mini">' + String(f.date || '').slice(0, 10) + (f.time_start ? ' ' + String(f.time_start).slice(0, 5) : '') + '</span>'; }],
+      ['Fuente', function (f) { return f.source === 'externo' ? '<span class="pill ext">externa</span>' : '<span class="pill">propia</span>'; }],
+    ]) +
+    '<div class="mini" style="margin-top:8px">Por comuna: ' + lista(ag.por_comuna) + '</div>' +
+    '<div class="mini">Por tipo: ' + lista(ag.por_tipo) + '</div>' +
+    '<p class="mini" style="margin-top:8px"><a href="/agenda">Cargar o corregir funciones →</a></p></div>';
+
+  /* --- datos y gente --- */
+  var cuentas = agru.cuentas || {};
+  html += '<div class="panel"><h3>Datos y gente</h3>' +
+    '<div class="mini" style="margin-bottom:6px">' +
+    (cuentas.usuarios || 0) + ' cuentas · ' + (cuentas.membresias || 0) + ' membresías · ' +
+    (cuentas.fichas || 0) + ' fichas de nómina · ' + (cuentas.perfiles_radar || 0) + ' perfiles de radar<br>' +
+    'Compañías: ' + ((agru.companias || {}).total || 0) + ' (' + ((agru.companias || {}).sin_nadie || 0) + ' sin gente)' +
+    '</div>' +
+    '<div class="mini">Solicitudes: ' + lista(agru.solicitudes) + '</div>' +
+    '<div class="mini" style="margin-top:6px">Nodos por comuna: ' + lista(rad.por_ciudad) + '</div>' +
+    '<p class="mini" style="margin-top:8px"><a href="/nodos">Administrar lugares del radar →</a></p></div>';
+
+  /* --- muro y correos --- */
+  html += '<div class="panel"><h3>Muro y correos</h3>' +
+    '<div class="mini" style="margin-bottom:6px">' + (posts.total || 0) + ' publicaciones (' + (posts.aprobadas || 0) + ' aprobadas, ' +
+    (posts.pendientes || 0) + ' pendientes) · ' + (muro.comentarios || 0) + ' comentarios · ' + (muro.reacciones || 0) + ' reacciones<br>' +
+    'Correos enviados: ' + ((cor.total || {}).n || 0) + ' (' + ((cor.total || {}).ok || 0) + ' ok)</div>' +
+    tabla(muro.ultimos, [
+      ['Publicación', function (f) { return esc(String(f.caption || '(sin texto)').slice(0, 60)); }],
+      ['Fecha', function (f) { return '<span class="mini">' + fechaCorta(f.created_at) + '</span>'; }],
+    ]) +
+    tabla(cor.ultimos, [
+      ['Correo a', function (f) { return esc(f.para || '') + '<div class="mini">' + esc(String(f.asunto || '').slice(0, 50)) + '</div>'; }],
+      ['Estado', function (f) { return f.ok ? '<span class="pill ok">enviado</span>' : '<span class="pill">falló</span>'; }],
+    ]) + '</div>';
+
+  html += '</div>';
+  cont.innerHTML = html;
+}
+
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL ? 'Sesión: <b>' + esc(EMAIL) + '</b>' : 'Sin sesión';
+  if (!EMAIL) {
+    var av = document.getElementById('sinSesion');
+    av.innerHTML = 'No hay sesión en este navegador. Abre el tablero desde el CRM o agrega <b>?email=tucorreo@dominio.cl</b>. Sólo administración.';
+    av.style.display = 'block';
+  }
+  fetch('/api/v1/crm/piloto/tablero', { headers: cabeceras() })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) {
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'No se pudo leer el tablero: ' + ((res.d && res.d.error) || 'HTTP ' + res.status);
+        return;
+      }
+      document.getElementById('error').style.display = 'none';
+      document.getElementById('generado').textContent = 'actualizado ' + fechaCorta(res.d.generado);
+      pintar(res.d);
+    })
+    .catch(function (e) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = 'No se pudo conectar con el hub: ' + e.message;
+    });
+}
+
+document.getElementById('btnRecargar').addEventListener('click', cargar);
+cargar();
+</script>
+</body>
+</html>

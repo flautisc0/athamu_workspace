@@ -22,7 +22,7 @@ def main():
             d = json.load(r)
     except urllib.error.HTTPError as e:
         print('el hub respondió', e.code, e.read().decode()[:300])
-        print(f'(la lista la ve administración; probá con otro correo admin que {ADMIN})')
+        print(f'(la lista la ve administración; prueba con otro correo admin que {ADMIN})')
         return
     print('=== INSCRIPCIONES A LA PRUEBA PILOTO ===')
     print('total:', d.get('total', 0))

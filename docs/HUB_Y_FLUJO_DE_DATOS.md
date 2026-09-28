@@ -53,7 +53,7 @@ buscar** datos: los productos **escriben y leen en el hub**.
 `GET /api/v1/crm/...` → el hub consulta MySQL, arma el JSON (con autor, nodo, contadores…) y
 lo devuelve. Nunca se expone SQL ni credenciales al cliente.
 
-### Identidad (cómo sabe el hub quién sos)
+### Identidad (cómo sabe el hub quién eres)
 
 - **Clave única de sesión**: `atha_user_session` (la comparten todos los productos).
 - Se entra **una vez** por Google en el CRM; desde ahí, `/puente?destino=...` abre cualquier
@@ -127,7 +127,7 @@ consigo mismo y las llamadas son a rutas relativas.
 
 ### Permisos en una frase
 
-El hub decide **quién sos** y **qué podés hacer** con una sola política, y esa política se
+El hub decide **quién eres** y **qué puedes hacer** con una sola política, y esa política se
 aplica **también en el servidor** (no se confía en que el frontend oculte botones).
 
 ### Despliegue
@@ -148,7 +148,7 @@ gcloud run deploy atha-crm-web-frontend --source . --project athamubot \
 3. **Permisos en el servidor**, además de en la interfaz.
 4. **Medios en GCS**, en la base sólo la URL.
 5. **Los cambios se prueban en un servicio aparte** antes de promover al vivo.
-6. **Todo endpoint se documenta acá** (y en `docs/ARTEFACTOS_API.md`).
+6. **Todo endpoint se documenta aquí** (y en `docs/ARTEFACTOS_API.md`).
 
 ---
 

@@ -1,7 +1,7 @@
 # Versión registrada · Radar Cultural (2026-09-27)
 
 Registro LOCAL de la versión que quedó aprobada como prototipo y desplegada en web.
-Sirve para volver exactamente acá si algo se rompe más adelante.
+Sirve para volver exactamente aquí si algo se rompe más adelante.
 
 ## Qué quedó desplegado
 

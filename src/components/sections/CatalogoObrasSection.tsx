@@ -250,6 +250,16 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
 
                 {/* Card Actions */}
                 <div className="pt-2 flex items-center gap-2">
+                  {/* Logo de la compañía que presenta la obra */}
+                  {obra.logoUrl && (
+                    <img
+                      src={obra.logoUrl}
+                      alt={obra.companyName || ''}
+                      title={`Presenta: ${obra.companyName || ''}`}
+                      className="w-8 h-8 rounded-lg object-cover border border-white/10 shrink-0 bg-black/30"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
                   <button
                     onClick={() => onOpenDossier(obra)}
                     className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-colors shadow-sm cursor-pointer ${
@@ -257,10 +267,12 @@ export const CatalogoObrasSection: React.FC<CatalogoObrasSectionProps> = ({
                         ? 'bg-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)] text-white'
                         : 'bg-[var(--accent-2)] hover:bg-[#5eead4] text-[var(--bg-base)]'
                     }`}
-                    title="Ver Ficha y Descargar Dossier PDF"
+                    title={obra.dossierPdf
+                      ? 'Ver la ficha y abrir el dossier cargado'
+                      : 'Ver la ficha — todavía sin dossier (se sube desde la ficha)'}
                   >
                     <FileDown className="w-3.5 h-3.5" />
-                    <span>Dossier / PDF</span>
+                    <span>{obra.dossierPdf ? 'Ficha y dossier' : 'Ficha (sin dossier)'}</span>
                   </button>
 
                   <button

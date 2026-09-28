@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock · Catálogo de obras con archivos</title>
+<style>
+  :root {
+    --bg-base:#0F0D0C; --bg-2:#180F0E; --bg-3:#261614; --linea:rgba(255,255,255,.10);
+    --tinta:#F5F1EC; --tinta2:#A79E96; --terracota:#C7563A; --terracota-suave:rgba(199,86,58,.15);
+    --ok:#34d399; --amber:#FBBF24; --violeta:#A78BFA;
+    --serif:Georgia,'Times New Roman',serif;
+    --sans:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg-base); color:var(--tinta); font:14px/1.5 var(--sans); }
+  .top { display:flex; align-items:center; gap:10px; padding:12px 20px; border-bottom:1px solid var(--linea); background:var(--bg-2); }
+  .logo { font:700 15px var(--serif); letter-spacing:.02em; }
+  .logo span { color:var(--terracota); }
+  .tabs { display:flex; gap:6px; margin-left:18px; flex-wrap:wrap; }
+  .tab { font-size:11.5px; padding:5px 10px; border-radius:8px; color:var(--tinta2); border:1px solid transparent; }
+  .tab.on { color:var(--tinta); background:var(--bg-3); border-color:var(--linea); }
+  .wrap { max-width:1180px; margin:0 auto; padding:22px 20px 60px; }
+  h1 { font:700 26px var(--serif); margin:0 0 4px; letter-spacing:-.01em; }
+  .sub { color:var(--tinta2); font-size:12.5px; max-width:640px; }
+  .fila { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .pill { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 8px; border-radius:999px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.teatro { color:#F0A48D; border-color:rgba(199,86,58,.45); background:var(--terracota-suave); }
+  .pill.musica { color:#7DD3FC; border-color:rgba(125,211,252,.35); background:rgba(125,211,252,.10); }
+  .pill.danza { color:var(--violeta); border-color:rgba(167,139,250,.35); background:rgba(167,139,250,.10); }
+  .pill.con { color:var(--ok); border-color:rgba(52,211,153,.35); background:rgba(52,211,153,.10); }
+  .btn { font:600 12px var(--sans); padding:7px 13px; border-radius:10px; border:1px solid var(--linea); background:var(--bg-3); color:var(--tinta); cursor:pointer; }
+  .btn.principal { background:var(--terracota); border-color:var(--terracota); color:#fff; }
+  .btn.ghost { background:transparent; color:var(--tinta2); }
+  .btn.chico { font-size:11px; padding:4px 9px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
+  .card { background:var(--bg-2); border:1px solid var(--linea); border-radius:16px; overflow:hidden; }
+  .card .foto { height:118px; background:linear-gradient(135deg,#2A1815,#3A231D); position:relative; }
+  .card .foto .tipo { position:absolute; top:9px; left:9px; }
+  .card .cuerpo { padding:12px 13px 14px; }
+  .card h3 { font:700 15px var(--serif); margin:0 0 3px; }
+  .card .meta { color:var(--tinta2); font-size:11.5px; margin-bottom:9px; }
+  .estado { display:flex; align-items:center; gap:6px; font-size:11px; margin-bottom:10px; }
+  .dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
+  .dot.si { background:var(--ok); } .dot.no { background:var(--amber); }
+  .panel { background:var(--bg-2); border:1px solid var(--linea); border-radius:18px; padding:18px; margin-top:16px; }
+  .dos { display:grid; grid-template-columns:1.05fr .95fr; gap:16px; }
+  .campo { margin-bottom:11px; }
+  .campo label { display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); margin-bottom:4px; font-weight:700; }
+  .input { width:100%; background:rgba(0,0,0,.35); border:1px solid var(--linea); border-radius:10px; padding:8px 10px; color:var(--tinta); font:13px var(--sans); }
+  .dos-col { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  h4 { font:700 12px var(--sans); text-transform:uppercase; letter-spacing:.07em; color:var(--terracota); margin:0 0 10px; }
+  .upload { border:1.5px dashed rgba(199,86,58,.45); background:var(--terracota-suave); border-radius:14px; padding:16px; text-align:center; }
+  .upload b { display:block; font-size:13px; margin-bottom:2px; }
+  .upload span { font-size:11px; color:var(--tinta2); }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:9px 6px; border-bottom:1px solid var(--linea); vertical-align:middle; font-size:12.5px; }
+  tr:last-child td { border-bottom:0; }
+  .ico { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:13px; background:var(--bg-3); border:1px solid var(--linea); }
+  .nom { font-weight:600; }
+  .mini { font-size:10.5px; color:var(--tinta2); }
+  .acciones { display:flex; gap:5px; justify-content:flex-end; }
+  .aviso { display:flex; gap:8px; align-items:flex-start; font-size:11.5px; color:var(--tinta2); background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.28); border-radius:12px; padding:9px 11px; margin-top:12px; }
+  .nota { font-size:11.5px; color:var(--tinta2); margin-top:10px; }
+  .sep { border-top:1px solid var(--linea); margin:16px 0; }
+  .marca-mock { position:fixed; right:14px; bottom:12px; font-size:10.5px; color:var(--tinta2); background:rgba(0,0,0,.6); border:1px solid var(--linea); padding:5px 9px; border-radius:999px; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">ATHA <span>·</span> CRM</div>
+  <div class="tabs">
+    <div class="tab">Dashboard</div><div class="tab">Compañías</div>
+    <div class="tab on">Catálogo de obras</div><div class="tab">CRM / Leads</div>
+    <div class="tab">Ventas</div><div class="tab">Inventario</div><div class="tab">Finanzas</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="fila" style="justify-content:space-between;align-items:flex-start">
+    <div>
+      <h1>Catálogo de obras & espectáculos</h1>
+      <p class="sub">Obras de teatro, conciertos, danza y performances del ecosistema. Cada ficha guarda sus datos y <b>sus archivos</b> (dossier, rider, prensa, fotos, video).</p>
+    </div>
+    <button class="btn principal">+ Nueva obra</button>
+  </div>
+
+  <div class="fila" style="margin-top:14px">
+    <span class="pill teatro">Teatro</span><span class="pill musica">Música</span>
+    <span class="pill danza">Danza</span><span class="pill">Performance</span><span class="pill">Circo</span>
+    <span class="mini" style="margin-left:auto">13 obras · 8 con dossier · 4 sin archivos</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="foto"><span class="pill teatro tipo">Teatro</span></div>
+      <div class="cuerpo">
+        <h3>Radojka</h3>
+        <div class="meta">Comedia de humor negro · 2 integrantes</div>
+        <div class="estado"><span class="dot si"></span> Dossier + trailer cargados</div>
+        <div class="fila">
+          <button class="btn chico">Abrir ficha</button>
+          <button class="btn chico">Archivos (2)</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="foto"><span class="pill musica tipo">Música</span></div>
+      <div class="cuerpo">
+        <h3>Tenoia Musicalis</h3>
+        <div class="meta">Orquesta / ensamble · dossier 2026</div>
+        <div class="estado"><span class="dot si"></span> Dossier cargado</div>
+        <div class="fila">
+          <button class="btn chico">Abrir ficha</button>
+          <button class="btn chico">Archivos (1)</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="foto"><span class="pill teatro tipo">Teatro</span></div>
+      <div class="cuerpo">
+        <h3>Robo navideño</h3>
+        <div class="meta">Musical familiar · 8 integrantes</div>
+        <div class="estado"><span class="dot no"></span> Sin dossier todavía</div>
+        <div class="fila">
+          <button class="btn chico">Abrir ficha</button>
+          <button class="btn chico principal">Subir dossier</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="fila" style="justify-content:space-between;align-items:flex-start">
+      <div class="fila">
+        <div class="ico" style="width:44px;height:44px;font-size:18px">🎭</div>
+        <div>
+          <div class="fila"><h1 style="font-size:20px;margin:0">Radojka</h1><span class="pill teatro">Teatro</span></div>
+          <div class="mini">Comedia de humor negro · estreno 2024 · 1 h 20 min · todo espectador</div>
+        </div>
+      </div>
+      <div class="fila">
+        <button class="btn">Editar ficha</button>
+        <button class="btn">Ver en la app</button>
+        <!-- El botón honesto: sólo si hay dossier -->
+        <button class="btn principal">⤓ Dossier (PDF)</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="dos">
+      <!-- IZQUIERDA: archivos -->
+      <div>
+        <h4>Archivos de la obra</h4>
+
+        <div class="upload">
+          <b>Arrastra el archivo acá o elige uno</b>
+          <span>PDF, Word, imágenes · hasta 25 MB · los videos van como enlace</span>
+          <div class="fila" style="justify-content:center;margin-top:10px">
+            <button class="btn principal chico">Subir archivo</button>
+            <button class="btn chico">Agregar enlace</button>
+          </div>
+        </div>
+
+        <table style="margin-top:12px">
+          <tr>
+            <td style="width:34px"><div class="ico">📄</div></td>
+            <td>
+              <div class="nom">Dossier Radojka 2026.pdf</div>
+              <div class="mini">Dossier · 2,4 MB · lo subió Panxo el 12/09</div>
+            </td>
+            <td class="acciones">
+              <button class="btn chico">Abrir</button>
+              <button class="btn chico ghost">Borrar</button>
+            </td>
+          </tr>
+          <tr>
+            <td><div class="ico">▶</div></td>
+            <td>
+              <div class="nom">Trailer oficial</div>
+              <div class="mini">Video (enlace) · youtube.com/watch?v=DOWcxVmBMt0</div>
+            </td>
+            <td class="acciones">
+              <button class="btn chico">Abrir</button>
+              <button class="btn chico ghost">Borrar</button>
+            </td>
+          </tr>
+          <tr>
+            <td><div class="ico">📝</div></td>
+            <td>
+              <div class="nom">Rider técnico (a completar)</div>
+              <div class="mini">Ficha técnica / Rider · sin archivo</div>
+            </td>
+            <td class="acciones"><button class="btn chico">Subir</button></td>
+          </tr>
+        </table>
+
+        <div class="aviso">
+          <span>⚠</span>
+          <div><b>Ojo con el botón de hoy:</b> dice "Dossier / PDF" pero nunca muestra el archivo (busca las rutas con otra regla). Los dossieres que ya subiste existen: al migrarlos, este botón empieza a funcionar de verdad.</div>
+        </div>
+      </div>
+
+      <!-- DERECHA: ficha -->
+      <div>
+        <h4>Ficha de la obra</h4>
+        <div class="campo"><label>Título</label><input class="input" value="Radojka" /></div>
+        <div class="dos-col">
+          <div class="campo"><label>Tipo</label>
+            <select class="input"><option>Teatro</option><option>Música / Concierto</option><option>Danza</option><option>Performance</option><option>Circo</option><option>Multidisciplinario</option></select>
+          </div>
+          <div class="campo"><label>Compañía</label>
+            <select class="input"><option>TMLL</option><option>ATHA Kids</option><option>Tenoia Musicalis</option></select>
+          </div>
+        </div>
+        <div class="campo"><label>Sinopsis</label><input class="input" value="Comedia de humor negro." /></div>
+        <div class="dos-col">
+          <div class="campo"><label>Duración</label><input class="input" value="80 min" /></div>
+          <div class="campo"><label>Público</label><input class="input" value="Todo espectador" /></div>
+        </div>
+        <div class="dos-col">
+          <div class="campo"><label>Elenco / equipo</label><input class="input" value="2 integrantes" /></div>
+          <div class="campo"><label>Estreno</label><input class="input" value="2024" /></div>
+        </div>
+        <div class="campo"><label>Visible en la app</label>
+          <select class="input"><option>Sí — aparece en FASE</option><option>No — sólo interno del CRM</option></select>
+        </div>
+        <div class="nota">Lo que cambia según el tipo: una <b>obra de teatro</b> pide elenco y personajes; un <b>concierto</b> pide set, backline y rider; una <b>performance</b> pide espacio y duración. El formulario se adapta y el resto queda opcional.</div>
+        <div class="fila" style="margin-top:12px">
+          <button class="btn principal">Guardar cambios</button>
+          <button class="btn">Descartar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="marca-mock">MOCK para revisar · nada de esto está guardado todavía</div>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Buzón del piloto · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A; --alerta:#C98A1E; --malo:#8A3B6B;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  a { color:var(--acento); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1080px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .marca img { width:26px; height:26px; }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  main { max-width:1080px; margin:0 auto; padding:16px; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  input, select, textarea { font:13px var(--sans); color:var(--tinta); background:var(--tarjeta); border:1px solid var(--linea); border-radius:10px; padding:8px 10px; }
+  textarea { min-height:70px; resize:vertical; width:100%; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--acento-suave); border-color:var(--acento); }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .btn.principal:hover { color:#fff; filter:brightness(1.06); }
+  .btn.chico { padding:5px 10px; font-size:11.5px; }
+  .metricas { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .metrica { background:var(--tarjeta); border:1px solid var(--linea); border-radius:14px; padding:8px 12px; min-width:96px; }
+  .metrica .n { font:700 19px var(--serif); }
+  .metrica .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); }
+  .metrica.rojo .n { color:var(--acento); }
+  .reporte { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:14px 16px; margin-bottom:12px; }
+  .reporte.nuevo { border-left:4px solid var(--acento); }
+  .reporte .cab { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .reporte .quien-rep { font-weight:600; }
+  .reporte .texto { font-size:14px; margin:8px 0; }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 7px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.nuevo { border-color:var(--acento); color:var(--acento); background:var(--acento-suave); }
+  .pill.visto { border-color:var(--alerta); color:#7a5410; }
+  .pill.resuelto { border-color:var(--ok); color:var(--ok); }
+  .mini { font-size:11px; color:var(--tinta2); }
+  .captura { max-width:260px; border:1px solid var(--linea); border-radius:12px; margin-top:8px; display:block; }
+  .nota { background:var(--fondo2); border-radius:10px; padding:8px 10px; font-size:12px; margin-top:8px; }
+  .acciones-rep { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .responder { margin-top:10px; display:none; }
+  .responder.abierto { display:block; }
+  .vacio { border:1px dashed var(--linea); border-radius:16px; padding:18px; text-align:center; color:var(--tinta2); }
+  .aviso-sesion { background:#FDF6E8; border:1px solid var(--alerta); color:#7a5410; border-radius:12px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--tinta); color:#fff; border-radius:999px; padding:9px 16px; font-size:12.5px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.visible { opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> Buzón del piloto</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="sinSesion" class="aviso-sesion" style="display:none"></div>
+
+  <div class="metricas" id="metricas"></div>
+
+  <div class="barra">
+    <input id="buscar" type="search" placeholder="Buscar por texto, nombre o correo…" style="flex:1 1 240px" />
+    <select id="fEstado">
+      <option value="">Todos (nuevos primero)</option>
+      <option value="nuevo">Sólo nuevos</option>
+      <option value="visto">Sólo vistos</option>
+      <option value="resuelto">Sólo resueltos</option>
+    </select>
+    <select id="fCategoria"><option value="">Todas las categorías</option></select>
+    <button class="btn" id="btnRecargar">Recargar</button>
+  </div>
+
+  <div id="lista"></div>
+
+  <div class="mini" style="margin-top:18px">
+    Los reportes llegan desde el botón <b>“Reportar algo”</b> de la app, con la pantalla, la
+    versión y la captura. Cada uno avisa por Telegram al equipo. Responder desde aquí sale por
+    el correo del ecosistema (queda registrado en <code>email_log</code>).
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var EMAIL = '';
+try {
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['user_session', 'atha_user_session', 'atha_user_profile'];
+  for (var i = 0; i < CLAVES.length && !EMAIL; i++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[i]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+var REPORTES = [];
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function cabeceras() { var c = { 'Content-Type': 'application/json' }; if (EMAIL) c['x-atha-email'] = EMAIL; return c; }
+function toast(t) { var e = document.getElementById('toast'); e.textContent = t; e.className = 'toast visible'; setTimeout(function () { e.className = 'toast'; }, 2600); }
+function fechaBonita(t) { var m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(String(t || '')); if (!m) return String(t || ''); var MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']; return m[3] + ' ' + MES[Number(m[2]) - 1] + ' · ' + m[4] + ':' + m[5]; }
+
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL ? 'Sesión: <b>' + esc(EMAIL) + '</b>' : 'Sin sesión';
+  if (!EMAIL) {
+    var av = document.getElementById('sinSesion');
+    av.innerHTML = 'No hay sesión en este navegador. Abre el buzón desde el CRM, o agrega <b>?email=tucorreo@dominio.cl</b>. Sólo administración puede ver y responder los reportes.';
+    av.style.display = 'block';
+  }
+  fetch('/api/v1/crm/piloto/reportes', { headers: cabeceras() })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { docError('No se pudieron leer los reportes: ' + ((res.d && res.d.error) || 'HTTP ' + res.status)); REPORTES = []; }
+      else { docError(''); REPORTES = res.d.reportes || []; }
+      pintar();
+    })
+    .catch(function (e) { docError('No se pudo conectar con el hub: ' + e.message); pintar(); });
+}
+function docError(t) { var e = document.getElementById('error'); e.textContent = t || ''; e.style.display = t ? 'block' : 'none'; }
+
+function filtrados() {
+  var q = String(document.getElementById('buscar').value || '').toLowerCase().trim();
+  var estado = document.getElementById('fEstado').value;
+  var cat = document.getElementById('fCategoria').value;
+  return REPORTES.filter(function (r) {
+    if (estado && (r.estado || 'nuevo') !== estado) return false;
+    if (cat && (r.categoria || 'otro') !== cat) return false;
+    if (q) {
+      var blob = [r.texto, r.nombre, r.email, r.categoria, r.pantalla, r.nota].join(' ').toLowerCase();
+      if (blob.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+
+function pintar() {
+  var cats = {};
+  REPORTES.forEach(function (r) { var k = r.categoria || 'otro'; cats[k] = (cats[k] || 0) + 1; });
+  var sel = document.getElementById('fCategoria'), actual = sel.value;
+  sel.innerHTML = '<option value="">Todas las categorías</option>';
+  Object.keys(cats).sort().forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = k + ' (' + cats[k] + ')'; sel.appendChild(o); });
+  if (actual && cats[actual]) sel.value = actual;
+
+  var nuevos = REPORTES.filter(function (r) { return (r.estado || 'nuevo') === 'nuevo'; }).length;
+  var vistos = REPORTES.filter(function (r) { return r.estado === 'visto'; }).length;
+  var resueltos = REPORTES.filter(function (r) { return r.estado === 'resuelto'; }).length;
+  document.getElementById('metricas').innerHTML = [
+    ['Nuevos sin leer', nuevos, nuevos > 0],
+    ['Vistos', vistos, false],
+    ['Resueltos', resueltos, false],
+    ['Total', REPORTES.length, false]
+  ].map(function (m) {
+    return '<div class="metrica' + (m[2] ? ' rojo' : '') + '"><div class="n">' + m[1] + '</div><div class="t">' + m[0] + '</div></div>';
+  }).join('');
+
+  var lista = filtrados();
+  var cont = document.getElementById('lista');
+  if (!REPORTES.length) {
+    cont.innerHTML = '<div class="vacio">Todavía no llegó ningún reporte desde la app. Cuando alguien use <b>“Reportar algo”</b>, aparece aquí y suena en el teléfono del equipo.</div>';
+    return;
+  }
+  if (!lista.length) { cont.innerHTML = '<div class="vacio">Ningún reporte coincide con el filtro.</div>'; return; }
+  cont.innerHTML = lista.map(function (r) {
+    var estado = r.estado || 'nuevo';
+    return '<div class="reporte ' + estado + '">' +
+      '<div class="cab">' +
+        '<span class="pill ' + estado + '">' + estado + '</span>' +
+        '<span class="quien-rep">' + esc(r.nombre || r.email || 'sin cuenta') + '</span>' +
+        (r.nombre && r.email ? '<span class="mini">' + esc(r.email) + '</span>' : '') +
+        '<span class="mini">· ' + fechaBonita(r.created_at) + '</span>' +
+        '<span class="pill">' + esc(r.categoria || 'otro') + '</span>' +
+        (r.pantalla ? '<span class="mini">pantalla ' + esc(r.pantalla) + '</span>' : '') +
+        (r.plataforma ? '<span class="mini">' + esc(r.plataforma) + (r.version ? ' ' + esc(r.version) : '') + '</span>' : '') +
+      '</div>' +
+      '<div class="texto">' + esc(r.texto) + '</div>' +
+      (r.imagen_url ? '<a href="' + esc(r.imagen_url) + '" target="_blank" rel="noreferrer"><img class="captura" src="' + esc(r.imagen_url) + '" alt="captura de pantalla" /></a>' : '') +
+      (r.nota ? '<div class="nota"><b>Nota:</b> ' + esc(r.nota) + (r.atendido_por ? ' <span class="mini">· ' + esc(r.atendido_por) + '</span>' : '') + '</div>' : '') +
+      '<div class="acciones-rep">' +
+        (estado === 'nuevo' ? '<button class="btn chico" data-accion="estado" data-id="' + esc(r.id) + '" data-estado="visto">Marcar visto</button>' : '') +
+        '<button class="btn chico" data-accion="nota" data-id="' + esc(r.id) + '">Guardar nota</button>' +
+        '<button class="btn chico principal" data-accion="responder" data-id="' + esc(r.id) + '">Responder por correo</button>' +
+        (estado !== 'resuelto' ? '<button class="btn chico" data-accion="estado" data-id="' + esc(r.id) + '" data-estado="resuelto">Marcar resuelto</button>' : '') +
+      '</div>' +
+      '<div class="responder" id="resp-' + esc(r.id) + '">' +
+        '<textarea id="msg-' + esc(r.id) + '" placeholder="Qué le quieres decir a ' + esc((r.nombre || 'quien reportó').split(' ')[0]) + '…">' + esc(sugerencia(r)) + '</textarea>' +
+        '<div class="acciones-rep">' +
+          '<input id="para-' + esc(r.id) + '" value="' + esc(r.email || '') + '" placeholder="correo de destino" style="flex:1 1 200px" />' +
+          '<button class="btn chico principal" data-accion="enviar" data-id="' + esc(r.id) + '">Enviar respuesta</button>' +
+          '<span class="mini" id="env-' + esc(r.id) + '"></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="nota" id="nota-' + esc(r.id) + '" style="display:none">' +
+        '<textarea id="txt-' + esc(r.id) + '" placeholder="Qué se hizo con este reporte (queda en la ficha)">' + esc(r.nota || '') + '</textarea>' +
+        '<div class="acciones-rep"><button class="btn chico" data-accion="guardar-nota" data-id="' + esc(r.id) + '">Guardar</button></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/** Respuesta sugerida: corta, en el tono del ecosistema, siempre honesta. */
+function sugerencia(r) {
+  var nombre = (r.nombre || '').split(' ')[0] || '';
+  return (nombre ? nombre + ', ' : '') + 'gracias por reportarlo. ';
+}
+
+/* ------------------------------- acciones -------------------------------- */
+function cambiarEstado(id, estado) {
+  fetch('/api/v1/crm/piloto/reportes/' + encodeURIComponent(id), {
+    method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ estado: estado, email: EMAIL })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { toast(d.error || 'no se pudo cambiar el estado'); return; }
+    toast(estado === 'resuelto' ? 'Marcado como resuelto' : 'Marcado como visto');
+    cargar();
+  }).catch(function (e) { toast('Error de red: ' + e.message); });
+}
+
+function guardarNota(id) {
+  var texto = document.getElementById('txt-' + id).value;
+  fetch('/api/v1/crm/piloto/reportes/' + encodeURIComponent(id), {
+    method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ nota: texto, email: EMAIL })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { toast(d.error || 'no se pudo guardar la nota'); return; }
+    toast('Nota guardada'); cargar();
+  }).catch(function (e) { toast('Error de red: ' + e.message); });
+}
+
+function responder(id) {
+  var caja = document.getElementById('resp-' + id);
+  caja.className = 'responder abierto';
+  var ta = document.getElementById('msg-' + id);
+  if (ta) ta.focus();
+}
+
+function enviar(id) {
+  var mensaje = document.getElementById('msg-' + id).value.trim();
+  var para = document.getElementById('para-' + id).value.trim();
+  var aviso = document.getElementById('env-' + id);
+  if (mensaje.length < 3) { aviso.textContent = 'Escribe la respuesta.'; return; }
+  if (!para) { aviso.textContent = 'Falta el correo de destino.'; return; }
+  aviso.textContent = 'Enviando…';
+  fetch('/api/v1/crm/piloto/reportes/' + encodeURIComponent(id) + '/responder', {
+    method: 'POST', headers: cabeceras(), body: JSON.stringify({ mensaje: mensaje, para: para, email: EMAIL })
+  }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { aviso.textContent = (res.d && res.d.error) || ('no salió (HTTP ' + res.status + ')'); return; }
+      toast('Respuesta enviada a ' + res.d.para);
+      cargar();
+    })
+    .catch(function (e) { aviso.textContent = 'Error de red: ' + e.message; });
+}
+
+document.getElementById('buscar').addEventListener('input', pintar);
+document.getElementById('fEstado').addEventListener('change', pintar);
+document.getElementById('fCategoria').addEventListener('change', pintar);
+document.getElementById('btnRecargar').addEventListener('click', cargar);
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest ? ev.target.closest('[data-accion]') : null;
+  if (!el) return;
+  var accion = el.getAttribute('data-accion'), id = el.getAttribute('data-id');
+  if (accion === 'estado') cambiarEstado(id, el.getAttribute('data-estado'));
+  if (accion === 'nota') { var n = document.getElementById('nota-' + id); n.style.display = n.style.display === 'none' ? 'block' : 'none'; }
+  if (accion === 'guardar-nota') guardarNota(id);
+  if (accion === 'responder') responder(id);
+  if (accion === 'enviar') enviar(id);
+});
+
+cargar();
+</script>
+</body>
+</html>

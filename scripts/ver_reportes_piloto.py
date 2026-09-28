@@ -29,7 +29,7 @@ def main():
             d = json.load(r)
     except urllib.error.HTTPError as e:
         print('el hub respondió', e.code, e.read().decode()[:300])
-        print(f'(los reportes los ve administración; probá con otro correo admin que {ADMIN})')
+        print(f'(los reportes los ve administración; prueba con otro correo admin que {ADMIN})')
         return
 
     print('=== REPORTES DE LA PRUEBA ===')

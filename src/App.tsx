@@ -861,6 +861,11 @@ export default function App() {
           obra={dossierObra}
           isOpen={!!dossierObra}
           onClose={() => setDossierObra(null)}
+          onActualizada={() => {
+            // Después de guardar ficha/archivos, se relee el catálogo para que la tarjeta
+            // muestre la portada, las fotos y el dossier nuevos.
+            fetchAllFromSql().then(res => { if (res && res.success && res.obras) setObras(res.obras); }).catch(() => {});
+          }}
         />
       )}
 

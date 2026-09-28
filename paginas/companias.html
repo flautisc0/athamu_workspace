@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agrupaciones · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1180px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  main { max-width:1180px; margin:0 auto; padding:16px; display:grid; grid-template-columns:320px 1fr; gap:16px; }
+  @media (max-width:820px) { main { grid-template-columns:1fr; } }
+  .panel { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:14px; }
+  .panel h2 { font:700 15px var(--serif); margin:0 0 10px; }
+  .lista { display:flex; flex-direction:column; gap:6px; max-height:70vh; overflow:auto; }
+  .item { text-align:left; border:1px solid var(--linea); background:var(--fondo2); border-radius:12px; padding:8px 10px; cursor:pointer; }
+  .item:hover { border-color:var(--acento); }
+  .item.activo { border-color:var(--acento); background:var(--acento-suave); }
+  .item .n { font-weight:700; font-size:12.5px; }
+  .item .m { font-size:10.5px; color:var(--tinta2); }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 6px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.propia { border-color:var(--acento); color:var(--acento); background:var(--acento-suave); }
+  .campo { margin-bottom:10px; }
+  .campo label { display:block; font-size:11px; font-weight:700; color:var(--tinta2); margin-bottom:3px; text-transform:uppercase; letter-spacing:.04em; }
+  input[type=text], textarea, select { width:100%; padding:8px 10px; border:1px solid var(--linea); border-radius:10px; background:#fff; font:13px var(--sans); color:var(--tinta); }
+  textarea { min-height:88px; resize:vertical; }
+  .fila { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .btn.principal:hover { color:#fff; filter:brightness(1.06); }
+  .btn.chico { padding:4px 9px; font-size:11px; }
+  .btn.peligro:hover { border-color:#8A3B6B; color:#8A3B6B; }
+  .barra { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  h3 { font:700 13px var(--serif); margin:18px 0 6px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:6px 6px; border-bottom:1px solid var(--linea); font-size:12px; vertical-align:middle; }
+  th { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); }
+  tr:last-child td { border-bottom:0; }
+  .mini { font-size:11px; color:var(--tinta2); }
+  .aviso { border-radius:10px; padding:8px 10px; font-size:12px; margin-bottom:10px; display:none; }
+  .aviso.ok { background:#EDF3E6; border:1px solid var(--ok); color:#3C5527; display:block; }
+  .aviso.malo { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); display:block; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .galeria { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px; }
+  .galeria img { width:100%; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--linea); }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca">Agrupaciones del ecosistema</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Agrupaciones (<span id="total">0</span>)</h2>
+    <div class="campo"><input id="buscar" type="text" placeholder="Buscar por nombre…" /></div>
+    <div class="mini" style="margin-bottom:8px">Los montajes salen del <b>catálogo real de obras</b>: lo que vincules acá es la misma obra que ves en el catálogo y en la app.</div>
+    <div class="lista" id="lista"></div>
+    <p class="mini" id="sinSesion" style="display:none;margin-top:10px"></p>
+  </section>
+
+  <section>
+    <div id="error" class="error" style="display:none"></div>
+    <div class="panel" id="detalle" style="display:none">
+      <div class="barra">
+        <h2 style="margin:0" id="tituloComp">—</h2>
+        <span class="pill" id="pillTipo">—</span>
+        <span class="mini" id="contadores"></span>
+        <span style="margin-left:auto"></span>
+        <button class="btn principal" id="btnGuardar">Guardar cambios</button>
+        <button class="btn" id="btnDescartar">Descartar</button>
+      </div>
+      <div class="aviso" id="aviso"></div>
+
+      <h3>Datos de la agrupación</h3>
+      <div class="fila">
+        <div class="campo"><label for="fNombre">Nombre</label><input id="fNombre" type="text" /></div>
+        <div class="campo"><label for="fRazon">Razón social</label><input id="fRazon" type="text" placeholder="Como figura legalmente" /></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label for="fDisciplina">Disciplina</label><input id="fDisciplina" type="text" placeholder="Teatro contemporáneo &amp; género" /></div>
+        <div class="campo"><label for="fTipo">Tipo</label>
+          <select id="fTipo"><option value="propia">Propia (del ecosistema)</option><option value="colaboradora">Colaboradora</option></select>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label for="fCiudad">Ciudad</label><input id="fCiudad" type="text" placeholder="Rancagua" /></div>
+        <div class="campo"><label for="fCorreo">Correo de contacto</label><input id="fCorreo" type="text" placeholder="contacto@…" /></div>
+      </div>
+      <div class="campo"><label for="fEstado">Estado</label>
+        <select id="fEstado"><option value="active">Activa</option><option value="inactive">Inactiva</option></select>
+      </div>
+      <div class="campo"><label for="fDescripcion">Descripción</label>
+        <textarea id="fDescripcion" placeholder="Qué hace la agrupación, su línea de trabajo, su historia…"></textarea>
+      </div>
+
+      <h3>Montajes (obras del catálogo)</h3>
+      <table><tbody id="obras"></tbody></table>
+      <div class="barra" style="margin-top:8px">
+        <select id="selObra" style="max-width:340px"></select>
+        <button class="btn" id="btnVincular">Vincular obra del catálogo</button>
+        <span class="mini">Se guarda al instante (no hace falta apretar Guardar).</span>
+      </div>
+      <p class="mini" id="pistaObras"></p>
+
+      <h3>Elenco y equipo</h3>
+      <table><tbody id="gente"></tbody></table>
+      <div class="fila" style="margin-top:8px">
+        <div class="campo"><label for="pNombre">Nombre y apellido</label><input id="pNombre" type="text" placeholder="Josefa Schultz" /></div>
+        <div class="campo"><label for="pRol">Rol</label><input id="pRol" type="text" placeholder="Dirección, producción, elenco…" /></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label for="pTipo">En qué parte</label>
+          <select id="pTipo"><option value="elenco">Elenco (artistas)</option><option value="equipo">Equipo (técnica y producción)</option><option value="socio">Socio/a</option><option value="colaborador">Colaborador/a</option></select>
+        </div>
+        <div class="campo"><label for="pCorreo">Correo (opcional)</label><input id="pCorreo" type="text" placeholder="para vincular su cuenta" /></div>
+      </div>
+      <div class="campo"><label for="pPersonaje">Personaje (opcional — sólo si es un papel de un montaje)</label>
+        <input id="pPersonaje" type="text" placeholder="Se puede dejar vacío: no es un dato fijo del integrante" /></div>
+      <div class="barra">
+        <button class="btn" id="btnAgregarPersona">Agregar al elenco</button>
+        <button class="btn" id="btnCancelarPersona" style="display:none">Cancelar edición</button>
+      </div>
+    </div>
+    <div class="panel" id="vacio"><p class="mini">Elige una agrupación de la lista para editar sus datos, su elenco y sus montajes.</p></div>
+  </section>
+</main>
+
+<script>
+var EMAIL = '';
+try {
+  var q = new URLSearchParams(location.search);
+  EMAIL = q.get('email') || '';
+  ['user_session', 'atha_user_session', 'atha_user_profile'].forEach(function (k) {
+    if (EMAIL) return;
+    var u = JSON.parse(localStorage.getItem(k) || 'null');
+    EMAIL = (u && (u.email || (u.user && u.user.email))) || '';
+  });
+} catch (e) { EMAIL = ''; }
+
+var COMPANIAS = [];
+var CATALOGO = [];
+var ACTUAL = null;
+var PERSONA_EDITANDO = '';
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function cabeceras(conJson) { var h = { 'Content-Type': 'application/json' }; if (EMAIL) h['x-atha-email'] = EMAIL; return h; }
+function aviso(texto, tipo) {
+  var a = document.getElementById('aviso');
+  a.textContent = texto || '';
+  a.className = 'aviso ' + (tipo || '');
+  if (!texto) { a.className = 'aviso'; a.style.display = 'none'; }
+}
+function pedir(url, metodo, cuerpo) {
+  return fetch(url, {
+    method: metodo || 'GET',
+    headers: cabeceras(),
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+  }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); });
+}
+
+function pintarLista() {
+  var filtro = document.getElementById('buscar').value.trim().toLowerCase();
+  var visibles = COMPANIAS.filter(function (c) { return !filtro || c.name.toLowerCase().indexOf(filtro) >= 0; });
+  document.getElementById('total').textContent = String(COMPANIAS.length);
+  document.getElementById('lista').innerHTML = visibles.map(function (c) {
+    var activo = ACTUAL && ACTUAL.id === c.id ? ' activo' : '';
+    return '<button class="item' + activo + '" data-id="' + esc(c.id) + '">' +
+      '<div class="n">' + esc(c.name) + '</div>' +
+      '<div class="m">' + ([c.kind === 'propia' ? 'propia' : 'colaboradora', (c.obras || []).length + ' montaje(s)', (c.people || []).length + ' persona(s)'].join(' · ')) + '</div>' +
+      '</button>';
+  }).join('') || '<p class="mini">Ninguna coincide.</p>';
+  Array.prototype.forEach.call(document.querySelectorAll('#lista .item'), function (b) {
+    b.addEventListener('click', function () { elegir(b.getAttribute('data-id')); });
+  });
+}
+
+function elegir(id) {
+  ACTUAL = COMPANIAS.filter(function (c) { return c.id === id; })[0] || null;
+  pintarLista();
+  if (!ACTUAL) return;
+  document.getElementById('detalle').style.display = 'block';
+  document.getElementById('vacio').style.display = 'none';
+  document.getElementById('tituloComp').textContent = ACTUAL.name;
+  var pill = document.getElementById('pillTipo');
+  pill.textContent = ACTUAL.kind === 'propia' ? 'propia del ecosistema' : 'colaboradora';
+  pill.className = 'pill' + (ACTUAL.kind === 'propia' ? ' propia' : '');
+  document.getElementById('contadores').textContent =
+    (ACTUAL.obras || []).length + ' montaje(s) · ' + (ACTUAL.people || []).length + ' persona(s)';
+  document.getElementById('fNombre').value = ACTUAL.name || '';
+  document.getElementById('fRazon').value = ACTUAL.legalName || '';
+  document.getElementById('fDisciplina').value = ACTUAL.discipline || '';
+  document.getElementById('fTipo').value = ACTUAL.kind === 'propia' ? 'propia' : 'colaboradora';
+  document.getElementById('fCiudad').value = ACTUAL.city || '';
+  document.getElementById('fCorreo').value = ACTUAL.contactEmail || '';
+  document.getElementById('fEstado').value = ACTUAL.status === 'inactive' ? 'inactive' : 'active';
+  document.getElementById('fDescripcion').value = ACTUAL.description || '';
+  pintarObras();
+  pintarGente();
+  aviso('');
+}
+
+function pintarObras() {
+  var obras = (ACTUAL && ACTUAL.obras) || [];
+  document.getElementById('obras').innerHTML = obras.length ? obras.map(function (o) {
+    return '<tr><td><b>' + esc(o.title) + '</b><div class="mini">' + esc(o.discipline || '') + (o.status ? ' · ' + esc(o.status) : '') + '</div></td>' +
+      '<td style="text-align:right"><button class="btn chico peligro" data-quitar="' + esc(o.id) + '">Quitar</button></td></tr>';
+  }).join('') : '<tr><td class="mini">Todavía no tiene montajes vinculados.</td></tr>';
+  Array.prototype.forEach.call(document.querySelectorAll('#obras [data-quitar]'), function (b) {
+    b.addEventListener('click', function () { quitarObra(b.getAttribute('data-quitar')); });
+  });
+
+  var yaEstan = obras.map(function (o) { return o.id; });
+  // Del catálogo se ofrecen sólo las obras que no están en ninguna agrupación (el endpoint del
+  // catálogo ahora informa a quién pertenece cada una) y se avisa cuántas están en otras.
+  var libres = CATALOGO.filter(function (p) { return yaEstan.indexOf(p.id) < 0 && !p.company_id; });
+  var enOtras = CATALOGO.filter(function (p) { return p.company_id && p.company_id !== (ACTUAL && ACTUAL.id); });
+  document.getElementById('selObra').innerHTML = libres.length
+    ? libres.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.title) + '</option>'; }).join('')
+    : '<option value="">(no quedan obras libres en el catálogo)</option>';
+  document.getElementById('btnVincular').disabled = !libres.length;
+  var pista = document.getElementById('pistaObras');
+  if (pista) {
+    pista.textContent = enOtras.length
+      ? enOtras.length + ' obra(s) del catálogo ya pertenecen a otra agrupación: quitalas de ahí primero.'
+      : 'Todas las obras del catálogo están disponibles o ya son de esta agrupación.';
+  }
+}
+
+function pintarGente() {
+  var gente = (ACTUAL && ACTUAL.people) || [];
+  document.getElementById('gente').innerHTML = gente.length ? gente.map(function (p) {
+    // Sólo persona y cargo: el personaje es un papel de un montaje, no un dato fijo del integrante
+    return '<tr><td><b>' + esc(p.fullName) + '</b><div class="mini">' + esc(p.roleTitle || 'sin cargo') + '</div></td>' +
+      '<td><span class="pill">' + esc(p.kind || 'equipo') + '</span></td>' +
+      '<td class="mini">' + esc(p.email || '') + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' +
+      '<button class="btn chico" data-editar="' + esc(p.id) + '">Editar</button> ' +
+      '<button class="btn chico peligro" data-borrar="' + esc(p.id) + '">Quitar</button></td></tr>';
+  }).join('') : '<tr><td class="mini">Sin personas cargadas todavía.</td></tr>';
+  Array.prototype.forEach.call(document.querySelectorAll('#gente [data-borrar]'), function (b) {
+    b.addEventListener('click', function () { quitarPersona(b.getAttribute('data-borrar')); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#gente [data-editar]'), function (b) {
+    b.addEventListener('click', function () { editarPersona(b.getAttribute('data-editar')); });
+  });
+}
+
+function editarPersona(personId) {
+  var p = ((ACTUAL && ACTUAL.people) || []).filter(function (x) { return x.id === personId; })[0];
+  if (!p) return;
+  PERSONA_EDITANDO = personId;
+  document.getElementById('pNombre').value = p.fullName || '';
+  document.getElementById('pRol').value = p.roleTitle || '';
+  document.getElementById('pTipo').value = p.kind || 'elenco';
+  document.getElementById('pCorreo').value = p.email || '';
+  document.getElementById('pPersonaje').value = p.characterName || '';
+  document.getElementById('btnAgregarPersona').textContent = 'Guardar cambios del integrante';
+  document.getElementById('btnCancelarPersona').style.display = 'inline-block';
+  aviso('Editando a ' + p.fullName + ': el personaje se puede dejar vacío (es un papel del montaje, no del integrante).');
+}
+
+function cancelarEdicionPersona() {
+  PERSONA_EDITANDO = '';
+  ['pNombre', 'pRol', 'pCorreo', 'pPersonaje'].forEach(function (id) { document.getElementById(id).value = ''; });
+  document.getElementById('btnAgregarPersona').textContent = 'Agregar al elenco';
+  document.getElementById('btnCancelarPersona').style.display = 'none';
+  aviso('');
+}
+
+function recargar(mantener) {
+  return pedir('/api/v1/crm/companies').then(function (r) {
+    if (!r.d || !r.d.success) throw new Error((r.d && r.d.error) || 'no se pudo leer');
+    COMPANIAS = r.d.companies || [];
+    var id = mantener || (ACTUAL && ACTUAL.id);
+    pintarLista();
+    if (id) elegir(id);
+  });
+}
+
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL ? 'Sesión: <b>' + esc(EMAIL) + '</b>' : 'Sin sesión';
+  if (!EMAIL) {
+    var p = document.getElementById('sinSesion');
+    p.style.display = 'block';
+    p.innerHTML = 'No hay sesión en este navegador: abrí esta página desde el CRM o agregá <b>?email=tucorreo@dominio.cl</b>.';
+  }
+  Promise.all([pedir('/api/v1/crm/companies'), pedir('/api/v1/crm/portfolio/projects')])
+    .then(function (rs) {
+      var c = rs[0], p = rs[1];
+      if (!c.d || !c.d.success) throw new Error((c.d && c.d.error) || 'no se pudieron leer las agrupaciones');
+      COMPANIAS = c.d.companies || [];
+      CATALOGO = ((p.d && (p.d.projects || p.d.data)) || []).map(function (x) {
+        return { id: x.id, title: x.title, company_name: x.companyName || x.company_name || '' };
+      });
+      pintarLista();
+      document.getElementById('error').style.display = 'none';
+      var primera = new URLSearchParams(location.search).get('id');
+      if (primera) elegir(primera);
+    })
+    .catch(function (e) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = 'No se pudo cargar: ' + e.message;
+    });
+}
+
+function guardar() {
+  if (!ACTUAL) return;
+  var cuerpo = {
+    name: document.getElementById('fNombre').value.trim(),
+    legalName: document.getElementById('fRazon').value.trim(),
+    discipline: document.getElementById('fDisciplina').value.trim(),
+    kind: document.getElementById('fTipo').value,
+    city: document.getElementById('fCiudad').value.trim(),
+    contactEmail: document.getElementById('fCorreo').value.trim(),
+    status: document.getElementById('fEstado').value,
+    description: document.getElementById('fDescripcion').value.trim(),
+  };
+  if (!cuerpo.name) { aviso('El nombre no puede quedar vacío.', 'malo'); return; }
+  aviso('Guardando…', '');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id), 'PUT', cuerpo).then(function (r) {
+    if (!r.d || !r.d.success) { aviso('No se guardó: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+    aviso('Guardado ✓ — los datos de la agrupación quedaron actualizados.', 'ok');
+    return recargar(ACTUAL.id);
+  }).catch(function (e) { aviso('No se guardó: ' + e.message, 'malo'); });
+}
+
+function agregarPersona() {
+  if (!ACTUAL) return;
+  var nombre = document.getElementById('pNombre').value.trim();
+  if (!nombre) { aviso('Escribe el nombre de la persona.', 'malo'); return; }
+  var cuerpo = {
+    fullName: nombre,
+    roleTitle: document.getElementById('pRol').value.trim(),
+    kind: document.getElementById('pTipo').value,
+    email: document.getElementById('pCorreo').value.trim(),
+    characterName: document.getElementById('pPersonaje').value.trim(),
+  };
+  var editando = !!PERSONA_EDITANDO;
+  aviso(editando ? 'Guardando…' : 'Agregando…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/people' + (editando ? '/' + encodeURIComponent(PERSONA_EDITANDO) : ''),
+    editando ? 'PUT' : 'POST', cuerpo).then(function (r) {
+    if (!r.d || !r.d.success) { aviso('No se guardó: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+    cancelarEdicionPersona();
+    aviso(editando ? 'Integrante actualizado ✓' : 'Agregada al elenco ✓', 'ok');
+    return recargar(ACTUAL.id);
+  }).catch(function (e) { aviso('No se guardó: ' + e.message, 'malo'); });
+}
+
+function quitarPersona(personId) {
+  aviso('Quitando…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/people/' + encodeURIComponent(personId), 'DELETE')
+    .then(function (r) {
+      if (!r.d || !r.d.success) { aviso('No se pudo quitar: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+      aviso('Persona quitada del elenco ✓', 'ok');
+      return recargar(ACTUAL.id);
+    }).catch(function (e) { aviso('No se pudo quitar: ' + e.message, 'malo'); });
+}
+
+function vincularObra() {
+  var projectId = document.getElementById('selObra').value;
+  if (!ACTUAL || !projectId) return;
+  aviso('Vinculando…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/projects', 'POST', { projectId: projectId })
+    .then(function (r) {
+      if (!r.d || !r.d.success) { aviso('No se vinculó: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+      aviso('«' + (r.d.title || 'obra') + '» quedó como montaje de la agrupación ✓', 'ok');
+      return recargar(ACTUAL.id);
+    }).catch(function (e) { aviso('No se vinculó: ' + e.message, 'malo'); });
+}
+
+function quitarObra(projectId) {
+  aviso('Quitando el montaje…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/projects/' + encodeURIComponent(projectId), 'DELETE')
+    .then(function (r) {
+      if (!r.d || !r.d.success) { aviso('No se pudo quitar: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+      aviso('Montaje desvinculado (la obra sigue en el catálogo) ✓', 'ok');
+      return recargar(ACTUAL.id);
+    }).catch(function (e) { aviso('No se pudo quitar: ' + e.message, 'malo'); });
+}
+
+document.getElementById('buscar').addEventListener('input', pintarLista);
+document.getElementById('btnGuardar').addEventListener('click', guardar);
+document.getElementById('btnDescartar').addEventListener('click', function () { elegir(ACTUAL.id); });
+document.getElementById('btnAgregarPersona').addEventListener('click', agregarPersona);
+document.getElementById('btnCancelarPersona').addEventListener('click', cancelarEdicionPersona);
+document.getElementById('btnVincular').addEventListener('click', vincularObra);
+cargar();
+</script>
+</body>
+</html>

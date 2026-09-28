@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nodos del radar · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --panel:#FFFBF4;
+    --tinta:#1D1A16; --tinta2:#5E564C; --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA;
+    --ok:#4E6B3A; --alerta:#C98A1E; --malo:#8A3B6B;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  a { color:var(--acento); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1220px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .marca img { width:26px; height:26px; }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  .quien b { color:var(--tinta); }
+  main { max-width:1220px; margin:0 auto; padding:16px; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  input, select, textarea { font:13px var(--sans); color:var(--tinta); background:var(--tarjeta); border:1px solid var(--linea); border-radius:10px; padding:8px 10px; }
+  textarea { min-height:74px; resize:vertical; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--acento-suave); border-color:var(--acento); }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .btn.principal:hover { color:#fff; filter:brightness(1.06); }
+  .btn.chico { padding:5px 10px; font-size:11.5px; }
+  .btn.peligro:hover { border-color:var(--malo); color:var(--malo); }
+  /* Galería de fotos candidatas (búsqueda manual de la foto del lugar) */
+  .galeria { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:8px; }
+  .galeria img { width:100%; height:66px; object-fit:cover; border-radius:8px; border:1px solid var(--linea); cursor:pointer; }
+  .galeria img:hover { border-color:var(--acento); }
+  .metricas { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .metrica { background:var(--tarjeta); border:1px solid var(--linea); border-radius:14px; padding:8px 12px; min-width:104px; }
+  .metrica .n { font:700 19px var(--serif); }
+  .metrica .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); }
+  .metrica.aviso .n { color:var(--alerta); }
+  .layout { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+  .col-principal { flex:1 1 640px; min-width:320px; }
+  .col-lateral { flex:0 1 360px; min-width:300px; display:flex; flex-direction:column; gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--linea); border-radius:18px; padding:14px 16px; }
+  .panel h3 { font:700 14px var(--serif); margin:0 0 8px; }
+  .panel p, .panel li { font-size:12.5px; color:var(--tinta2); }
+  table { width:100%; border-collapse:collapse; background:var(--tarjeta); border:1px solid var(--linea); border-radius:16px; overflow:hidden; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--linea); font-size:12.5px; vertical-align:top; }
+  th { background:var(--fondo2); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); }
+  tr:last-child td { border-bottom:0; }
+  tr.sin-coords td { background:#FDF6E8; }
+  .nom { font-weight:600; }
+  .mini { font-size:10.5px; color:var(--tinta2); }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 6px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.ok { border-color:var(--ok); color:var(--ok); }
+  .pill.borrador { border-color:var(--alerta); color:var(--alerta); }
+  .pill.malo { border-color:var(--malo); color:var(--malo); }
+  .acciones-fila { display:flex; gap:6px; flex-wrap:wrap; }
+  #mapaGeneral { height:330px; border-radius:14px; border:1px solid var(--linea); }
+  #mapaEditor { height:250px; border-radius:12px; border:1px solid var(--linea); margin-top:6px; }
+  .modal-fondo { position:fixed; inset:0; background:rgba(29,26,22,.55); display:none; z-index:50; padding:18px; overflow:auto; }
+  .modal-fondo.abierto { display:block; }
+  .modal { max-width:760px; margin:0 auto; background:var(--tarjeta); border:1px solid var(--linea); border-radius:20px; padding:18px; }
+  .modal h2 { font:700 18px var(--serif); margin:0 0 4px; }
+  .campos { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .campo { display:flex; flex-direction:column; gap:4px; }
+  .campo.ancho { grid-column:1 / -1; }
+  .campo label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); font-weight:700; }
+  .campo .ayuda { font-size:10.5px; color:var(--tinta2); }
+  .fila-campos { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .pie-modal { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+  .pie-modal .crece { flex:1; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .aviso-sesion { background:#FDF6E8; border:1px solid var(--alerta); color:#7a5410; border-radius:12px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--tinta); color:#fff; border-radius:999px; padding:9px 16px; font-size:12.5px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.visible { opacity:1; }
+  .vacio { border:1px dashed var(--linea); border-radius:16px; padding:16px; text-align:center; color:var(--tinta2); font-size:12.5px; }
+  .duplicado { border-bottom:1px dashed var(--linea); padding:7px 0; font-size:12px; }
+  .duplicado:last-child { border-bottom:0; }
+  @media (max-width:720px) {
+    .campos { grid-template-columns:1fr; }
+    th:nth-child(4), td:nth-child(4) { display:none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> Nodos del radar cultural</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="sinSesion" class="aviso-sesion" style="display:none"></div>
+
+  <div class="barra">
+    <input id="buscar" type="search" placeholder="Buscar por nombre, ciudad o dirección…" style="flex:1 1 260px" />
+    <select id="fCiudad"><option value="">Todas las comunas</option></select>
+    <select id="fCategoria"><option value="">Todas las categorías</option></select>
+    <select id="fEstado">
+      <option value="">Publicados y borradores</option>
+      <option value="1">Sólo publicados</option>
+      <option value="0">Sólo borradores</option>
+      <option value="sin">Sólo sin coordenada</option>
+    </select>
+    <button class="btn principal" id="btnNuevo">+ Nodo nuevo</button>
+    <button class="btn" id="btnRecargar">Recargar</button>
+  </div>
+
+  <div class="metricas" id="metricas"></div>
+
+  <div class="layout">
+    <div class="col-principal">
+      <div id="tablaContenedor"></div>
+    </div>
+    <div class="col-lateral">
+      <div class="panel">
+        <h3>Mapa de lo filtrado</h3>
+        <p class="mini">Cada punto es un nodo del radar. Tocar un punto abre su ficha para editarla.</p>
+        <div id="mapaGeneral"></div>
+      </div>
+      <div class="panel">
+        <h3>Posibles duplicados</h3>
+        <p class="mini">Nodos a menos de 200 m con el nombre parecido (el mismo lugar cargado dos veces).</p>
+        <div id="duplicados"></div>
+      </div>
+      <div class="panel">
+        <h3>Cómo se usa</h3>
+        <ul style="margin:6px 0 0 16px; padding:0">
+          <li>Un nodo <b>publicado</b> aparece en la app; un <b>borrador</b> sólo se ve aquí.</li>
+          <li>El <b>radio de desbloqueo</b> es la distancia a la que el lugar se abre en el teléfono (por defecto 120 m).</li>
+          <li>El <b>horario</b> lo muestra la app tal como se escriba ("Lun a Sáb 10:00 a 18:45"). Si está vacío, no se inventa.</li>
+          <li>Si falta la coordenada, el lugar se ve sin distancia: se puede ubicar haciendo clic en el mapa.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-fondo" id="modalFondo">
+  <div class="modal">
+    <h2 id="modalTitulo">Nodo nuevo</h2>
+    <div class="mini" id="modalSub"></div>
+    <div class="campos">
+      <div class="campo ancho">
+        <label for="eName">Nombre del lugar *</label>
+        <input id="eName" type="text" placeholder="Teatro Regional Lucho Gatica" />
+      </div>
+      <div class="campo">
+        <label for="eCategory">Categoría</label>
+        <input id="eCategory" list="cats" type="text" placeholder="Teatro" />
+        <datalist id="cats"></datalist>
+      </div>
+      <div class="campo">
+        <label for="eUnlock">Radio de desbloqueo (m)</label>
+        <input id="eUnlock" type="number" min="20" max="5000" step="10" placeholder="120" />
+      </div>
+      <div class="campo ancho">
+        <label for="eShort">Descripción corta</label>
+        <input id="eShort" type="text" maxlength="300" placeholder="Sala de teatro municipal de Rancagua" />
+      </div>
+      <div class="campo ancho">
+        <label for="eFull">Descripción larga</label>
+        <textarea id="eFull" placeholder="Qué es, qué se puede ver, historia, cómo llegar…"></textarea>
+      </div>
+      <div class="campo ancho">
+        <label for="eAddress">Dirección</label>
+        <input id="eAddress" type="text" placeholder="Avenida Capitán Antonio Millán 342" />
+      </div>
+      <div class="campo">
+        <label for="eCity">Comuna</label>
+        <input id="eCity" type="text" placeholder="Rancagua" />
+      </div>
+      <div class="campo">
+        <label for="eRegion">Región</label>
+        <input id="eRegion" type="text" placeholder="Región del Libertador Gral. Bernardo O'Higgins" />
+      </div>
+      <div class="campo">
+        <label for="eLat">Latitud</label>
+        <input id="eLat" type="number" step="0.0000001" placeholder="-34.1755663" />
+      </div>
+      <div class="campo">
+        <label for="eLng">Longitud</label>
+        <input id="eLng" type="number" step="0.0000001" placeholder="-70.7406144" />
+      </div>
+      <div class="campo ancho">
+        <div class="fila-campos">
+          <button class="btn chico" id="btnUbicarme" type="button">Usar mi ubicación</button>
+          <button class="btn chico" id="btnBuscarDir" type="button">Ubicar por la dirección (OpenStreetMap)</button>
+          <button class="btn chico" id="btnVerMaps" type="button">Ver en Google Maps</button>
+          <span class="mini">La dirección la resuelve OpenStreetMap y es aproximada: mueves el punto a mano si hace falta.</span>
+        </div>
+        <div id="mapaEditor"></div>
+      </div>
+      <div class="campo">
+        <label for="eHours">Horario</label>
+        <input id="eHours" type="text" maxlength="160" placeholder="Mar a Vie 11:00 a 17:00" />
+      </div>
+      <div class="campo">
+        <label for="eCover">Foto</label>
+        <div style="display:flex;gap:6px;align-items:stretch;flex-wrap:wrap">
+          <input id="eCover" type="text" placeholder="https://… (o sube un archivo)" style="flex:1;min-width:140px" />
+          <button type="button" class="btn principal" id="btnSubirFoto" title="Subir una foto desde tu computador o teléfono">Subir foto</button>
+          <button type="button" class="btn" id="btnBuscarFotos" title="Buscar fotos libres en Wikimedia Commons">Buscar en Commons</button>
+        </div>
+        <input id="archivoFoto" type="file" accept="image/*" style="display:none" />
+        <!-- Galería de candidatas: se elige a ojo (por eso no la decide el sistema) -->
+        <div id="galeriaFotos" class="galeria" style="display:none"></div>
+        <img id="previewCover" alt="" style="display:none;width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--linea)" />
+        <p class="mini" id="estadoFoto" style="margin-top:4px">Sube una foto propia (se achica sola antes de guardarse) o elige una candidata libre. Sin foto el lugar se ve con un marcador “Sin foto”.</p>
+      </div>
+      <div class="campo">
+        <label for="eQr">Código QR</label>
+        <input id="eQr" type="text" placeholder="nd_…" />
+      </div>
+      <div class="campo">
+        <label for="ePublicado">Estado</label>
+        <label class="fila-campos" style="text-transform:none; letter-spacing:0; font-weight:400">
+          <input id="ePublicado" type="checkbox" style="width:auto" /> Publicado (visible en la app)
+        </label>
+      </div>
+    </div>
+    <div class="pie-modal">
+      <span class="crece mini" id="modalPista"></span>
+      <button class="btn peligro" id="btnBorrar" type="button">Eliminar</button>
+      <button class="btn" id="btnCancelar" type="button">Cancelar</button>
+      <button class="btn principal" id="btnGuardar" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Panel de administración de los nodos culturales del radar (FASE CRM).
+   Habla con la API del propio hub: /api/v1/crm/radar/nodos (permiso: administración).
+   La identidad sale de la sesión del navegador en este origen (el CRM guarda
+   `user_session`, la app `atha_user_session`) o de ?email= para poder abrirlo con
+   una cuenta puntual.
+--------------------------------------------------------------------------- */
+var EMAIL = '';
+try {
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['user_session', 'atha_user_session', 'atha_user_profile'];
+  for (var i = 0; i < CLAVES.length && !EMAIL; i++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[i]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+var NODOS = [];
+var filtrados = [];
+var editando = null;
+var mapaGeneral = null;
+var mapaEditor = null;
+var marcadorEditor = null;
+var capaGeneral = null;
+var limitesChile = { lat: [-56.5, -17.0], lng: [-76.0, -66.0] };
+
+function esc(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function cabeceras() {
+  var c = { 'Content-Type': 'application/json' };
+  if (EMAIL) c['x-atha-email'] = EMAIL;
+  return c;
+}
+function conEmail(ruta) {
+  return ruta + (ruta.indexOf('?') >= 0 ? '&' : '?') + 'email=' + encodeURIComponent(EMAIL);
+}
+function toast(txt) {
+  var t = document.getElementById('toast');
+  t.textContent = txt;
+  t.className = 'toast visible';
+  setTimeout(function () { t.className = 'toast'; }, 2600);
+}
+function mostrarError(txt) {
+  var e = document.getElementById('error');
+  e.textContent = txt;
+  e.style.display = txt ? 'block' : 'none';
+}
+function distM(a, b, c, d) {
+  var R = 6371000, rad = Math.PI / 180;
+  var dLat = (c - a) * rad, dLng = (d - b) * rad;
+  var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(a * rad) * Math.cos(c * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
+function norm(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function necesitaCoord(n) {
+  return !n.latitude || !n.longitude || isNaN(Number(n.latitude)) || isNaN(Number(n.longitude));
+}
+function fueraDeChile(lat, lng) {
+  return lat < limitesChile.lat[0] || lat > limitesChile.lat[1] || lng < limitesChile.lng[0] || lng > limitesChile.lng[1];
+}
+
+/* ------------------------------- carga ---------------------------------- */
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL
+    ? 'Sesión: <b>' + esc(EMAIL) + '</b>'
+    : 'Sin sesión';
+  if (!EMAIL) {
+    var av = document.getElementById('sinSesion');
+    av.innerHTML = 'No hay sesión en este navegador. Abre el panel desde el CRM, o agrega <b>?email=tucorreo@dominio.cl</b> a la dirección. Sólo las cuentas de administración pueden editar el radar.';
+    av.style.display = 'block';
+  }
+  fetch('/api/v1/crm/radar/nodos?incluir_borradores=1', { headers: cabeceras() })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok || !res.d.ok) {
+        mostrarError('No se pudieron leer los nodos: ' + (res.d && res.d.error ? res.d.error : 'HTTP ' + res.status));
+        NODOS = [];
+      } else {
+        NODOS = res.d.nodos || [];
+        mostrarError('');
+      }
+      pintar();
+    })
+    .catch(function (e) {
+      mostrarError('No se pudo conectar con el hub: ' + e.message);
+      NODOS = []; pintar();
+    });
+}
+
+/* ------------------------------ filtros --------------------------------- */
+function filtrar() {
+  var q = norm(document.getElementById('buscar').value);
+  var ciudad = document.getElementById('fCiudad').value;
+  var cat = document.getElementById('fCategoria').value;
+  var estado = document.getElementById('fEstado').value;
+  filtrados = NODOS.filter(function (n) {
+    if (ciudad && (n.city || '') !== ciudad) return false;
+    if (cat && (n.category || '') !== cat) return false;
+    if (estado === '1' && !n.is_published) return false;
+    if (estado === '0' && n.is_published) return false;
+    if (estado === 'sin' && !necesitaCoord(n)) return false;
+    if (q) {
+      var texto = norm([n.name, n.city, n.address, n.category, n.short_description].join(' '));
+      if (texto.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+  filtrados.sort(function (a, b) {
+    var ca = (a.city || '') + '|' + norm(a.name), cb = (b.city || '') + '|' + norm(b.name);
+    return ca < cb ? -1 : ca > cb ? 1 : 0;
+  });
+}
+
+function llenarSelects() {
+  var ciudades = {}, cats = {};
+  NODOS.forEach(function (n) {
+    if (n.city) ciudades[n.city] = (ciudades[n.city] || 0) + 1;
+    if (n.category) cats[n.category] = (cats[n.category] || 0) + 1;
+  });
+  function opciones(id, datos, primera) {
+    var sel = document.getElementById(id), actual = sel.value;
+    sel.innerHTML = '<option value="">' + primera + '</option>';
+    Object.keys(datos).sort().forEach(function (k) {
+      var o = document.createElement('option');
+      o.value = k; o.textContent = k + ' (' + datos[k] + ')';
+      sel.appendChild(o);
+    });
+    sel.value = actual && datos[actual] ? actual : '';
+  }
+  opciones('fCiudad', ciudades, 'Todas las comunas');
+  opciones('fCategoria', cats, 'Todas las categorías');
+  var dl = document.getElementById('cats');
+  dl.innerHTML = '';
+  Object.keys(cats).sort().forEach(function (k) {
+    var o = document.createElement('option'); o.value = k; dl.appendChild(o);
+  });
+}
+
+/* ------------------------------ pintado --------------------------------- */
+function pintar() {
+  llenarSelects();
+  filtrar();
+
+  var publicados = NODOS.filter(function (n) { return n.is_published; }).length;
+  var sinCoord = NODOS.filter(necesitaCoord).length;
+  var metros = [
+    ['Nodos', NODOS.length, false],
+    ['Publicados', publicados, false],
+    ['Borradores', NODOS.length - publicados, NODOS.length - publicados > 0],
+    ['Sin coordenada', sinCoord, sinCoord > 0],
+    ['En pantalla', filtrados.length, false]
+  ];
+  document.getElementById('metricas').innerHTML = metros.map(function (m) {
+    return '<div class="metrica' + (m[2] ? ' aviso' : '') + '"><div class="n">' + m[1] + '</div><div class="t">' + m[0] + '</div></div>';
+  }).join('');
+
+  var cont = document.getElementById('tablaContenedor');
+  if (!NODOS.length) {
+    cont.innerHTML = '<div class="vacio">Todavía no hay nodos cargados. Puedes crear el primero con “+ Nodo nuevo”, o cosecharlos de OpenStreetMap con <b>scripts/recolectar_nodos.py</b>.</div>';
+  } else if (!filtrados.length) {
+    cont.innerHTML = '<div class="vacio">Ningún nodo coincide con el filtro.</div>';
+  } else {
+    var filas = filtrados.map(function (n) {
+      var coords = necesitaCoord(n) ? '<span class="pill borrador">sin coordenada</span>'
+        : '<span class="mini">' + Number(n.latitude).toFixed(5) + ', ' + Number(n.longitude).toFixed(5) + '</span>';
+      return '<tr class="' + (necesitaCoord(n) ? 'sin-coords' : '') + '">' +
+        '<td><div class="nom">' + esc(n.name) + '</div>' +
+          '<div class="mini">' + esc(n.short_description || '') + '</div>' +
+          '<div class="mini">' + (n.hours ? 'Horario: ' + esc(n.hours) : 'sin horario') + '</div></td>' +
+        '<td>' + esc(n.category || '—') + '<div class="mini">' + esc(n.city || 'sin comuna') + '</div></td>' +
+        '<td>' + coords + '<div class="mini">' + esc(n.address || '') + '</div></td>' +
+        '<td>' + (n.unlock_radius_m || 120) + ' m<div class="mini">' + (n.created_by ? esc(n.created_by) : '') + '</div></td>' +
+        '<td>' + (n.is_published ? '<span class="pill ok">publicado</span>' : '<span class="pill borrador">borrador</span>') + '</td>' +
+        '<td><div class="acciones-fila">' +
+          '<button class="btn chico" data-accion="editar" data-id="' + esc(n.id) + '">Editar</button>' +
+          '<button class="btn chico" data-accion="estado" data-id="' + esc(n.id) + '">' + (n.is_published ? 'Ocultar' : 'Publicar') + '</button>' +
+          (necesitaCoord(n) ? '' : '<a class="btn chico" target="_blank" rel="noreferrer" href="https://www.google.com/maps?q=' + n.latitude + ',' + n.longitude + '">Mapa</a>') +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+    cont.innerHTML = '<table><thead><tr><th>Lugar</th><th>Categoría</th><th>Coordenada</th><th>Desbloqueo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>' + filas + '</tbody></table>';
+  }
+  pintarMapaGeneral();
+  pintarDuplicados();
+}
+
+function pintarMapaGeneral() {
+  var conCoords = filtrados.filter(function (n) { return !necesitaCoord(n); });
+  if (!mapaGeneral) {
+    mapaGeneral = L.map('mapaGeneral', { scrollWheelZoom: true }).setView([-34.1708, -70.7444], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(mapaGeneral);
+  }
+  if (capaGeneral) mapaGeneral.removeLayer(capaGeneral);
+  capaGeneral = L.layerGroup().addTo(mapaGeneral);
+  var puntos = [];
+  conCoords.forEach(function (n) {
+    var m = L.circleMarker([Number(n.latitude), Number(n.longitude)], {
+      radius: 7, color: n.is_published ? '#B4472C' : '#C98A1E', weight: 2, fillOpacity: .55
+    }).addTo(capaGeneral);
+    m.bindPopup('<b>' + esc(n.name) + '</b><br>' + esc(n.category || '') + ' · ' + esc(n.city || '') +
+      '<br><button class="btn chico" data-accion="editar" data-id="' + esc(n.id) + '">Editar</button>');
+    puntos.push([Number(n.latitude), Number(n.longitude)]);
+  });
+  if (puntos.length) mapaGeneral.fitBounds(puntos, { padding: [24, 24], maxZoom: 15 });
+  mapaGeneral.invalidateSize();
+}
+
+function pintarDuplicados() {
+  var conCoords = NODOS.filter(function (n) { return !necesitaCoord(n); });
+  var pares = [];
+  for (var i = 0; i < conCoords.length; i++) {
+    for (var j = i + 1; j < conCoords.length; j++) {
+      var a = conCoords[i], b = conCoords[j];
+      var d = distM(Number(a.latitude), Number(a.longitude), Number(b.latitude), Number(b.longitude));
+      if (d > 200) continue;
+      var pa = norm(a.name).split(' ').filter(function (w) { return w.length > 3; });
+      var pb = norm(b.name).split(' ').filter(function (w) { return w.length > 3; });
+      var corto = Math.min(pa.length, pb.length) || 1;
+      var comunes = pa.filter(function (w) { return pb.indexOf(w) >= 0; }).length;
+      var parecido = comunes / corto;
+      var contenido = norm(a.name).indexOf(norm(b.name)) >= 0 || norm(b.name).indexOf(norm(a.name)) >= 0;
+      if (parecido >= 0.6 || contenido) pares.push({ a: a, b: b, d: d });
+    }
+  }
+  var cont = document.getElementById('duplicados');
+  if (!pares.length) {
+    cont.innerHTML = '<p class="mini">No se ven duplicados entre los ' + conCoords.length + ' nodos con coordenada.</p>';
+    return;
+  }
+  cont.innerHTML = pares.sort(function (x, y) { return x.d - y.d; }).slice(0, 12).map(function (p) {
+    return '<div class="duplicado"><b>' + esc(p.a.name) + '</b> (' + esc(p.a.city || '?') + ') y <b>' + esc(p.b.name) +
+      '</b> (' + esc(p.b.city || '?') + ') — a ' + p.d + ' m<br>' +
+      '<button class="btn chico" data-accion="editar" data-id="' + esc(p.a.id) + '">Editar 1</button> ' +
+      '<button class="btn chico" data-accion="editar" data-id="' + esc(p.b.id) + '">Editar 2</button></div>';
+  }).join('');
+}
+
+/* ------------------------------- editor --------------------------------- */
+function porId(id) {
+  for (var i = 0; i < NODOS.length; i++) if (NODOS[i].id === id) return NODOS[i];
+  return null;
+}
+function set(id, valor) { document.getElementById(id).value = valor == null ? '' : valor; }
+
+function abrirEditor(id) {
+  var n = id ? porId(id) : null;
+  editando = n;
+  document.getElementById('modalTitulo').textContent = n ? 'Editar nodo' : 'Nodo nuevo';
+  document.getElementById('modalSub').textContent = n
+    ? 'ID ' + n.id + (n.created_by ? ' · creado por ' + n.created_by : '')
+    : 'Se crea sólo en el CRM: queda borrador hasta que lo publiques.';
+  set('eName', n ? n.name : '');
+  set('eCategory', n ? n.category : '');
+  set('eShort', n ? n.short_description : '');
+  set('eFull', n ? n.full_description : '');
+  set('eAddress', n ? n.address : '');
+  set('eCity', n ? n.city : '');
+  set('eRegion', n ? n.region : '');
+  set('eLat', n && n.latitude ? Number(n.latitude) : '');
+  set('eLng', n && n.longitude ? Number(n.longitude) : '');
+  set('eUnlock', n && n.unlock_radius_m ? n.unlock_radius_m : 120);
+  set('eHours', n ? n.hours : '');
+  set('eCover', n ? n.cover_url : '');
+  // La galería de candidatas se limpia al abrir otro nodo, y la vista previa muestra la foto actual
+  document.getElementById('galeriaFotos').style.display = 'none';
+  document.getElementById('galeriaFotos').innerHTML = '';
+  var previa = document.getElementById('previewCover');
+  if (n && n.cover_url) { previa.src = n.cover_url; previa.style.display = 'block'; }
+  else { previa.removeAttribute('src'); previa.style.display = 'none'; }
+  avisoFoto('Sube una foto propia (se achica sola antes de guardarse) o elige una candidata libre.');
+  set('eQr', n ? n.qr_code : '');
+  document.getElementById('ePublicado').checked = n ? !!n.is_published : false;
+  document.getElementById('btnBorrar').style.display = n ? 'inline-block' : 'none';
+  document.getElementById('modalPista').textContent = '';
+  document.getElementById('modalFondo').className = 'modal-fondo abierto';
+  setTimeout(function () {
+    montarMapaEditor();
+    var lat = parseFloat(document.getElementById('eLat').value);
+    var lng = parseFloat(document.getElementById('eLng').value);
+    if (!isNaN(lat) && !isNaN(lng)) centroEditor(lat, lng, true);
+  }, 60);
+}
+function cerrarEditor() {
+  document.getElementById('modalFondo').className = 'modal-fondo';
+  editando = null;
+}
+function montarMapaEditor() {
+  if (mapaEditor) { mapaEditor.remove(); mapaEditor = null; }
+  mapaEditor = L.map('mapaEditor').setView([-34.1708, -70.7444], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapaEditor);
+  marcadorEditor = null;
+  mapaEditor.on('click', function (ev) { ponerPin(ev.latlng.lat, ev.latlng.lng); });
+  setTimeout(function () { mapaEditor.invalidateSize(); }, 80);
+}
+function centroEditor(lat, lng, poner) {
+  if (!mapaEditor) return;
+  mapaEditor.setView([lat, lng], 16);
+  if (poner) ponerPin(lat, lng);
+}
+function ponerPin(lat, lng) {
+  set('eLat', lat.toFixed(7));
+  set('eLng', lng.toFixed(7));
+  if (!mapaEditor) return;
+  if (marcadorEditor) { marcadorEditor.setLatLng([lat, lng]); return; }
+  marcadorEditor = L.marker([lat, lng], { draggable: true, title: 'Arrastrame al lugar exacto' }).addTo(mapaEditor);
+  marcadorEditor.on('dragend', function () {
+    var p = marcadorEditor.getLatLng();
+    set('eLat', p.lat.toFixed(7));
+    set('eLng', p.lng.toFixed(7));
+  });
+}
+
+function cuerpoFormulario() {
+  var lat = parseFloat(document.getElementById('eLat').value);
+  var lng = parseFloat(document.getElementById('eLng').value);
+  var radio = parseInt(document.getElementById('eUnlock').value, 10);
+  return {
+    name: document.getElementById('eName').value.trim(),
+    category: document.getElementById('eCategory').value.trim() || null,
+    short_description: document.getElementById('eShort').value.trim() || null,
+    full_description: document.getElementById('eFull').value.trim() || null,
+    address: document.getElementById('eAddress').value.trim() || null,
+    city: document.getElementById('eCity').value.trim() || null,
+    region: document.getElementById('eRegion').value.trim() || null,
+    latitude: isNaN(lat) ? null : lat,
+    longitude: isNaN(lng) ? null : lng,
+    unlock_radius_m: isNaN(radio) ? 120 : radio,
+    hours: document.getElementById('eHours').value.trim() || null,
+    cover_url: document.getElementById('eCover').value.trim() || null,
+    qr_code: document.getElementById('eQr').value.trim() || null,
+    is_published: document.getElementById('ePublicado').checked ? 1 : 0,
+    email: EMAIL
+  };
+}
+
+function guardar() {
+  var b = cuerpoFormulario();
+  if (b.name.length < 3) { document.getElementById('modalPista').textContent = 'El nombre necesita al menos 3 letras.'; return; }
+  if (b.latitude != null && b.longitude != null && fueraDeChile(b.latitude, b.longitude)) {
+    document.getElementById('modalPista').textContent = 'Esas coordenadas no caen en Chile: revisa el pin.';
+    return;
+  }
+  if ((b.latitude == null) !== (b.longitude == null)) {
+    document.getElementById('modalPista').textContent = 'Latitud y longitud van juntas: pon las dos o ninguna.';
+    return;
+  }
+  var url = editando ? '/api/v1/crm/radar/nodos/' + encodeURIComponent(editando.id) : '/api/v1/crm/radar/nodos';
+  document.getElementById('modalPista').textContent = 'Guardando…';
+  fetch(url, { method: editando ? 'PATCH' : 'POST', headers: cabeceras(), body: JSON.stringify(b) })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) {
+        document.getElementById('modalPista').textContent = res.d && res.d.error ? res.d.error : 'No se pudo guardar (HTTP ' + res.status + ')';
+        return;
+      }
+      toast(editando ? 'Nodo actualizado' : 'Nodo creado');
+      cerrarEditor();
+      cargar();
+    })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'Error de red: ' + e.message; });
+}
+
+function borrar() {
+  if (!editando) return;
+  if (!confirm('¿Eliminar «' + editando.name + '»? Se borran también sus descubrimientos y su lugar en las rutas. No se puede deshacer.')) return;
+  fetch('/api/v1/crm/radar/nodos/' + encodeURIComponent(editando.id), { method: 'DELETE', headers: cabeceras(), body: JSON.stringify({ email: EMAIL }) })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { document.getElementById('modalPista').textContent = (res.d && res.d.error) || ('no se pudo borrar (HTTP ' + res.status + ')'); return; }
+      toast('Nodo eliminado');
+      cerrarEditor();
+      cargar();
+    })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'Error de red: ' + e.message; });
+}
+
+function alternarEstado(id) {
+  var n = porId(id);
+  if (!n) return;
+  fetch('/api/v1/crm/radar/nodos/' + encodeURIComponent(id), {
+    method: 'PATCH', headers: cabeceras(),
+    body: JSON.stringify({ email: EMAIL, is_published: n.is_published ? 0 : 1 })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { toast(d.error || 'no se pudo cambiar el estado'); return; }
+    toast(n.is_published ? 'Pasó a borrador' : 'Publicado en la app');
+    cargar();
+  }).catch(function (e) { toast('Error de red: ' + e.message); });
+}
+
+/* ------------------------------ geocodificar ---------------------------- */
+function ubicarme() {
+  if (!navigator.geolocation) { document.getElementById('modalPista').textContent = 'Este navegador no da la ubicación.'; return; }
+  document.getElementById('modalPista').textContent = 'Pidiendo la ubicación…';
+  navigator.geolocation.getCurrentPosition(function (p) {
+    centroEditor(p.coords.latitude, p.coords.longitude, true);
+    document.getElementById('modalPista').textContent = 'Ubicación puesta (±' + Math.round(p.coords.accuracy) + ' m).';
+  }, function (e) {
+    document.getElementById('modalPista').textContent = 'No se pudo obtener la ubicación: ' + e.message;
+  }, { enableHighAccuracy: true, timeout: 12000 });
+}
+function buscarDireccion() {
+  var dir = document.getElementById('eAddress').value.trim();
+  var comuna = document.getElementById('eCity').value.trim();
+  if (!dir && !comuna) { document.getElementById('modalPista').textContent = 'Escribe una dirección o una comuna para buscarla.'; return; }
+  var q = [dir, comuna, 'Chile'].filter(Boolean).join(', ');
+  document.getElementById('modalPista').textContent = 'Buscando «' + q + '» en OpenStreetMap…';
+  fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=cl&q=' + encodeURIComponent(q))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.length) { document.getElementById('modalPista').textContent = 'OpenStreetMap no encontró esa dirección: ubica el punto a mano en el mapa.'; return; }
+      centroEditor(parseFloat(d[0].lat), parseFloat(d[0].lon), true);
+      document.getElementById('modalPista').textContent = 'Aproximado por OpenStreetMap — revisa el pin y movelo si hace falta.';
+    })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'No se pudo consultar OpenStreetMap: ' + e.message; });
+}
+function verMaps() {
+  var lat = document.getElementById('eLat').value, lng = document.getElementById('eLng').value;
+  if (!lat || !lng) { document.getElementById('modalPista').textContent = 'Todavía no hay coordenada.'; return; }
+  window.open('https://www.google.com/maps?q=' + lat + ',' + lng, '_blank', 'noreferrer');
+}
+
+/* ---------------------------------------------------------------------------
+   Subir una foto propia (lo que pidió Francisco: las URLs públicas son
+   difíciles de conseguir). El navegador la achica a 1600 px y la manda como
+   JPEG 85 %, así no viajan 8 MB desde el teléfono; el hub la deja en el bucket
+   del ecosistema y devuelve la URL pública.
+   --------------------------------------------------------------------------- */
+function avisoFoto(texto) {
+  document.getElementById('estadoFoto').textContent = texto;
+}
+
+function procesarArchivo(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { avisoFoto('Elige una imagen (JPG, PNG o WebP).'); input.value = ''; return; }
+  avisoFoto('Preparando la imagen…');
+  var lector = new FileReader();
+  lector.onload = function () {
+    var img = new Image();
+    img.onload = function () {
+      var max = 1600;
+      var escala = Math.min(1, max / Math.max(img.width, img.height));
+      var lienzo = document.createElement('canvas');
+      lienzo.width = Math.round(img.width * escala);
+      lienzo.height = Math.round(img.height * escala);
+      lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+      var dataUrl = lienzo.toDataURL('image/jpeg', 0.85);
+      avisoFoto('Subiendo ' + lienzo.width + '×' + lienzo.height + ' (' + Math.round(dataUrl.length / 1365) + ' KB)…');
+      enviarFoto(dataUrl, file.name);
+    };
+    img.onerror = function () { avisoFoto('No se pudo leer la imagen.'); };
+    img.src = lector.result;
+  };
+  lector.onerror = function () { avisoFoto('No se pudo leer el archivo.'); };
+  lector.readAsDataURL(file);
+  input.value = '';
+}
+
+function enviarFoto(dataUrl, nombreArchivo) {
+  var nombre = document.getElementById('eName').value.trim() || nombreArchivo || 'foto';
+  fetch('/api/v1/crm/media', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-atha-email': EMAIL },
+    body: JSON.stringify({ imagen: dataUrl, nombre: nombre, carpeta: 'radar', email: EMAIL }),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { avisoFoto('No se pudo subir: ' + (d.error || 'error')); return; }
+      document.getElementById('eCover').value = d.url;
+      var previa = document.getElementById('previewCover');
+      previa.src = d.url; previa.style.display = 'block';
+      avisoFoto('Foto subida. Se guarda al apretar Guardar.');
+    })
+    .catch(function (e) { avisoFoto('No se pudo subir: ' + e.message); });
+}
+
+/* ---------------------------------------------------------------------------
+   Fotografías: buscar candidatas libres (Wikimedia Commons) y elegir a ojo.
+   El nombre del lugar es lo que busca; se le suma la comuna para desambiguar.
+   La foto elegida queda en el campo Foto; el sistema NO elige solo.
+   --------------------------------------------------------------------------- */
+function buscarFotos() {
+  var nombre = document.getElementById('eName').value.trim();
+  var comuna = document.getElementById('eCity').value.trim();
+  var caja = document.getElementById('galeriaFotos');
+  if (nombre.length < 3) { document.getElementById('modalPista').textContent = 'Escribe primero el nombre del lugar.'; return; }
+  caja.style.display = 'block';
+  caja.innerHTML = '<p class="mini">Buscando fotos libres de «' + esc(nombre) + '»…</p>';
+  fetch('/api/v1/crm/radar/fotos-sugeridas?q=' + encodeURIComponent(nombre) + '&ciudad=' + encodeURIComponent(comuna) + '&email=' + encodeURIComponent(EMAIL), { headers: { 'x-atha-email': EMAIL } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { caja.innerHTML = '<p class="mini">No se pudo buscar: ' + esc(d.error || 'error') + '</p>'; return; }
+      if (!d.fotos.length) {
+        caja.innerHTML = '<p class="mini">No hay fotos libres con ese nombre. Prueba con otro texto (el nombre de la calle, «teatro municipal», el nombre de la obra) o pega una URL propia.</p>';
+        return;
+      }
+      var html = d.fotos.map(function (f) {
+        return '<img src="' + esc(f.url) + '" data-u="' + esc(f.url_grande || f.url) + '" title="' + esc(f.titulo) + (f.licencia ? ' · ' + esc(f.licencia) : '') + (f.autor ? ' · ' + esc(f.autor) : '') + '">';
+      }).join('');
+      html += '<p class="mini" style="grid-column:1/-1">Elige la que corresponde al lugar (queda en el campo Foto) — ' +
+        '<a href="https://commons.wikimedia.org/w/index.php?search=' + encodeURIComponent([nombre, comuna].filter(Boolean).join(' ')) + '" target="_blank" rel="noreferrer">ver todas en Commons</a> · ' +
+        '<a href="https://www.google.com/search?tbm=isch&q=' + encodeURIComponent([nombre, comuna, 'Chile'].filter(Boolean).join(' ')) + '" target="_blank" rel="noreferrer">buscar en Google Imágenes</a></p>';
+      caja.innerHTML = html;
+      var imgs = caja.querySelectorAll('img');
+      for (var i = 0; i < imgs.length; i++) {
+        imgs[i].addEventListener('click', function () {
+          var u = this.getAttribute('data-u');
+          document.getElementById('eCover').value = u;
+          var prev = document.getElementById('previewCover');
+          prev.src = u; prev.style.display = 'block';
+          document.getElementById('modalPista').textContent = 'Foto elegida: se guarda al apretar Guardar.';
+        });
+      }
+    })
+    .catch(function (e) { caja.innerHTML = '<p class="mini">No se pudo buscar: ' + esc(e.message) + '</p>'; });
+}
+
+/* ------------------------------- eventos -------------------------------- */
+document.getElementById('buscar').addEventListener('input', function () { pintar(); });
+['fCiudad', 'fCategoria', 'fEstado'].forEach(function (id) {
+  document.getElementById(id).addEventListener('change', function () { pintar(); });
+});
+document.getElementById('btnSubirFoto').addEventListener('click', function () { document.getElementById('archivoFoto').click(); });
+document.getElementById('archivoFoto').addEventListener('change', function () { procesarArchivo(this); });
+document.getElementById('btnBuscarFotos').addEventListener('click', buscarFotos);
+document.getElementById('btnNuevo').addEventListener('click', function () { abrirEditor(null); });
+document.getElementById('btnRecargar').addEventListener('click', function () { cargar(); });
+document.getElementById('btnGuardar').addEventListener('click', guardar);
+document.getElementById('btnBorrar').addEventListener('click', borrar);
+document.getElementById('btnCancelar').addEventListener('click', cerrarEditor);
+document.getElementById('btnUbicarme').addEventListener('click', ubicarme);
+document.getElementById('btnBuscarDir').addEventListener('click', buscarDireccion);
+document.getElementById('btnVerMaps').addEventListener('click', verMaps);
+document.getElementById('modalFondo').addEventListener('click', function (ev) {
+  if (ev.target.id === 'modalFondo') cerrarEditor();
+});
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest ? ev.target.closest('[data-accion]') : null;
+  if (!el) return;
+  var accion = el.getAttribute('data-accion'), id = el.getAttribute('data-id');
+  if (accion === 'editar') abrirEditor(id);
+  if (accion === 'estado') alternarEstado(id);
+});
+document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') cerrarEditor(); });
+
+cargar();
+</script>
+</body>
+</html>

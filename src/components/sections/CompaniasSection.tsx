@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CompanyGroup, ArtistPortfolioFile } from '../../types';
+import { leerSesionCrm } from '../../utils/sesionEcosistema';
 import {
   Users,
   Shield,
@@ -64,6 +65,11 @@ function mapApiCompany(c: any): CompanyApi & { members: string[]; activeProjects
     kind: c.kind === 'propia' ? 'propia' : 'colaboradora',
     description: c.description || '',
     contactEmail: c.contactEmail || '',
+    // Estos tres los usa el formulario de edición: si no viajan, al guardar se vaciarían.
+    legalName: c.legalName || '',
+    city: c.city || '',
+    status: c.status || 'active',
+    logoUrl: c.logoUrl || c.logo_url || '',
     slug: c.slug || '',
     obras,
     people,
@@ -184,6 +190,133 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
 
   useEffect(() => { loadCompanies(); }, []);
 
+  /* ---------------------------------------------------------------------------
+     EDITAR LA FICHA Y VINCULAR MONTAJES DEL CATÁLOGO REAL
+     Pedido de Francisco: poder editar todos los datos de la agrupación (descripción
+     incluida) y que los montajes sean las obras del catálogo de verdad (projects),
+     no una lista de texto. Antes esta pestaña sólo agregaba/quita socios y el resto
+     se guardaba en una lista local que se perdía al recargar.
+     --------------------------------------------------------------------------- */
+  const [editando, setEditando] = useState(false);
+  const [borrador, setBorrador] = useState<any>({});
+  const [catalogo, setCatalogo] = useState<any[]>([]);
+  const [obraElegida, setObraElegida] = useState('');
+
+  const cargarCatalogo = () => {
+    fetch('/api/v1/crm/portfolio/projects')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setCatalogo((d && (d.projects || d.data)) || []))
+      .catch(() => {});
+  };
+  useEffect(() => { cargarCatalogo(); }, []);
+
+  const abrirEdicion = () => {
+    if (!activeCompany) return;
+    setBorrador({
+      name: activeCompany.name || '',
+      legalName: activeCompany.legalName || '',
+      discipline: activeCompany.discipline || '',
+      kind: activeCompany.kind === 'propia' ? 'propia' : 'colaboradora',
+      city: activeCompany.city || '',
+      contactEmail: activeCompany.contactEmail || '',
+      status: activeCompany.status || 'active',
+      description: activeCompany.description || '',
+      logoUrl: (activeCompany as any).logoUrl || '',
+    });
+    setEditando(true);
+  };
+
+  const guardarFicha = () => {
+    if (!activeCompany) return;
+    if (!String(borrador.name || '').trim()) { setFeedback('El nombre no puede quedar vacío.'); return; }
+    fetch(`/api/v1/crm/companies/${activeCompany.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(borrador),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (!d || !d.success) { setFeedback('No se guardó: ' + ((d && d.error) || 'error')); return; }
+        setFeedback('Ficha de la agrupación guardada ✓');
+        setEditando(false);
+        loadCompanies();
+      })
+      .catch(e => setFeedback('No se guardó: ' + e.message));
+  };
+
+  const vincularObra = (projectId: string) => {
+    if (!activeCompany || !projectId) return;
+    fetch(`/api/v1/crm/companies/${activeCompany.id}/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (!d || !d.success) { setFeedback('No se vinculó: ' + ((d && d.error) || 'error')); return; }
+        setFeedback(`«${d.title || 'Obra'}» quedó como montaje de la agrupación ✓`);
+        setObraElegida('');
+        loadCompanies();
+      })
+      .catch(e => setFeedback('No se vinculó: ' + e.message));
+  };
+
+  const quitarObra = (projectId: string) => {
+    if (!activeCompany) return;
+    fetch(`/api/v1/crm/companies/${activeCompany.id}/projects/${projectId}`, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(d => {
+        if (!d || !d.success) { setFeedback('No se pudo quitar: ' + ((d && d.error) || 'error')); return; }
+        setFeedback('Montaje desvinculado (la obra sigue en el catálogo) ✓');
+        loadCompanies();
+      })
+      .catch(e => setFeedback('No se pudo quitar: ' + e.message));
+  };
+
+  /* ---------------------------------------------------------------------------
+     INTEGRANTES EDITABLES
+     Antes cada integrante salía como "cargo • personaje" fijo (en ATHA Kids:
+     "Duende Relojero", "Estrella de Belén"…), que son papeles de UN montaje y no
+     datos de la persona. Ahora la nómina muestra persona + cargo, y cada integrante
+     se edita (nombre, cargo, tipo, correo y —sólo si corresponde— el personaje).
+     --------------------------------------------------------------------------- */
+  const [editandoPersona, setEditandoPersona] = useState<string | null>(null);
+  const [borradorPersona, setBorradorPersona] = useState<any>({});
+
+  const abrirEdicionPersona = (persona: any) => {
+    setBorradorPersona({
+      fullName: persona.fullName || '',
+      roleTitle: persona.roleTitle || '',
+      kind: persona.kind || 'elenco',
+      email: persona.email || '',
+      phone: persona.phone || '',
+      characterName: persona.characterName || '',
+    });
+    setEditandoPersona(persona.id);
+  };
+
+  const guardarPersona = () => {
+    if (!activeCompany || !editandoPersona) return;
+    if (!String(borradorPersona.fullName || '').trim()) { setFeedback('El nombre no puede quedar vacío.'); return; }
+    fetch(`/api/v1/crm/companies/${activeCompany.id}/people/${editandoPersona}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(borradorPersona),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (!d || !d.success) { setFeedback('No se guardó: ' + ((d && d.error) || 'error')); return; }
+        setFeedback('Integrante actualizado ✓');
+        setEditandoPersona(null);
+        loadCompanies();
+      })
+      .catch(e => setFeedback('No se guardó: ' + e.message));
+  };
+
+  const campito = `w-full px-2.5 py-1.5 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+    isLight ? 'bg-white border-stone-300' : 'bg-black/40 border-white/15 text-white'
+  }`;
+
   const listaCompanias = (remoteCompanies && remoteCompanies.length > 0
     ? remoteCompanies.map(mapApiCompany)
     : companies.map(c => ({ ...c, kind: 'colaboradora', obras: [] as CompanyObra[], people: [] as CompanyPerson[] }))) as any[];
@@ -234,7 +367,7 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
     setSelectedCompanyId(created.id);
     setShowAddModal(false);
     setNewComp({ name: '', discipline: 'Teatro & Artes Escénicas', description: '', membersString: '', sqlTag: '', contactEmail: '' });
-    setFeedback('¡Compañía o agrupación creada y vinculada en SQL con éxito!');
+    setFeedback('¡Agrupación creada con éxito!');
     setTimeout(() => setFeedback(null), 3000);
   };
 
@@ -277,11 +410,24 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
       alert('Debe existir al menos una compañía en el sistema.');
       return;
     }
+    // Antes esto sólo borraba de la lista en pantalla y la agrupación volvía al recargar
+    // (no existía endpoint). Ahora se borra de verdad; si el servidor se niega —porque la
+    // agrupación presenta obras— se muestra el motivo tal cual.
+    fetch(`/api/v1/crm/companies/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-atha-email': leerSesionCrm()?.email || '' },
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (!d || !d.success) { setFeedback('No se eliminó: ' + ((d && d.error) || 'error')); return; }
+        setFeedback('Agrupación eliminada ✓');
+        loadCompanies();
+      })
+      .catch(e => setFeedback('No se eliminó: ' + e.message));
     const updated = companies.filter(c => c.id !== id);
     onUpdateCompanies(updated);
     setSelectedCompanyId(updated[0].id);
-    setFeedback('Compañía eliminada correctamente.');
-    setTimeout(() => setFeedback(null), 3000);
+    setTimeout(() => setFeedback(null), 4000);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -332,14 +478,14 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
               </span>
               <span className="text-xs font-mono text-emerald-500 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                SQL Tags Vinculados ({companies.length})
+                Agrupaciones ({companies.length})
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-bold font-display tracking-tight">
               Directorio de Compañías & Colectivos F.A.S.E
             </h1>
             <p className={`text-xs md:text-sm max-w-2xl ${isLight ? 'text-stone-600' : 'text-slate-300'}`}>
-              Administra perfiles artísticos, material de repertorio, miembros asignados por etiqueta SQL y documentación técnica por cada agrupación.
+              Administra los perfiles artísticos, el elenco, los montajes del catálogo y la documentación de cada agrupación.
             </p>
           </div>
 
@@ -449,7 +595,7 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
                         {activeCompany.discipline}
                       </span>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
-                        Tag SQL: {activeCompany.sqlTag}
+                        ID interno: {activeCompany.sqlTag}
                       </span>
                     </div>
                     <h2 className="text-xl md:text-2xl font-bold font-display">{activeCompany.name}</h2>
@@ -461,6 +607,14 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
 
                 <button
                   type="button"
+                  onClick={abrirEdicion}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--accent-terracota)]/50 text-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)]/10 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Editar ficha</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleDeleteCompany(activeCompany.id)}
                   className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
                   title="Eliminar compañía"
@@ -469,13 +623,153 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
                 </button>
               </div>
 
-              {/* Description */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--accent-terracota)] font-bold">Descripción & Perfil</h4>
-                <p className={`text-xs md:text-sm leading-relaxed ${isLight ? 'text-stone-700' : 'text-slate-300'}`}>
-                  {activeCompany.description}
-                </p>
-              </div>
+              {/* Descripción & Perfil — editable (PUT /api/v1/crm/companies/:id) */}
+              {editando ? (
+                <div className={`space-y-3 p-3 rounded-2xl border border-[var(--accent-terracota)]/40 ${isLight ? 'bg-[var(--accent-terracota)]/5' : 'bg-black/20'}`}>
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--accent-terracota)] font-bold">Editando la ficha</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      { campo: 'name', etiqueta: 'Nombre', ph: 'Compañía Teatral ATHA' },
+                      { campo: 'legalName', etiqueta: 'Razón social', ph: 'Como figura legalmente' },
+                      { campo: 'discipline', etiqueta: 'Disciplina', ph: 'Teatro contemporáneo & género' },
+                      { campo: 'city', etiqueta: 'Ciudad', ph: 'Rancagua' },
+                      { campo: 'contactEmail', etiqueta: 'Correo de contacto', ph: 'contacto@…' },
+                    ].map(({ campo, etiqueta, ph }) => (
+                      <label key={campo} className="block text-xs font-medium">
+                        <span className="mb-1 block opacity-80">{etiqueta}</span>
+                        <input
+                          type="text"
+                          value={(borrador as any)[campo] || ''}
+                          placeholder={ph}
+                          onChange={e => setBorrador({ ...borrador, [campo]: e.target.value })}
+                          className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                            isLight ? 'bg-white border-stone-300' : 'bg-black/30 border-white/15 text-white'
+                          }`}
+                        />
+                      </label>
+                    ))}
+                    <label className="block text-xs font-medium">
+                      <span className="mb-1 block opacity-80">Tipo</span>
+                      <select
+                        value={borrador.kind || 'colaboradora'}
+                        onChange={e => setBorrador({ ...borrador, kind: e.target.value })}
+                        className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                          isLight ? 'bg-white border-stone-300' : 'bg-black/30 border-white/15 text-white'
+                        }`}
+                      >
+                        <option value="propia">Propia (del ecosistema)</option>
+                        <option value="colaboradora">Colaboradora</option>
+                      </select>
+                    </label>
+                    <label className="block text-xs font-medium">
+                      <span className="mb-1 block opacity-80">Estado</span>
+                      <select
+                        value={borrador.status || 'active'}
+                        onChange={e => setBorrador({ ...borrador, status: e.target.value })}
+                        className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                          isLight ? 'bg-white border-stone-300' : 'bg-black/30 border-white/15 text-white'
+                        }`}
+                      >
+                        <option value="active">Activa</option>
+                        <option value="inactive">Inactiva</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {/* Logo de la compañía: aparece en la tarjeta de sus obras y en la ficha */}
+                  <div className={`flex items-center gap-3 p-3 rounded-2xl border ${isLight ? 'bg-stone-50 border-stone-200' : 'bg-black/20 border-white/10'}`}>
+                    {borrador.logoUrl ? (
+                      <img
+                        src={borrador.logoUrl}
+                        alt="Logo de la agrupación"
+                        className="w-12 h-12 rounded-xl object-cover border border-white/15 bg-black/30 shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl border border-dashed border-white/20 flex items-center justify-center text-[10px] text-slate-500 shrink-0">
+                        sin logo
+                      </div>
+                    )}
+                    <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--accent-terracota)]/50 text-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)]/10 text-[11px] font-semibold cursor-pointer shrink-0">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Subir logo</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          if (f.size > 6 * 1024 * 1024) { setFeedback('El logo pasa de 6 MB.'); return; }
+                          const lector = new FileReader();
+                          lector.onload = () => {
+                            fetch('/api/v1/crm/media', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ imagen: lector.result, nombre: borrador.name || 'logo', carpeta: 'companias' }),
+                            })
+                              .then(r => r.json())
+                              .then(d => {
+                                if (!d || !d.ok) { setFeedback('No se pudo subir el logo: ' + ((d && d.error) || 'error')); return; }
+                                setBorrador({ ...borrador, logoUrl: d.url });
+                                setFeedback('Logo subido — se guarda con «Guardar cambios» ✓');
+                              })
+                              .catch(err => setFeedback('No se pudo subir el logo: ' + err.message));
+                          };
+                          lector.readAsDataURL(f);
+                        }}
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="o pega la dirección del logo"
+                      value={borrador.logoUrl || ''}
+                      onChange={e => setBorrador({ ...borrador, logoUrl: e.target.value })}
+                      className={`flex-1 min-w-[140px] px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                        isLight ? 'bg-white border-stone-300' : 'bg-black/30 border-white/15 text-white'
+                      }`}
+                    />
+                  </div>
+
+                  <label className="block text-xs font-medium">
+                    <span className="mb-1 block opacity-80">Descripción</span>
+                    <textarea
+                      rows={4}
+                      value={borrador.description || ''}
+                      placeholder="Qué hace la agrupación, su línea de trabajo, su historia…"
+                      onChange={e => setBorrador({ ...borrador, description: e.target.value })}
+                      className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                        isLight ? 'bg-white border-stone-300' : 'bg-black/30 border-white/15 text-white'
+                      }`}
+                    />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={guardarFicha}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-xs font-semibold transition-all cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Guardar cambios
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditando(false)}
+                      className={`px-4 py-2 rounded-xl border text-xs font-semibold cursor-pointer ${
+                        isLight ? 'border-stone-300 text-stone-700 hover:bg-stone-100' : 'border-white/15 text-slate-200 hover:bg-white/5'
+                      }`}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--accent-terracota)] font-bold">Descripción & Perfil</h4>
+                  <p className={`text-xs md:text-sm leading-relaxed ${isLight ? 'text-stone-700' : 'text-slate-300'}`}>
+                    {activeCompany.description || 'Sin descripción todavía: usa «Editar ficha» para escribirla.'}
+                  </p>
+                </div>
+              )}
 
               {/* Nomina de socios */}
               <div className="space-y-3 pt-2">
@@ -498,25 +792,116 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
                         isLight ? 'bg-stone-50 border-stone-200' : 'bg-black/30 border-white/10'
                       }`}
                     >
-                      <div className="min-w-0">
-                        <span className="text-xs font-semibold block truncate">{person.fullName}</span>
-                        <span className={`text-[10px] block truncate ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
-                          {person.roleTitle || 'Sin cargo'}{person.characterName ? ` • ${person.characterName}` : ''}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)]">
-                          {person.kind}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePerson(person.id)}
-                          className="p-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Quitar de la nómina"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {editandoPersona === person.id ? (
+                        <div className="w-full space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <label className="block text-[10px] font-medium">
+                              <span className="mb-0.5 block opacity-70">Nombre y apellido</span>
+                              <input
+                                type="text"
+                                className={campito}
+                                value={borradorPersona.fullName || ''}
+                                onChange={e => setBorradorPersona({ ...borradorPersona, fullName: e.target.value })}
+                              />
+                            </label>
+                            <label className="block text-[10px] font-medium">
+                              <span className="mb-0.5 block opacity-70">Cargo / rol</span>
+                              <input
+                                type="text"
+                                className={campito}
+                                placeholder="Dirección, producción, elenco…"
+                                value={borradorPersona.roleTitle || ''}
+                                onChange={e => setBorradorPersona({ ...borradorPersona, roleTitle: e.target.value })}
+                              />
+                            </label>
+                            <label className="block text-[10px] font-medium">
+                              <span className="mb-0.5 block opacity-70">En qué parte</span>
+                              <select
+                                className={campito}
+                                value={borradorPersona.kind || 'elenco'}
+                                onChange={e => setBorradorPersona({ ...borradorPersona, kind: e.target.value })}
+                              >
+                                <option value="elenco">Elenco (artistas)</option>
+                                <option value="equipo">Equipo (técnica y producción)</option>
+                                <option value="socio">Socio/a</option>
+                                <option value="colaborador">Colaborador/a</option>
+                              </select>
+                            </label>
+                            <label className="block text-[10px] font-medium">
+                              <span className="mb-0.5 block opacity-70">Correo (opcional)</span>
+                              <input
+                                type="text"
+                                className={campito}
+                                placeholder="para vincular su cuenta"
+                                value={borradorPersona.email || ''}
+                                onChange={e => setBorradorPersona({ ...borradorPersona, email: e.target.value })}
+                              />
+                            </label>
+                          </div>
+                          <label className="block text-[10px] font-medium">
+                            <span className="mb-0.5 block opacity-70">
+                              Personaje (opcional — sólo si es un papel de un montaje)
+                            </span>
+                            <input
+                              type="text"
+                              className={campito}
+                              placeholder="Se puede dejar vacío"
+                              value={borradorPersona.characterName || ''}
+                              onChange={e => setBorradorPersona({ ...borradorPersona, characterName: e.target.value })}
+                            />
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={guardarPersona}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-terracota)] hover:bg-[var(--accent-glow)] text-white text-[11px] font-semibold transition-all cursor-pointer"
+                            >
+                              <Check className="w-3 h-3" /> Guardar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditandoPersona(null)}
+                              className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold cursor-pointer ${
+                                isLight ? 'border-stone-300 text-stone-700 hover:bg-stone-100' : 'border-white/15 text-slate-200 hover:bg-white/5'
+                              }`}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="min-w-0">
+                            <span className="text-xs font-semibold block truncate">{person.fullName}</span>
+                            <span className={`text-[10px] block truncate ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
+                              {person.roleTitle || 'Sin cargo'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-[var(--accent-terracota)]/15 text-[var(--accent-terracota)]">
+                              {person.kind}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => abrirEdicionPersona(person)}
+                              className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                                isLight ? 'text-stone-500 hover:bg-stone-200' : 'text-slate-300 hover:bg-white/10'
+                              }`}
+                              title="Editar integrante"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePerson(person.id)}
+                              className="p-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                              title="Quitar de la nómina"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -587,6 +972,14 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
                       <span className="text-[10px] font-mono text-[var(--accent-terracota)] bg-[var(--accent-terracota)]/10 px-2 py-0.5 rounded shrink-0">
                         {obra.status}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => quitarObra(obra.id)}
+                        className="p-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                        title="Quitar este montaje de la agrupación (la obra sigue en el catálogo)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
                   {activeCompany.obras.length === 0 && (
@@ -594,6 +987,35 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
                       Esta compañía todavía no tiene obras vinculadas en el catálogo.
                     </p>
                   )}
+                </div>
+
+                {/* Vincular una obra del CATÁLOGO real (no texto libre): queda como montaje */}
+                <div className="flex items-center gap-2 flex-wrap pt-1">
+                  <select
+                    value={obraElegida}
+                    onChange={e => setObraElegida(e.target.value)}
+                    className={`flex-1 min-w-[220px] px-3 py-2 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[var(--accent-terracota)] ${
+                      isLight ? 'bg-white border-stone-300' : 'bg-black/30 border-white/15 text-white'
+                    }`}
+                  >
+                    <option value="">Elegir una obra del catálogo…</option>
+                    {catalogo
+                      .filter((p: any) => !activeCompany.obras.some((o: any) => o.id === p.id))
+                      .map((p: any) => (
+                        <option key={p.id} value={p.id} disabled={!!p.company_id && p.company_id !== activeCompany.id}>
+                          {p.title}{p.company_name ? ` — está en ${p.company_name}` : ''}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => vincularObra(obraElegida)}
+                    disabled={!obraElegida}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--accent-terracota)]/50 text-[var(--accent-terracota)] hover:bg-[var(--accent-terracota)]/10 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-40"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Vincular obra del catálogo</span>
+                  </button>
                 </div>
               </div>
 
@@ -725,7 +1147,7 @@ export const CompaniasSection: React.FC<CompaniasSectionProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium mb-1 opacity-80">Tag SQL (Identificador de Base de Datos)</label>
+                  <label className="block font-medium mb-1 opacity-80">ID interno (opcional)</label>
                   <input
                     type="text"
                     placeholder="aurora_theatre_sql"

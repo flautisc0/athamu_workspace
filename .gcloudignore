@@ -1,0 +1,52 @@
+# Lo que NO se sube al build del CRM (el workspace tiene 5,3 GB: sin esto, el deploy
+# desde fuente intentaría subir todo y fallaría o tardaría una eternidad).
+#
+# El Dockerfile compila la SPA desde `src/` (vite) y sirve `server.js`, así que sólo hace
+# falta el proyecto raíz: src/, public/, los configs de vite/tailwind/ts y server.js.
+
+# --- proyectos hermanos y material que no usa este build ---
+athamu_app_new/
+fase-mobile/
+atha-app/
+athamu_content_ops/
+crm_data/
+athamu_workspace/
+backups/
+paginas/
+scripts/
+docs/
+plantillas/
+design/
+marca/
+assets_originales/
+
+# --- dependencias y artefactos (el build instala y compila adentro de la imagen) ---
+node_modules/
+dist/
+.gcloudignore
+.git/
+.gitignore
+*.log
+*.bak
+*.bak2
+*.bak_*
+*.pem
+*.key
+.env*
+
+# --- material pesado suelto ---
+*.mp4
+*.mov
+*.psd
+*.zip
+*.tar.gz
+*.apk
+.venv/
+__pycache__/
+*.pyc
+entrega_pipeline/
+output/
+notebooklm_pack/
+athamu_sis/
+athamu_ops/
+ATHAMU_OPS/

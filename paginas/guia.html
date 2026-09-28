@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cómo usar FASE · guía para nuevos usuarios</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:16px/1.6 var(--sans); }
+  a { color:var(--acento); }
+  .env { max-width:640px; margin:0 auto; padding:22px 18px 40px; }
+  .marca { display:flex; align-items:center; gap:10px; font:700 17px var(--serif); }
+  .marca img { width:28px; height:28px; }
+  h1 { font:700 30px/1.2 var(--serif); margin:22px 0 8px; }
+  h2 { font:700 19px var(--serif); margin:30px 0 6px; }
+  p { margin:10px 0; }
+  .mini { font-size:13.5px; color:var(--tinta2); }
+  .tarjeta { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:16px 18px; margin:14px 0; }
+  .paso { display:flex; gap:14px; align-items:flex-start; background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:16px 18px; margin:12px 0; }
+  .num { flex:0 0 34px; height:34px; border-radius:50%; background:var(--acento); color:#fff; font:700 16px var(--serif); display:flex; align-items:center; justify-content:center; }
+  .paso h3 { font:700 16px var(--sans); margin:3px 0 4px; }
+  .paso p { margin:0; font-size:14.5px; }
+  .paso ul { margin:8px 0 0 18px; padding:0; font-size:14px; color:#3a342c; }
+  .btn { display:inline-block; background:var(--acento); color:#fff; padding:12px 20px; border-radius:999px; text-decoration:none; font-weight:600; }
+  .btn.suave { background:var(--fondo2); color:var(--tinta); border:1px solid var(--linea); }
+  .destacado { background:var(--fondo2); border:1px solid var(--linea); border-radius:18px; padding:16px 18px; margin:18px 0; }
+  .pie { margin-top:30px; font-size:13px; color:var(--tinta2); }
+  .sep { border:0; border-top:1px solid var(--linea); margin:26px 0; }
+  code { background:var(--fondo2); border-radius:5px; padding:1px 5px; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="env">
+  <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> FASE · ATHAMU</div>
+
+  <h1>Qué es FASE y cómo se usa</h1>
+  <p class="mini">Guía corta para el primer día. No hace falta instalarlo: si prefieres la app en el
+  teléfono, el APK está al final.</p>
+
+  <div class="tarjeta">
+    <b>FASE es el radar cultural de ATHAMU.</b> Te muestra <b>qué está pasando</b> en tu ciudad
+    —teatro, música, talleres, exposiciones, con hora y lugar—, <b>qué espacios culturales tienes
+    cerca</b> y te deja <b>descubrirlos</b> cuando estás ahí. Además es la puerta a tu agrupación:
+    tu equipo, sus montajes y los ensayos.
+  </div>
+
+  <p>Está en <b>prueba</b>: lo que veas raro, decilo ahí mismo (paso 5) y se arregla. Varias de las
+  cosas que ya funcionan las pidieron personas probándola.</p>
+
+  <h2>Tus cinco primeros pasos</h2>
+
+  <div class="paso">
+    <div class="num">1</div>
+    <div>
+      <h3>Entra con tu correo</h3>
+      <p>Con el mismo correo de Google que usás para el resto del ecosistema: así el sistema sabe
+      quién eres y te muestra <b>tu agrupación</b>.</p>
+      <ul>
+        <li>Si entras con otro correo, vas a ver la app funcionando pero <b>sin tu equipo</b>.</li>
+        <li>Puedes entrar desde el navegador del teléfono: no hace falta instalar nada.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">2</div>
+    <div>
+      <h3>Mira la agenda en <i>Inicio</i></h3>
+      <p>Ahí están las funciones reales de tu ciudad, con <b>día, hora y lugar</b>. Cuando das el
+      permiso de ubicación, cada una te dice <b>a cuántos metros te queda</b>.</p>
+      <ul>
+        <li>Los eventos con <b>“Ver la fuente”</b> vienen de la cartelera oficial de la ciudad: no son inventados.</li>
+        <li>Lo que dice <b>“hasta el …”</b> es una muestra o exposición que dura varios días.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">3</div>
+    <div>
+      <h3>Ve a <i>Radar</i> y mira qué tienes cerca</h3>
+      <p>Es la lista de espacios culturales ordenada por cercanía, con la distancia real (si no hay
+      permiso de ubicación, la app lo dice: <b>no inventa distancias</b>).</p>
+      <ul>
+        <li>Chips de <b>1 / 3 / 10 km</b> para acotar.</li>
+        <li><b>“Cómo llegar”</b> abre el mapa con las coordenadas del lugar.</li>
+        <li>Los que no visitaste se ven como <b>“lugar por descubrir”</b>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">4</div>
+    <div>
+      <h3>Camina hasta uno y <b>descubrilo</b></h3>
+      <p>Cuando estés a menos de <b>120 metros</b>, se abre la ficha del lugar: qué es, su historia,
+      su horario si lo tiene. Sumas experiencia y queda marcado como descubierto por vos.</p>
+      <ul>
+        <li>Es el corazón de la app: <b>funciona en el lugar</b>, no desde el sillón.</li>
+        <li>Después puedes <b>publicar en el Muro</b> con una foto, reaccionar y comentar.</li>
+        <li>Si quieres un recorrido armado, <i>Rutas</i> tiene caminos de 4 a 6 paradas.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">5</div>
+    <div>
+      <h3>Si algo no funciona, <b>repórtalo ahí mismo</b></h3>
+      <p>El botón <b>“Reportar algo”</b> está flotando en todas las pantallas. Escribe qué pasó y,
+      si quieres, adjunta una <b>captura de pantalla</b>.</p>
+      <ul>
+        <li>El reporte viaja con la pantalla donde estabas, tu cuenta y la versión: por eso se puede arreglar.</li>
+        <li>Es lo que más ayuda: <b>cada reporte suena en el teléfono del equipo</b> y se responde.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="destacado">
+    <b>Y en <i>Perfil</i> está tu parte de trabajo:</b> tus agrupaciones con su equipo y sus
+    montajes, y —si eres elenco o dirección— el <b>Planner</b> con la disponibilidad y los ensayos.
+    Si todavía no perteneces a ninguna agrupación, desde ahí puedes <b>pedir entrar</b> a una; si
+    eres dirección o producción, puedes <b>crear</b> una.
+  </div>
+
+  <hr class="sep" />
+
+  <h2>Abrir la app</h2>
+  <p><a class="btn" href="https://fase-mobile-897089213264.us-central1.run.app">Abrir FASE</a></p>
+  <p class="mini" style="margin-top:10px">
+    ¿La quieres instalada? <a href="https://storage.googleapis.com/atha-crm-obras-897089213264/fase-mobile/FASE-Mobile-1.0-piloto.apk">Descargar el APK (Android)</a>.
+    En iPhone, por ahora, desde el navegador.
+  </p>
+
+  <h2>Preguntas que nos hacen siempre</h2>
+  <p><b>¿Necesito estar en la calle para usarla?</b> Para la agenda y el Muro no. Para descubrir
+  lugares sí: el desbloqueo es por ubicación real.</p>
+  <p><b>¿Por qué no veo mi agrupación?</b> Casi siempre es que entraste con otro correo. Escribinos
+  y lo unimos.</p>
+  <p><b>¿Esto reemplaza a WhatsApp?</b> No. El Muro es para lo que pasa <i>en los lugares</i>: una
+  foto de lo que estás viendo, una reacción. Lo demás sigue donde está.</p>
+  <p><b>¿Quién ve lo que publico?</b> La comunidad de FASE. Lo que reportas como problema lo ve
+  sólo el equipo.</p>
+
+  <div class="pie">
+    ¿Dudas o algo que no está aquí? Respondé el correo con el que te invitaron: lo leemos.<br />
+    <b>ATHAMU · ATHA Producciones</b>
+  </div>
+</div>
+</body>
+</html>
