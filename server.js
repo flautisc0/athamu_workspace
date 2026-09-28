@@ -6,6 +6,8 @@ import jwt from 'jsonwebtoken';
 import { spawn } from 'child_process';
 import mysql from 'mysql2/promise';
 import { randomUUID, randomBytes } from 'crypto';
+import tls from 'tls';
+import net from 'net';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -238,8 +240,10 @@ try {
 // 12mb: la app reduce las fotos a ~300 KB, pero si algún teléfono entrega un
 // formato que el navegador no puede reducir (HEIC/HEIF), antes se cortaba con un
 // 413 en HTML. Mejor margen + error claro (ver manejador de errores al final).
-app.use(express.json({ limit: '12mb' }));
-app.use(express.urlencoded({ extended: true, limit: '12mb' }));
+// El límite es 40 MB porque los archivos viajan en base64 (+33%): con el tope de 25 MB por
+// archivo, un body de 12 MB rechazaba cualquier dossier un poco pesado con un 413 genérico.
+app.use(express.json({ limit: '40mb' }));
+app.use(express.urlencoded({ extended: true, limit: '40mb' }));
 
 // JWT secret: firma el TOKEN DE SESIÓN del hub (no sólo el viejo token admin).
 const JWT_SECRET = process.env.JWT_SECRET_KEY || 'atha-crm-admin-secret-key';
@@ -426,7 +430,7 @@ app.get('/api/auth/me', async (req, res) => {
 // PERFIL Y PERMISOS DEL USUARIO DE LA SESIÓN
 //
 // Antes no existía: `/api/auth/me` devolvía 6 campos y UNA compañía (LIMIT 1),
-// así que no se podía pintar una pantalla de perfil. Acá va todo junto (usuario,
+// así que no se podía pintar una pantalla de perfil. Aquí va todo junto (usuario,
 // compañías por pertenencia y por nómina, disciplina, preferencias y capacidades).
 // La identidad es SIEMPRE la de la sesión: no hay `?email=` que pedir.
 // ---------------------------------------------------------------------------
@@ -579,8 +583,8 @@ app.post('/api/auth/register', async (req, res) => {
       success: true,
       data: { solicitud: true, ya_existe: existe.length > 0 },
       message: existe.length
-        ? 'Esa cuenta ya existe. Entrá con Google y un administrador ajusta tu rol.'
-        : 'Solicitud registrada. Entrá con Google; un administrador te habilita el rol.',
+        ? 'Esa cuenta ya existe. Entra con Google y un administrador ajusta tu rol.'
+        : 'Solicitud registrada. Entra con Google; un administrador te habilita el rol.',
     });
   } catch (e) {
     console.error('[register] error:', e);
@@ -596,7 +600,7 @@ app.post('/api/auth/register', async (req, res) => {
 // petición quedaba anotada en la base y nadie la veía nunca.
 //   GET   → pendientes primero
 //   PATCH → { estado: 'aprobada' | 'rechazada' }  (lo decide administración)
-// El ROL no se aprueba acá: se asigna en la ficha del usuario (pestaña Usuarios),
+// El ROL no se aprueba aquí: se asigna en la ficha del usuario (pestaña Usuarios),
 // que es donde se ve a quién le corresponde qué compañía y cargo.
 // ---------------------------------------------------------------------------
 app.get('/api/v1/crm/solicitudes', async (req, res) => {
@@ -674,7 +678,7 @@ async function asegurarTablaTickets(db) {
 
 // Los artefactos son OTRO origen: necesitan CORS en estos dos endpoints (y sólo
 // en éstos). El ticket es opaco, de un solo uso y de TTL corto: por eso `*` es
-// aceptable acá y no en el resto de la API.
+// aceptable aquí y no en el resto de la API.
 function corsArtefactos(res) {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -929,7 +933,7 @@ app.post('/api/v1/crm/usuarios', async (req, res) => {
 
     const rol = String(b.role || ROL_ENTRADA).toLowerCase().trim();
     if (!ROLES_VALIDOS.includes(rol)) {
-      return res.status(400).json({ ok: false, error: `rol inválido: usá ${ROLES_VALIDOS.join(', ')}` });
+      return res.status(400).json({ ok: false, error: `rol inválido: usa ${ROLES_VALIDOS.join(', ')}` });
     }
     // Mismas guardias que en la edición: sólo el owner nombra owners.
     const rolSolicitante = String((alcance.usuario && alcance.usuario.role) || '').toLowerCase();
@@ -997,7 +1001,7 @@ app.patch('/api/v1/crm/usuarios/:id', async (req, res) => {
 
     if (b.role !== undefined) {
       if (!ROLES_VALIDOS.includes(b.role)) {
-        return res.status(400).json({ ok: false, error: `rol inválido: usá ${ROLES_VALIDOS.join(', ')}` });
+        return res.status(400).json({ ok: false, error: `rol inválido: usa ${ROLES_VALIDOS.join(', ')}` });
       }
       // proteger al owner: sólo el owner puede tocar a un owner, y no puede quedar sin owner
       if (String(destino[0].role).toLowerCase() === 'admin' && rolSolicitante !== 'admin') {
@@ -1444,7 +1448,7 @@ app.get('/api/v1/crm/companies', async (req, res) => {
   try {
     const db = getPool();
     const [companies] = await db.execute(
-      `SELECT id, name, legal_name, slug, status, kind, discipline, description, contact_email, city
+      `SELECT id, name, legal_name, slug, status, kind, discipline, description, contact_email, city, logo_url
          FROM companies ORDER BY (kind <> 'propia'), name`
     );
     const [obras] = await db.execute(
@@ -1468,6 +1472,7 @@ app.get('/api/v1/crm/companies', async (req, res) => {
       description: c.description || '',
       contactEmail: c.contact_email || '',
       city: c.city || '',
+      logoUrl: c.logo_url || '',
       obras: obras.filter((o) => o.company_id === c.id).map((o) => ({
         id: o.id,
         title: o.title,
@@ -1490,6 +1495,45 @@ app.get('/api/v1/crm/companies', async (req, res) => {
   } catch (e) {
     console.error('[companies] error:', e);
     return res.status(503).json({ success: false, error: e.message, companies: [] });
+  }
+});
+
+/** Traer UNA compañía por ID (con gente y obras). */
+app.get('/api/v1/crm/companies/:id', async (req, res) => {
+  try {
+    const db = getPool();
+    const [comp] = await db.execute(
+      `SELECT id, name, legal_name, slug, status, kind, discipline, description,
+              contact_email, city, logo_url
+       FROM companies WHERE id = ? LIMIT 1`,
+      [req.params.id]
+    );
+    if (!comp.length) return res.status(404).json({ success: false, error: 'Compañía no encontrada' });
+    const c = comp[0];
+    const [obras] = await db.execute(
+      `SELECT id, title, discipline, status, image_url, company_id
+       FROM projects WHERE company_id = ? ORDER BY title`,
+      [c.id]
+    );
+    const [people] = await db.execute(
+      `SELECT id, company_id, full_name, role_title, character_name, kind, email, phone
+       FROM company_people WHERE company_id = ? ORDER BY kind, full_name`,
+      [c.id]
+    );
+    return res.json({
+      success: true,
+      company: {
+        id: c.id, name: c.name, legalName: c.legal_name || '', slug: c.slug || '',
+        status: c.status || 'active', kind: c.kind || 'colaboradora',
+        discipline: c.discipline || '', description: c.description || '',
+        contactEmail: c.contact_email || '', city: c.city || '', logoUrl: c.logo_url || '',
+        obras: obras.map(o => ({ id: o.id, title: o.title, discipline: o.discipline || '', status: o.status || '', image: o.image_url || '' })),
+        people: people.map(p => ({ id: p.id, fullName: p.full_name, roleTitle: p.role_title || '', characterName: p.character_name || '', kind: p.kind || 'equipo', email: p.email || '', phone: p.phone || '' }))
+      }
+    });
+  } catch (e) {
+    console.error('[company:id] error:', e);
+    return res.status(503).json({ success: false, error: e.message });
   }
 });
 
@@ -1546,6 +1590,145 @@ app.delete('/api/v1/crm/companies/:id/people/:personId', async (req, res) => {
     await db.execute('DELETE FROM company_people WHERE id = ? AND company_id = ?',
       [req.params.personId, req.params.id]);
     return res.json({ success: true });
+  } catch (e) {
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+/** Editar una persona del elenco / equipo. */
+app.put('/api/v1/crm/companies/:id/people/:personId', async (req, res) => {
+  try {
+    const db = getPool();
+    const b = req.body || {};
+    const campos = [];
+    const valores = [];
+    const mapa = { fullName: 'full_name', roleTitle: 'role_title', characterName: 'character_name',
+      kind: 'kind', email: 'email', phone: 'phone' };
+    for (const [clave, columna] of Object.entries(mapa)) {
+      if (b[clave] !== undefined) {
+        let valor = b[clave];
+        if (columna === 'kind' && !COMPANY_PEOPLE_KINDS.includes(String(valor))) valor = 'equipo';
+        campos.push(`${columna} = ?`);
+        valores.push(valor);
+      }
+    }
+    if (!campos.length) return res.status(400).json({ success: false, error: 'nada para actualizar' });
+    valores.push(req.params.personId, req.params.id);
+    const [r] = await db.execute(
+      `UPDATE company_people SET ${campos.join(', ')}, updated_at = NOW() WHERE id = ? AND company_id = ?`, valores);
+    if (!r.affectedRows) return res.status(404).json({ success: false, error: 'persona no encontrada' });
+    return res.json({ success: true, id: req.params.personId });
+  } catch (e) {
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+/**
+ * EDITAR LA AGRUPACIÓN · PUT /api/v1/crm/companies/:id
+ * Es lo que pidió Francisco: poder editar TODOS los datos de la compañía (descripción incluida)
+ * desde el CRM, en vez de que la pestaña Compañías trabaje sobre una lista local que no guardaba.
+ */
+app.put('/api/v1/crm/companies/:id', async (req, res) => {
+  try {
+    const db = getPool();
+    const b = req.body || {};
+    const campos = [];
+    const valores = [];
+    const mapa = { name: 'name', legalName: 'legal_name', discipline: 'discipline', kind: 'kind',
+      description: 'description', contactEmail: 'contact_email', city: 'city', status: 'status',
+      notes: 'notes', logoUrl: 'logo_url' };
+    for (const [clave, columna] of Object.entries(mapa)) {
+      if (b[clave] === undefined) continue;
+      let valor = b[clave];
+      if (columna === 'kind') valor = valor === 'propia' ? 'propia' : 'colaboradora';
+      if (columna === 'status') valor = valor === 'inactive' ? 'inactive' : 'active';
+      if (columna === 'name' && !String(valor || '').trim()) {
+        return res.status(400).json({ success: false, error: 'El nombre no puede quedar vacío' });
+      }
+      campos.push(`${columna} = ?`);
+      valores.push(typeof valor === 'string' ? valor.slice(0, 2000) : valor);
+    }
+    if (!campos.length) return res.status(400).json({ success: false, error: 'nada para actualizar' });
+    valores.push(req.params.id);
+    const [r] = await db.execute(
+      `UPDATE companies SET ${campos.join(', ')}, updated_at = NOW() WHERE id = ?`, valores);
+    if (!r.affectedRows) return res.status(404).json({ success: false, error: 'agrupación no encontrada' });
+    const [filas] = await db.execute(
+      `SELECT id, name, legal_name, slug, status, kind, discipline, description, contact_email, city
+         FROM companies WHERE id = ?`, [req.params.id]);
+    return res.json({ success: true, company: filas[0] || null });
+  } catch (e) {
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+/**
+ * ELIMINAR UNA AGRUPACIÓN · DELETE /api/v1/crm/companies/:id (administración)
+ *
+ * El botón «Eliminar compañía» del CRM sólo borraba de la lista en pantalla: no existía este
+ * endpoint, así que la agrupación volvía al recargar. Ahora borra de verdad, y **no deja borrar
+ * una agrupación que presenta obras** (el catálogo quedaría huérfano): primero se quitan o
+ * reasignan sus montajes.
+ */
+app.delete('/api/v1/crm/companies/:id', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.query.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
+    if (!alcance.total) return res.status(403).json({ success: false, error: 'sólo administración puede eliminar una agrupación' });
+
+    const db = getPool();
+    const [obra] = await db.execute('SELECT COUNT(*) AS n FROM projects WHERE company_id = ?', [req.params.id]);
+    if (Number(obra[0].n) > 0) {
+      return res.status(409).json({
+        success: false,
+        error: `Esa agrupación presenta ${obra[0].n} obra(s) del catálogo. Quita o cambia de agrupación sus montajes antes de eliminarla.`,
+      });
+    }
+    await db.execute('DELETE FROM company_people WHERE company_id = ?', [req.params.id]).catch(() => {});
+    await db.execute('DELETE FROM company_members WHERE company_id = ?', [req.params.id]).catch(() => {});
+    const [r] = await db.execute('DELETE FROM companies WHERE id = ?', [req.params.id]);
+    if (!r.affectedRows) return res.status(404).json({ success: false, error: 'agrupación no encontrada' });
+    return res.json({ success: true, id: req.params.id, eliminada: true });
+  } catch (e) {
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+/**
+ * MONTAJES: vincular/desvincular una OBRA DEL CATÁLOGO real a la agrupación.
+ * El vínculo es `projects.company_id` (no hay campo de texto): así el montaje que se ve en la
+ * agrupación es la misma obra del catálogo, con su ficha, su imagen y sus funciones.
+ */
+app.post('/api/v1/crm/companies/:id/projects', async (req, res) => {
+  try {
+    const db = getPool();
+    const projectId = String((req.body && (req.body.projectId || req.body.project_id)) || '').trim();
+    if (!projectId) return res.status(400).json({ success: false, error: 'Falta la obra (projectId)' });
+    const [obra] = await db.execute('SELECT id, title, company_id FROM projects WHERE id = ?', [projectId]);
+    if (!obra.length) return res.status(404).json({ success: false, error: 'La obra no existe en el catálogo' });
+    if (obra[0].company_id && obra[0].company_id !== req.params.id) {
+      const [otra] = await db.execute('SELECT name FROM companies WHERE id = ?', [obra[0].company_id]);
+      return res.status(409).json({
+        success: false,
+        error: `La obra «${obra[0].title}» ya está en ${(otra[0] && otra[0].name) || 'otra agrupación'}. Quítala de ahí primero.`,
+      });
+    }
+    await db.execute('UPDATE projects SET company_id = ? WHERE id = ?', [req.params.id, projectId]);
+    return res.json({ success: true, projectId, title: obra[0].title });
+  } catch (e) {
+    return res.status(503).json({ success: false, error: e.message });
+  }
+});
+
+app.delete('/api/v1/crm/companies/:id/projects/:projectId', async (req, res) => {
+  try {
+    const db = getPool();
+    const [r] = await db.execute(
+      'UPDATE projects SET company_id = NULL WHERE id = ? AND company_id = ?',
+      [req.params.projectId, req.params.id]);
+    if (!r.affectedRows) return res.status(404).json({ success: false, error: 'esa obra no está en la agrupación' });
+    return res.json({ success: true, projectId: req.params.projectId });
   } catch (e) {
     return res.status(503).json({ success: false, error: e.message });
   }
@@ -1737,13 +1920,17 @@ app.use(
 // ---------------------------------------------------------------------------
 // HUB DEL ECOSISTEMA · /api/v1/crm/portfolio/*
 //
-// El Planner y el Arquitecto (F·A·S·E) leen y escriben por acá, así el CRM es
+// El Planner y el Arquitecto (F·A·S·E) leen y escriben por aquí, así el CRM es
 // la única puerta de entrada y hay una sola fuente de verdad (la base).
 //
 // Antes el Arquitecto apuntaba a http://localhost:5052/api/v1/crm → en la nube
 // no cargaba nada y, peor, no podía guardar: ese backend responde 405 en POST.
 // ---------------------------------------------------------------------------
 const CRM_V1 = 'https://crm-v1-uc-897089213264.us-central1.run.app';
+
+// URL pública del hub: se usa en los avisos (Telegram/correo) para que el aviso traiga
+// el enlace donde se atiende la cosa (reportes, nodos, agenda). Se puede pisar por env.
+const URL_HUB_PUBLICA = process.env.URL_PUBLICA || 'https://atha-crm-web-frontend-897089213264.us-central1.run.app';
 
 // Lectura del catálogo: se reenvía al catálogo real (misma forma exacta, sin
 // riesgo de divergencia) para que las apps vean las mismas obras que el CRM.
@@ -1753,7 +1940,47 @@ app.get('/api/v1/crm/portfolio/projects', async (req, res) => {
       headers: { Accept: 'application/json' },
     });
     const txt = await r.text();
-    res.status(r.status).type(r.headers.get('content-type') || 'application/json').send(txt);
+    // El catálogo se sirve desde crm-v1 (misma base), pero su respuesta no dice a qué agrupación
+    // pertenece cada obra. Se enriquece acá con `projects.company_id` para que el panel de
+    // agrupaciones pueda mostrar "está en X" y no ofrecerla como libre sin avisar.
+    let cuerpo = null;
+    try { cuerpo = JSON.parse(txt); } catch (e) { cuerpo = null; }
+    if (cuerpo && (cuerpo.projects || cuerpo.data)) {
+      const clave = cuerpo.projects ? 'projects' : 'data';
+      try {
+        const db = getPool();
+        const [filas] = await db.execute(
+          `SELECT p.id, p.company_id, p.ficha, c.name AS company_name, c.logo_url AS company_logo
+             FROM projects p LEFT JOIN companies c ON c.id = p.company_id`);
+        const porId = new Map(filas.map((f) => [f.id, f]));
+        // Archivos y fotos de todas las obras de una sola consulta (son pocas filas).
+        let archivos = [];
+        try {
+          const [af] = await db.execute(
+            `SELECT id, project_id, tipo, nombre, url, mime, bytes, es_portada, subido_por, created_at
+               FROM project_files ORDER BY created_at DESC`);
+          archivos = af;
+        } catch (e) { archivos = []; }
+        const aJson = typeof archivoAJson === 'function' ? archivoAJson : ((x) => x);
+        cuerpo[clave] = cuerpo[clave].map((o) => {
+          const f = porId.get(o.id);
+          const mios = archivos.filter((a) => a.project_id === o.id).map(aJson);
+          let ficha = (f && f.ficha) || null;
+          if (typeof ficha === 'string') { try { ficha = JSON.parse(ficha); } catch (e) { ficha = null; } }
+          const dossier = mios.find((a) => a.tipo === 'dossier');
+          return {
+            ...o,
+            company_id: (f && f.company_id) || null,
+            company_name: (f && f.company_name) || '',
+            logo_url: (f && f.company_logo) || '',
+            ficha: ficha || {},
+            files: mios,
+            dossier_url: (dossier && dossier.url) || '',
+          };
+        });
+      } catch (e) { /* si falla el enriquecido, se devuelve el catálogo tal cual */ }
+    }
+    res.status(r.status).type('application/json').send(JSON.stringify(cuerpo || { projects: [] }));
   } catch (e) {
     res.status(502).json({ success: false, error: 'catálogo no disponible', detail: e.message, projects: [] });
   }
@@ -1887,11 +2114,784 @@ app.delete('/api/v1/crm/portfolio/projects/:id', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// ARCHIVOS Y FICHA DE UNA OBRA
+//
+// Antes los "archivos" de una obra eran texto suelto dentro de `dossier_highlights`
+// (URLs pegadas en un array) y la interfaz adivinaba el dossier con una regla que nunca
+// coincidía → el botón "Dossier PDF" no mostraba nada aunque el archivo existiera.
+// Ahora cada archivo es una fila con su tipo, peso, autor y fecha; y la ficha de la obra
+// (datos + bloques por disciplina) se edita con el endpoint de abajo.
+// ---------------------------------------------------------------------------
+const TIPOS_ARCHIVO_OBRA = ['dossier', 'rider', 'prensa', 'foto', 'video', 'otro'];
+
+/** Traduce una fila de `project_files` a la forma que usa la interfaz. */
+function archivoAJson(f) {
+  return {
+    id: f.id,
+    projectId: f.project_id,
+    tipo: f.tipo,
+    nombre: f.nombre,
+    url: f.url,
+    mime: f.mime || '',
+    bytes: Number(f.bytes) || 0,
+    esPortada: !!f.es_portada,
+    subidoPor: f.subido_por || '',
+    creado: f.created_at,
+  };
+}
+
+/**
+ * Sube CUALQUIER archivo (no sólo imágenes) al bucket del ecosistema. Máximo 25 MB.
+ * Mismo mecanismo que las fotos: el token sale del metadata server de Cloud Run.
+ */
+async function subirArchivoGenerico(nombre, dataUrl, carpeta, maxMB) {
+  const m = /^data:([\w.+-]+\/[\w.+-]+);base64,(.+)$/is.exec(String(dataUrl || ''));
+  if (!m) throw new Error('se espera el archivo en formato data:<tipo>;base64,...');
+  const mime = m[1].toLowerCase();
+  const buf = Buffer.from(m[2], 'base64');
+  const tope = (maxMB || 25) * 1024 * 1024;
+  if (!buf.length) throw new Error('el archivo llegó vacío');
+  if (buf.length > tope) throw new Error(`archivo demasiado grande (máximo ${maxMB || 25} MB)`);
+  const permitidos = [
+    'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif',
+    'application/pdf', 'application/msword', 'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain', 'application/zip',
+  ];
+  if (!permitidos.includes(mime)) throw new Error(`tipo de archivo no permitido (${mime})`);
+  const ext = (mime.split('/')[1] || 'bin').replace(/[^a-z0-9]/g, '').slice(0, 8);
+  const limpio = String(nombre || 'archivo').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\.[a-z0-9]{1,8}$/, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'archivo';
+  const destino = `${carpeta || 'obras'}/${limpio}-${Date.now().toString(36)}.${ext}`;
+
+  const tr = await fetch(
+    'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
+    { headers: { 'Metadata-Flavor': 'Google' } }
+  );
+  if (!tr.ok) throw new Error('sin credenciales para subir a GCS');
+  const { access_token } = await tr.json();
+
+  const up = await fetch(
+    `https://storage.googleapis.com/upload/storage/v1/b/${BUCKET_INVENTARIO}/o?uploadType=media&name=${encodeURIComponent(destino)}`,
+    { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': mime }, body: buf }
+  );
+  if (!up.ok) throw new Error(`GCS ${up.status}: ${(await up.text()).slice(0, 140)}`);
+  return { url: `https://storage.googleapis.com/${BUCKET_INVENTARIO}/${destino}`, bytes: buf.length, mime };
+}
+
+/** Subir un archivo cualquiera desde el CRM (dossier, rider, foto, planilla…). */
+app.post('/api/v1/crm/archivo', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
+    if (!alcance.total) {
+      return res.status(403).json({ ok: false, error: 'sólo administración o producción puede subir archivos' });
+    }
+    const carpeta = String(b.carpeta || 'obras').replace(/[^a-zA-Z0-9_/-]/g, '').slice(0, 40) || 'obras';
+    // 15 MB y no 25: el archivo viaja en base64 (+33%) y la plataforma de Cloud Run corta el
+    // request en 32 MB, así que con 25 MB el usuario recibía un 413 en HTML en vez de un aviso.
+    const subido = await subirArchivoGenerico(b.nombre, b.dataUrl, carpeta, 15);
+    return res.json({ ok: true, ...subido, nombre: String(b.nombre || '').slice(0, 200) });
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+/** Lista los archivos de una obra. */
+app.get('/api/v1/crm/portfolio/projects/:id/files', async (req, res) => {
+  try {
+    const db = getPool();
+    const [filas] = await db.execute(
+      `SELECT id, project_id, tipo, nombre, url, mime, bytes, es_portada, subido_por, created_at
+         FROM project_files WHERE project_id = ? ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    return res.json({ ok: true, total: filas.length, files: filas.map(archivoAJson) });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message, files: [] });
+  }
+});
+
+/** Registra un archivo o enlace en la obra (después de subirlo, o un link de YouTube/Drive). */
+app.post('/api/v1/crm/portfolio/projects/:id/files', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
+    if (!alcance.total) {
+      return res.status(403).json({ ok: false, error: 'sólo administración o producción puede agregar archivos' });
+    }
+    const url = String(b.url || '').trim();
+    const nombre = String(b.nombre || '').trim();
+    const tipo = String(b.tipo || 'otro').toLowerCase().trim();
+    if (!url) return res.status(400).json({ ok: false, error: 'falta la url del archivo' });
+    if (!nombre) return res.status(400).json({ ok: false, error: 'falta el nombre del archivo' });
+    if (!TIPOS_ARCHIVO_OBRA.includes(tipo)) {
+      return res.status(400).json({ ok: false, error: `tipo inválido: usa ${TIPOS_ARCHIVO_OBRA.join(', ')}` });
+    }
+    const db = getPool();
+    const [obra] = await db.execute('SELECT id FROM projects WHERE id = ?', [req.params.id]);
+    if (!obra.length) return res.status(404).json({ ok: false, error: 'la obra no existe en el catálogo' });
+    const id = 'pf_' + randomUUID().replace(/-/g, '').slice(0, 20);
+    await db.execute(
+      `INSERT INTO project_files (id, project_id, tipo, nombre, url, mime, bytes, es_portada, subido_por, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [id, req.params.id, tipo, nombre.slice(0, 250), url.slice(0, 895), b.mime || null,
+       Number(b.bytes) || null, b.esPortada ? 1 : 0, email.slice(0, 180) || null]
+    );
+    const [fila] = await db.execute('SELECT * FROM project_files WHERE id = ?', [id]);
+    return res.json({ ok: true, file: archivoAJson(fila[0]) });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Borra un archivo de la obra (el archivo en el bucket queda; se deja de listar). */
+app.delete('/api/v1/crm/files/:fileId', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.query.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'sólo administración o producción puede borrar archivos' });
+    const db = getPool();
+    const [r] = await db.execute('DELETE FROM project_files WHERE id = ?', [req.params.fileId]);
+    if (!r.affectedRows) return res.status(404).json({ ok: false, error: 'ese archivo no existe' });
+    return res.json({ ok: true, id: req.params.fileId });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * FICHA DE LA OBRA · PUT /api/v1/crm/portfolio/projects/:id/ficha
+ *
+ * Edita los datos de la obra y sus bloques por disciplina (música, teatro, técnico…)
+ * guardados en `projects.ficha`. Actualización PARCIAL: lo que no viene en el body no se
+ * pisa, así la pantalla nunca borra campos que no muestra.
+ */
+const CAMPOS_FICHA_OBRA = {
+  title: 'title', synopsis: 'synopsis', description: 'description', discipline: 'discipline',
+  category: 'category', duration: 'duration', targetAudience: 'target_audience', format: 'format',
+  premiereDate: 'premiere_date', status: 'status', location: 'location', notes: 'notes',
+  companyId: 'company_id', imageUrl: 'image_url', budgetRange: 'budget_range', year: 'year',
+};
+
+app.put('/api/v1/crm/portfolio/projects/:id/ficha', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const email = b.email || req.headers['x-atha-email'] || '';
+    const alcance = await alcanceInventario(email);
+    if (!alcance.total) {
+      return res.status(403).json({ ok: false, error: 'sólo administración o producción puede editar la ficha' });
+    }
+    const db = getPool();
+    const [existe] = await db.execute('SELECT id, ficha FROM projects WHERE id = ?', [req.params.id]);
+    if (!existe.length) return res.status(404).json({ ok: false, error: 'obra no encontrada' });
+
+    const campos = [];
+    const valores = [];
+    for (const [clave, columna] of Object.entries(CAMPOS_FICHA_OBRA)) {
+      if (b[clave] === undefined) continue;
+      let valor = b[clave];
+      if (clave === 'title' && !String(valor || '').trim()) {
+        return res.status(400).json({ ok: false, error: 'El título no puede quedar vacío' });
+      }
+      if (clave === 'premiereDate') {
+        valor = /^\d{4}-\d{2}-\d{2}$/.test(String(valor || '')) ? valor : null;
+      }
+      campos.push(`${columna} = ?`);
+      valores.push(typeof valor === 'string' ? valor.slice(0, 4000) : valor);
+    }
+    if (b.isPublic !== undefined) { campos.push('is_public = ?'); valores.push(b.isPublic ? 1 : 0); }
+    if (b.ficha && typeof b.ficha === 'object') {
+      let previa = {};
+      try {
+        previa = typeof existe[0].ficha === 'string' ? JSON.parse(existe[0].ficha) : (existe[0].ficha || {});
+      } catch (e) { previa = {}; }
+      campos.push('ficha = ?');
+      valores.push(JSON.stringify({ ...previa, ...b.ficha }));
+    }
+    if (!campos.length) return res.status(400).json({ ok: false, error: 'nada para actualizar' });
+
+    valores.push(req.params.id);
+    await db.execute(`UPDATE projects SET ${campos.join(', ')} WHERE id = ?`, valores);
+    const [fila] = await db.execute('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+    radarEmitir('obra_actualizada', { id: req.params.id });
+    return res.json({ ok: true, success: true, project: fila[0] });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ELENCO DE UNA OBRA CON CUENTAS DE LA PLATAFORMA · Tanda B (2026-09-28)
+//
+// Antes el elenco de una obra era texto suelto (`cast_team`) y no había forma de
+// saber quién de ese elenco ya tiene cuenta en la plataforma ni con qué rol está
+// en ESTA obra. Ahora cada integrante es una fila de `project_members`:
+//   role     = su rol en la obra: `direccion` | `elenco` | `equipo` | `produccion`
+//   title    = su personaje en esa obra (puede ir vacío)
+//   user_id  = su cuenta de `users` (se vincula sola si el correo coincide)
+//   notes    = origen, p. ej. «viene de TMLL» cuando es invitado de otra compañía
+//   is_active = 1; al quitar a alguien se borra la fila (no se marca inactivo)
+//
+// REGLA DE ORO: nadie se inscribe «suelto» desde la obra. El nombre tiene que
+// existir en la nómina (`company_people`) de alguna compañía registrada; si no,
+// se responde 400 ofreciendo agregarla a su compañía. Esto evita que cada obra
+// fabrique su propia lista paralela de personas.
+//
+// Escritura: administración, o producción/técnica de la compañía que presenta la
+// obra (vía `alcanceInventario`). Lectura: lo mismo, o alguien cuyo correo esté
+// en el elenco de ESA obra.
+// ---------------------------------------------------------------------------
+const ROLES_ELENCO_OBRA = ['direccion', 'elenco', 'equipo', 'produccion'];
+const ETIQUETA_ROL_OBRA = {
+  direccion: 'Dirección', elenco: 'Elenco', equipo: 'Equipo', produccion: 'Producción',
+};
+
+/** La compañía que presenta la obra (para comparar con la compañía de la persona). */
+async function companiaDeObra(db, projectId) {
+  const [filas] = await db.execute(
+    `SELECT p.id, p.company_id, c.name AS company_name, c.logo_url AS company_logo
+       FROM projects p LEFT JOIN companies c ON c.id = p.company_id
+      WHERE p.id = ? LIMIT 1`,
+    [projectId]
+  );
+  return filas[0] || null;
+}
+
+/** ¿Quién puede gestionar el elenco de una obra? Administración, o producción/técnica de su compañía. */
+function puedeGestionarElenco(alcance, companyId) {
+  if (alcance.total) return true;
+  if (!alcance.puedeEscribir) return false;
+  if (!companyId) return false;
+  return (alcance.companies || []).includes(companyId);
+}
+
+/**
+ * Busca a la persona en la nómina de CUALQUIER compañía registrada (regla de oro).
+ * Primero por correo (si viene), después por nombre exacto, sin distinguir
+ * mayúsculas ni espacios.
+ */
+async function personaEnNomina(db, { displayName, email }) {
+  const correo = String(email || '').trim().toLowerCase();
+  const nombre = String(displayName || '').trim().toLowerCase();
+  const comun =
+    `SELECT cp.id, cp.company_id, cp.full_name, cp.email, cp.phone, cp.kind, cp.role_title,
+            c.name AS company_name, c.logo_url AS company_logo
+       FROM company_people cp LEFT JOIN companies c ON c.id = cp.company_id`;
+  if (correo) {
+    const [porCorreo] = await db.execute(`${comun} WHERE LOWER(cp.email) = ? LIMIT 1`, [correo]);
+    if (porCorreo.length) return porCorreo[0];
+  }
+  if (nombre) {
+    const [porNombre] = await db.execute(
+      `${comun} WHERE LOWER(TRIM(cp.full_name)) = ? LIMIT 1`, [nombre]
+    );
+    if (porNombre.length) return porNombre[0];
+  }
+  return null;
+}
+
+/** Mensaje único de la regla de oro (ofrece agregar a la persona a su compañía). */
+function avisoFueraDeNomina(displayName) {
+  return `«${displayName}» no figura en la nómina de ninguna compañía registrada. ` +
+    'Agrega a la persona a su compañía (Compañías → Nómina → Agregar persona) y vuelve a intentarlo.';
+}
+
+/** Fila de `project_members` a la forma que usa la interfaz. */
+function elencoAJson(m, { cuenta = null, compania = '', companiaId = null, invitado = false } = {}) {
+  return {
+    id: m.id,
+    projectId: m.project_id,
+    displayName: m.display_name || '',
+    email: m.email || '',
+    role: m.role || '',
+    personaje: m.title || '',
+    title: m.title || '',          // alias: el personaje es el `title` de la fila
+    phone: m.phone || '',
+    origen: m.notes || '',
+    notes: m.notes || '',
+    compania: compania || '',
+    companiaId: companiaId || null,
+    esInvitadoDeOtraCompania: !!invitado,
+    isActive: !!m.is_active,
+    joinedAt: m.joined_at || m.created_at || null,
+    cuenta: cuenta
+      ? { id: cuenta.id, email: cuenta.email || '', name: cuenta.display_name || '', picture: cuenta.picture || '', role: cuenta.role || '' }
+      : null,
+  };
+}
+
+/**
+ * Elenco completo de una obra, ya resuelto: cuenta vinculada, compañía de origen
+ * y si es invitado de otra compañía. Se resuelve en tres consultas (no N+1) porque
+ * la nómina y los usuarios son tablas chicas.
+ */
+async function elencoDeObra(db, projectId, companyId) {
+  const [filas] = await db.execute(
+    `SELECT * FROM project_members
+      WHERE project_id = ? AND is_active = 1
+      ORDER BY FIELD(role, 'direccion', 'produccion', 'elenco', 'equipo'), created_at, display_name`,
+    [projectId]
+  );
+  if (!filas.length) return [];
+
+  // Cuentas vinculadas
+  const ids = [...new Set(filas.map((f) => f.user_id).filter(Boolean))];
+  const porCuenta = new Map();
+  if (ids.length) {
+    const marcas = ids.map(() => '?').join(', ');
+    const [us] = await db.execute(
+      `SELECT id, email, display_name, role, picture FROM users WHERE id IN (${marcas})`, ids
+    );
+    for (const u of us) porCuenta.set(u.id, u);
+  }
+
+  // Nómina de todas las compañías registradas (para saber de dónde viene cada uno)
+  const [nomina] = await db.execute(
+    `SELECT cp.full_name, cp.email, cp.company_id, c.name AS company_name
+       FROM company_people cp LEFT JOIN companies c ON c.id = cp.company_id`
+  );
+  const porCorreo = new Map();
+  const porNombre = new Map();
+  for (const n of nomina) {
+    if (n.email) porCorreo.set(String(n.email).toLowerCase(), n);
+    if (n.full_name) porNombre.set(String(n.full_name).trim().toLowerCase(), n);
+  }
+
+  return filas.map((m) => {
+    const deNomina = (m.email && porCorreo.get(String(m.email).toLowerCase())) ||
+      porNombre.get(String(m.display_name || '').trim().toLowerCase()) || null;
+    // es invitado si la nómina lo ubica en OTRA compañía, o si quedó anotado el origen
+    const invitado = (deNomina && companyId && deNomina.company_id !== companyId) ||
+      /^viene de /i.test(String(m.notes || ''));
+    return elencoAJson(m, {
+      cuenta: m.user_id ? porCuenta.get(m.user_id) || null : null,
+      compania: deNomina ? deNomina.company_name || '' : '',
+      companiaId: deNomina ? deNomina.company_id : null,
+      invitado: !!invitado,
+    });
+  });
+}
+
+/** Lista el elenco de una obra con su cuenta vinculada. */
+app.get('/api/v1/crm/portfolio/projects/:id/cast', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = emailDeSesion(req) || '';
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida', cast: [] });
+
+    const obra = await companiaDeObra(db, req.params.id);
+    if (!obra) return res.status(404).json({ ok: false, error: 'la obra no existe en el catálogo', cast: [] });
+
+    const alcance = await alcanceInventario(email);
+    let permitido = puedeGestionarElenco(alcance, obra.company_id);
+    if (!permitido) {
+      // alguien del elenco de ESA obra también puede verlo
+      const [yo] = await db.execute(
+        `SELECT id FROM project_members
+          WHERE project_id = ? AND is_active = 1 AND LOWER(email) = ? LIMIT 1`,
+        [req.params.id, email]
+      );
+      permitido = yo.length > 0;
+    }
+    if (!permitido) {
+      return res.status(403).json({ ok: false, error: 'no tienes acceso al elenco de esa obra', cast: [] });
+    }
+
+    const cast = await elencoDeObra(db, req.params.id, obra.company_id);
+    return res.json({ ok: true, total: cast.length, cast });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message, cast: [] });
+  }
+});
+
+/**
+ * Inscribe a alguien en el elenco de la obra.
+ * `{displayName, email?, role, personaje?, desdeCompaniaId?}` (acepta también `nombre`/`rol`).
+ */
+app.post('/api/v1/crm/portfolio/projects/:id/cast', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = emailDeSesion(req) || '';
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+
+    const obra = await companiaDeObra(db, req.params.id);
+    if (!obra) return res.status(404).json({ ok: false, error: 'la obra no existe en el catálogo' });
+
+    const alcance = await alcanceInventario(email);
+    if (!puedeGestionarElenco(alcance, obra.company_id)) {
+      return res.status(403).json({
+        ok: false,
+        error: 'sólo administración o producción de la compañía que presenta la obra puede inscribir el elenco',
+      });
+    }
+
+    const b = req.body || {};
+    const rol = String(b.role || b.rol || '').toLowerCase().trim();
+    if (!ROLES_ELENCO_OBRA.includes(rol)) {
+      return res.status(400).json({ ok: false, error: `rol inválido: usa ${ROLES_ELENCO_OBRA.join(', ')}` });
+    }
+    const displayName = String(b.displayName || b.nombre || '').trim();
+    if (!displayName) return res.status(400).json({ ok: false, error: 'falta el nombre de la persona' });
+    const correoDado = String(b.email || '').trim().toLowerCase();
+
+    // REGLA DE ORO: la persona tiene que existir en la nómina de alguna compañía
+    const deNomina = await personaEnNomina(db, { displayName, email: correoDado });
+    if (!deNomina) {
+      return res.status(400).json({ ok: false, error: avisoFueraDeNomina(displayName), sugerencia: 'agregar_a_compania' });
+    }
+
+    // El correo que manda es el de la nómina si no se indicó otro: así la cuenta se vincula sola.
+    const correo = correoDado || String(deNomina.email || '').toLowerCase();
+    let user_id = null;
+    if (correo) {
+      const [u] = await db.execute('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [correo]);
+      user_id = u.length ? u[0].id : null;
+    }
+
+    // Origen: invitado de otra compañía (la que lo presenta es la de la obra)
+    let notes = null;
+    const desde = String(b.desdeCompaniaId || b.desde_compania_id || '').trim();
+    if (desde && desde !== String(obra.company_id || '')) {
+      const [otra] = await db.execute('SELECT name FROM companies WHERE id = ? LIMIT 1', [desde]);
+      notes = `viene de ${(otra.length && otra[0].name) || desde}`;
+    }
+
+    const personaje = String(b.personaje || b.title || '').trim().slice(0, 255) || null;
+    const id = 'pm_' + randomUUID().replace(/-/g, '').slice(0, 20);
+    await db.execute(
+      `INSERT INTO project_members
+         (id, project_id, user_id, role, display_name, phone, notes, is_active, joined_at, created_at,
+          title, email, discipline)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW(), ?, ?, ?)`,
+      [id, req.params.id, user_id, rol, displayName.slice(0, 255),
+       String(b.phone || '').trim().slice(0, 80) || null, notes, personaje,
+       correo.slice(0, 255) || null, String(b.discipline || '').trim().slice(0, 100) || null]
+    );
+
+    const cast = await elencoDeObra(db, req.params.id, obra.company_id);
+    radarEmitir('obra_actualizada', { id: req.params.id });
+    return res.json({ ok: true, cast: cast.find((c) => c.id === id) || null });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Edita rol, personaje, correo o teléfono de alguien del elenco (parcial). */
+app.put('/api/v1/crm/portfolio/projects/:id/cast/:castId', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = emailDeSesion(req) || '';
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+
+    const obra = await companiaDeObra(db, req.params.id);
+    if (!obra) return res.status(404).json({ ok: false, error: 'la obra no existe en el catálogo' });
+
+    const alcance = await alcanceInventario(email);
+    if (!puedeGestionarElenco(alcance, obra.company_id)) {
+      return res.status(403).json({ ok: false, error: 'sólo administración o producción de la compañía que presenta la obra puede editar el elenco' });
+    }
+
+    const [actual] = await db.execute(
+      'SELECT * FROM project_members WHERE id = ? AND project_id = ? LIMIT 1',
+      [req.params.castId, req.params.id]
+    );
+    if (!actual.length) {
+      return res.status(404).json({ ok: false, error: 'esa persona no está en el elenco de esta obra' });
+    }
+
+    const b = req.body || {};
+    const campos = [];
+    const valores = [];
+
+    if (b.role !== undefined || b.rol !== undefined) {
+      const rol = String(b.role || b.rol || '').toLowerCase().trim();
+      if (!ROLES_ELENCO_OBRA.includes(rol)) {
+        return res.status(400).json({ ok: false, error: `rol inválido: usa ${ROLES_ELENCO_OBRA.join(', ')}` });
+      }
+      campos.push('role = ?');
+      valores.push(rol);
+    }
+    if (b.personaje !== undefined || b.title !== undefined) {
+      campos.push('title = ?');
+      valores.push(String(b.personaje !== undefined ? b.personaje : b.title).trim().slice(0, 255) || null);
+    }
+    if (b.displayName !== undefined || b.nombre !== undefined) {
+      const nombre = String(b.displayName !== undefined ? b.displayName : b.nombre).trim();
+      if (!nombre) return res.status(400).json({ ok: false, error: 'el nombre no puede quedar vacío' });
+      // la regla de oro también vale al renombrar (y el correo actual ayuda a ubicarlo)
+      const enNomina = await personaEnNomina(db, { displayName: nombre, email: b.email !== undefined ? b.email : actual[0].email });
+      if (!enNomina) return res.status(400).json({ ok: false, error: avisoFueraDeNomina(nombre), sugerencia: 'agregar_a_compania' });
+      campos.push('display_name = ?');
+      valores.push(nombre.slice(0, 255));
+    }
+    if (b.email !== undefined) {
+      const correo = String(b.email || '').trim().toLowerCase();
+      campos.push('email = ?');
+      valores.push(correo.slice(0, 255) || null);
+      // re-vincula (o desvincula) la cuenta según el correo nuevo
+      let user_id = null;
+      if (correo) {
+        const [u] = await db.execute('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [correo]);
+        user_id = u.length ? u[0].id : null;
+      }
+      campos.push('user_id = ?');
+      valores.push(user_id);
+    }
+    if (b.phone !== undefined) {
+      campos.push('phone = ?');
+      valores.push(String(b.phone || '').trim().slice(0, 80) || null);
+    }
+    if (b.desdeCompaniaId !== undefined) {
+      const desde = String(b.desdeCompaniaId || '').trim();
+      let notes = null;
+      if (desde && desde !== String(obra.company_id || '')) {
+        const [otra] = await db.execute('SELECT name FROM companies WHERE id = ? LIMIT 1', [desde]);
+        notes = `viene de ${(otra.length && otra[0].name) || desde}`;
+      }
+      campos.push('notes = ?');
+      valores.push(notes);
+    }
+    if (!campos.length) return res.status(400).json({ ok: false, error: 'nada para actualizar' });
+
+    valores.push(req.params.castId, req.params.id);
+    await db.execute(
+      `UPDATE project_members SET ${campos.join(', ')} WHERE id = ? AND project_id = ?`, valores
+    );
+    const cast = await elencoDeObra(db, req.params.id, obra.company_id);
+    radarEmitir('obra_actualizada', { id: req.params.id });
+    return res.json({ ok: true, cast: cast.find((c) => c.id === req.params.castId) || null });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Quita a alguien del elenco de la obra (se borra la fila, no se marca inactiva). */
+app.delete('/api/v1/crm/portfolio/projects/:id/cast/:castId', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = emailDeSesion(req) || '';
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+
+    const obra = await companiaDeObra(db, req.params.id);
+    if (!obra) return res.status(404).json({ ok: false, error: 'la obra no existe en el catálogo' });
+
+    const alcance = await alcanceInventario(email);
+    if (!puedeGestionarElenco(alcance, obra.company_id)) {
+      return res.status(403).json({ ok: false, error: 'sólo administración o producción de la compañía que presenta la obra puede quitar gente del elenco' });
+    }
+
+    const [r] = await db.execute(
+      'DELETE FROM project_members WHERE id = ? AND project_id = ?',
+      [req.params.castId, req.params.id]
+    );
+    if (!r.affectedRows) {
+      return res.status(404).json({ ok: false, error: 'esa persona no está en el elenco de esta obra' });
+    }
+    radarEmitir('obra_actualizada', { id: req.params.id });
+    return res.json({ ok: true, id: req.params.castId, quitado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * Manda UN correo de invitación al elenco con el nombre de la obra y su rol.
+ * Se dispara sólo cuando se llama a este endpoint: nunca automático. Si el body
+ * trae `para`, se usa ese correo (las pruebas van al buzón del agente).
+ */
+app.post('/api/v1/crm/portfolio/projects/:id/cast/:castId/invitar', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = emailDeSesion(req) || '';
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+
+    const obra = await companiaDeObra(db, req.params.id);
+    if (!obra) return res.status(404).json({ ok: false, error: 'la obra no existe en el catálogo' });
+
+    const alcance = await alcanceInventario(email);
+    if (!puedeGestionarElenco(alcance, obra.company_id)) {
+      return res.status(403).json({ ok: false, error: 'sólo administración o producción de la compañía que presenta la obra puede invitar al elenco' });
+    }
+
+    const [filas] = await db.execute(
+      'SELECT * FROM project_members WHERE id = ? AND project_id = ? LIMIT 1',
+      [req.params.castId, req.params.id]
+    );
+    if (!filas.length) {
+      return res.status(404).json({ ok: false, error: 'esa persona no está en el elenco de esta obra' });
+    }
+    const m = filas[0];
+
+    let para = String((req.body && (req.body.para || req.body.email)) || '').trim();
+    if (!para && m.email) para = String(m.email).trim();
+    if (!para && m.user_id) {
+      const [u] = await db.execute('SELECT email FROM users WHERE id = ? LIMIT 1', [m.user_id]);
+      if (u.length) para = String(u[0].email || '').trim();
+    }
+    if (!para) {
+      return res.status(400).json({ ok: false, error: `«${m.display_name}» no tiene correo: agrégalo antes de invitarlo` });
+    }
+
+    const [p] = await db.execute('SELECT title, premiere_date FROM projects WHERE id = ? LIMIT 1', [req.params.id]);
+    const rol = ETIQUETA_ROL_OBRA[m.role] || m.role || '';
+    const r = await enviarCorreo({
+      para,
+      asunto: `Invitación al elenco de «${(p[0] && p[0].title) || 'la obra'}»`,
+      plantilla: 'invitacion_elenco',
+      html: marcoCorreo(PLANTILLAS_CORREO.invitacion_elenco({
+        nombre: m.display_name || '',
+        obra: (p[0] && p[0].title) || '',
+        compania: obra.company_name || '',
+        rol,
+        personaje: m.title || '',
+        estreno: (p[0] && p[0].premiere_date) || '',
+        linkPlanner: `${URL_HUB_PUBLICA}/puente?destino=planner`,
+      })),
+      enviadoPor: email,
+    });
+    return res.status(r.ok ? 200 : 503).json({
+      ok: !!r.ok, error: r.error, para, obra: (p[0] && p[0].title) || '', rol, correo: r,
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// MONTAJE PARA EL PLANNER · Tanda C, punto 1 (2026-09-28)
+//
+// El CRM abre el Planner con la sesión puesta y `&obra=<id>`, pero el Planner no
+// tenía de dónde sacar la ficha, el elenco ni las funciones. Este endpoint le
+// entrega TODO en una llamada, con los nombres que usa el Planner.
+// Autorización: sesión con token del hub, o administración/producción de la
+// compañía que presenta la obra.
+// ---------------------------------------------------------------------------
+/** Fecha en `YYYY-MM-DD` sin sustos de zona horaria (mysql2 arma el Date en hora local). */
+function fechaSolo(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  }
+  const s = String(v).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : s.slice(0, 10);
+}
+
+/** Hora en `HH:MM` (la columna es TIME y llega como `HH:MM:SS`). */
+function horaSolo(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    return `${String(v.getHours()).padStart(2, '0')}:${String(v.getMinutes()).padStart(2, '0')}`;
+  }
+  return String(v).trim().slice(0, 5);
+}
+
+app.get('/api/v1/crm/planner/montaje/:id', async (req, res) => {
+  try {
+    const db = getPool();
+    const email = emailDeSesion(req) || '';
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+
+    const obra = await companiaDeObra(db, req.params.id);
+    if (!obra) return res.status(404).json({ ok: false, error: 'la obra no existe en el catálogo' });
+
+    const conToken = !!(req.identidad && req.identidad.conToken);
+    if (!conToken) {
+      const alcance = await alcanceInventario(email);
+      if (!puedeGestionarElenco(alcance, obra.company_id)) {
+        return res.status(403).json({ ok: false, error: 'no tienes acceso a ese montaje' });
+      }
+    }
+
+    const [filas] = await db.execute(
+      `SELECT id, title, synopsis, description, discipline, category, duration, target_audience,
+              format, status, premiere_date, image_url, location, ficha, company_id
+         FROM projects WHERE id = ? LIMIT 1`,
+      [req.params.id]
+    );
+    const p = filas[0];
+    let ficha = p.ficha;
+    if (typeof ficha === 'string') { try { ficha = JSON.parse(ficha); } catch (e) { ficha = null; } }
+    if (!ficha || typeof ficha !== 'object') ficha = {};
+
+    const musica = (ficha.musica && typeof ficha.musica === 'object') ? ficha.musica : {};
+    const tecnico = (ficha.tecnico && typeof ficha.tecnico === 'object') ? ficha.tecnico : {};
+
+    const elenco = await elencoDeObra(db, req.params.id, p.company_id);
+    const [eventos] = await db.execute(
+      `SELECT id, title, type, date, time_start, venue, city, status
+         FROM events WHERE obra_id = ? ORDER BY date ASC, time_start ASC`,
+      [req.params.id]
+    );
+
+    return res.json({
+      ok: true,
+      montaje: {
+        id: p.id,
+        title: p.title || '',
+        synopsis: p.synopsis || '',
+        discipline: p.discipline || '',
+        category: p.category || '',
+        duration: p.duration || '',
+        targetAudience: p.target_audience || '',
+        format: p.format || '',
+        status: p.status || '',
+        premiereDate: p.premiere_date ? fechaSolo(p.premiere_date) : '',
+        image: p.image_url || '',
+        compania: {
+          id: p.company_id || '',
+          nombre: obra.company_name || '',
+          logo: obra.company_logo || '',
+        },
+        musica: {
+          formato: String(musica.formato || ''),
+          musicos: String(musica.musicos || ''),
+          instrumentos: String(musica.instrumentos || ''),
+        },
+        tecnico: {
+          anchoMin: String(tecnico.anchoMin || ''),
+          fondoMin: String(tecnico.fondoMin || ''),
+          altoMin: String(tecnico.altoMin || ''),
+          carga: String(tecnico.carga || ''),
+          personal: String(tecnico.personal || ''),
+        },
+        elenco: elenco.map((c) => ({
+          nombre: c.displayName,
+          rol: c.role,
+          personaje: c.personaje,
+          email: c.email,
+          cuenta: !!c.cuenta,
+        })),
+        funciones: eventos.map((e) => ({
+          id: e.id,
+          titulo: e.title || '',
+          tipo: e.type || '',
+          fecha: fechaSolo(e.date),
+          hora: horaSolo(e.time_start),
+          lugar: e.venue || e.city || '',
+          estado: e.status || '',
+        })),
+      },
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // CONVOCATORIAS (Buscador de Fondos) · /api/v1/crm/convocatorias
 //
 // El Buscador de Fondos vivía 100% en el navegador (localStorage) y su "sync"
 // apuntaba a http://localhost:5052 con un "Mac Agent" que nunca existió: nada
-// llegaba al CRM. Acá se guarda de verdad: las convocatorias en
+// llegaba al CRM. Aquí se guarda de verdad: las convocatorias en
 // `fundraising_calls` y su seguimiento (estado, responsable, notas, checklist)
 // en `fundraising_crm_tracking`.
 // ---------------------------------------------------------------------------
@@ -2051,7 +3051,7 @@ app.get('/api/v1/crm/convocatorias', async (req, res) => {
 // ---------------------------------------------------------------------------
 // PREFERENCIAS DE INTERFAZ · /api/users/:id/preferences
 //
-// El panel de diseño (módulo modular que agregó Francisco) guarda acá la
+// El panel de diseño (módulo modular que agregó Francisco) guarda aquí la
 // configuración visual de cada usuario: color de acento, tipografía, estilo de
 // superficie, densidad y el orden/ocultamiento de las secciones del perfil.
 //
@@ -2124,7 +3124,7 @@ app.post('/api/users/:id/preferences', guardarPreferencias);
 // RADAR CULTURAL · /api/v1/crm/radar/*
 //
 // El radar (nodos culturales descubribles por GPS o QR, rutas y progreso) vive
-// ACÁ, en el hub. Antes cada proyecto traía su propio esquema PostgreSQL y datos
+// Aquí, en el hub. Antes cada proyecto traía su propio esquema PostgreSQL y datos
 // semilla; ahora hay una sola fuente de verdad y las apps (móvil, PWA, CRM)
 // sólo consumen.
 //
@@ -2191,6 +3191,9 @@ const CAMPOS_AGENDA = [
   ['events', 'ticket_url', 'varchar(512) NULL'],
   ['events', 'source', "varchar(40) NULL DEFAULT 'manual'"],
   ['events', 'source_url', 'varchar(512) NULL'],
+  // Fin de una muestra de varios días: la app puede decir "hasta el 26 de octubre".
+  // `date` es el día de la función (o el inicio de la muestra).
+  ['events', 'date_end', 'date NULL'],
 ];
 
 let columnasAgendaListas = false;
@@ -2210,6 +3213,16 @@ async function asegurarColumnasAgenda() {
         console.log(`[agenda] columna agregada: ${t}.${nombre}`);
       }
     }
+  }
+  // `events.time_start` nació NOT NULL, pero una MUESTRA de varios días (exposición) no
+  // tiene hora: la fuente publica sólo el rango de fechas. Se afloja una vez para poder
+  // representarlas (la app ya sabe mostrar un evento sin hora) en vez de dejarlas afuera.
+  const [nulls] = await db.execute(
+    `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'time_start'`);
+  if (nulls.length && nulls[0].IS_NULLABLE === 'NO') {
+    await db.execute('ALTER TABLE events MODIFY COLUMN time_start TIME NULL');
+    console.log('[agenda] events.time_start ahora acepta NULL (muestras de varios días)');
   }
   columnasAgendaListas = true;
 }
@@ -2246,7 +3259,7 @@ async function exploradorId(email, nombre, foto) {
   // nombre en el perfil; los otros datos del perfil sí"). Por eso ahora:
   //   - el nombre se completa si la cuenta no tiene (o tiene el prefijo del correo)
   //   - la foto se completa si la cuenta no tiene
-  // Un cambio explícito de nombre/foto se hace por PATCH /radar/perfil, no por acá.
+  // Un cambio explícito de nombre/foto se hace por PATCH /radar/perfil, no por aquí.
   if (filas.length) {
     const actual = filas[0];
     const sinNombre = nombreProvisional(actual.display_name, correo);
@@ -2273,7 +3286,7 @@ async function exploradorId(email, nombre, foto) {
  *
  * `radar_profiles` nació con bio/city/is_public, nada más: por eso la "Organización"
  * y las "Disciplinas" del panel de perfil se guardaban… en el teléfono y nunca en el
- * CRM (el hub las ignoraba en silencio). Se agregan acá, idempotente, igual que las
+ * CRM (el hub las ignoraba en silencio). Se agregan aquí, idempotente, igual que las
  * otras tablas que crecen en producción.
  * ------------------------------------------------------------------------- */
 const CAMPOS_PERFIL_RADAR = [
@@ -2352,7 +3365,14 @@ app.get('/api/v1/crm/radar/nodos', async (req, res) => {
     let sql = 'SELECT * FROM radar_nodes';
     // Antes del SELECT *: si falta la columna del horario, se agrega ahora.
     await asegurarColumnasAgenda();
-    if (!incluir_borradores) sql += ' WHERE is_published = 1';
+    // Los BORRADORES sólo los ve administración (el panel de /nodos). El pedido público
+    // —la app— nunca los trae, aunque mande `incluir_borradores=1`.
+    let verBorradores = false;
+    if (incluir_borradores) {
+      const alcance = await alcanceInventario(email || ident.email || req.headers['x-atha-email'] || '');
+      verBorradores = !!alcance.total;
+    }
+    if (!verBorradores) sql += ' WHERE is_published = 1';
     sql += ' ORDER BY created_at DESC';
     const [nodos] = await db.execute(sql);
 
@@ -2420,25 +3440,42 @@ async function guardarNodoRadar(req, res, id) {
       unlock_radius_m: b.unlock_radius_m ?? 120,
       qr_code: b.qr_code ?? null,
       is_published: b.is_published === undefined ? 1 : (b.is_published ? 1 : 0),
+      /** Horario de atención: lo muestra la app tal como se escribe (si no, null) */
+      hours: b.hours === undefined ? null : (b.hours ? String(b.hours).slice(0, 160) : null),
       created_by: alcance.usuario ? alcance.usuario.email : null,
     };
+    const EDITABLES = ['name', 'short_description', 'full_description', 'category', 'latitude',
+      'longitude', 'address', 'city', 'region', 'cover_url', 'unlock_radius_m', 'qr_code',
+      'is_published', 'hours'];
+    if (b.name !== undefined && String(b.name).trim().length < 3) {
+      return res.status(400).json({ ok: false, error: 'El nombre necesita al menos 3 letras.' });
+    }
 
     if (id) {
-      const sets = Object.keys(campos).filter((k) => b[k] !== undefined || ['name','short_description','full_description','category','latitude','longitude','address','city','region','cover_url','unlock_radius_m','qr_code','is_published'].includes(k));
+      // Sólo se actualiza lo que VINO en el cuerpo: un PATCH parcial (p. ej. sólo
+      // `is_published`, como hace el panel para publicar/ocultar) no debe vaciar el resto.
+      const alias = { lat: 'latitude', lng: 'longitude' };
+      const pedidos = new Set(Object.keys(b).map((k) => alias[k] || k));
+      const sets = EDITABLES.filter((k) => pedidos.has(k));
+      if (!sets.length) {
+        return res.status(400).json({ ok: false, error: 'no hay nada para actualizar' });
+      }
       const sql = `UPDATE radar_nodes SET ${sets.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`;
       await db.execute(sql, [...sets.map((k) => campos[k]), id]);
+      radarEmitir('nodo_actualizado', { node_id: id });
       return res.json({ ok: true, id });
     }
     const nuevo = String(b.id || `nd_${randomUUID().slice(0, 8)}`).slice(0, 64);
     await db.execute(
       `INSERT INTO radar_nodes
         (id, name, short_description, full_description, category, latitude, longitude, address, city, region,
-         cover_url, unlock_radius_m, qr_code, is_published, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         cover_url, unlock_radius_m, qr_code, is_published, hours, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [nuevo, campos.name || 'Nodo sin nombre', campos.short_description, campos.full_description, campos.category,
        campos.latitude, campos.longitude, campos.address, campos.city, campos.region, campos.cover_url,
-       campos.unlock_radius_m, campos.qr_code, campos.is_published, campos.created_by]
+       campos.unlock_radius_m, campos.qr_code, campos.is_published, campos.hours, campos.created_by]
     );
+    radarEmitir('nodo_creado', { node_id: nuevo });
     return res.json({ ok: true, nodo: { id: nuevo, ...campos } });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
@@ -2628,7 +3665,7 @@ app.post('/api/v1/crm/radar/rutas', async (req, res) => {
 // RADAR SOCIAL · feed, publicaciones, comentarios, reacciones e insignias
 //
 // La red social del radar NO es un feed genérico: cada publicación está anclada
-// a un nodo cultural (publicás sobre el lugar que descubriste). Las reacciones
+// a un nodo cultural (publicas sobre el lugar que descubriste). Las reacciones
 // siguen el modelo del radar (like · inspire · fire · star · clap) y son únicas
 // por usuario y objetivo.
 // ---------------------------------------------------------------------------
@@ -2827,7 +3864,7 @@ app.post('/api/v1/crm/radar/posts', async (req, res) => {
       media = null;
     }
     if (!media && b.image) {
-      // OJO: acá se llamaba a `subirFotoGcs`, que NUNCA estuvo definida (sólo
+      // OJO: aquí se llamaba a `subirFotoGcs`, que NUNCA estuvo definida (sólo
       // existe subirFotoInventario). Publicar con foto tiraba
       // "subirFotoGcs is not defined" y la publicación no se guardaba: era el
       // reporte "no se postean las publicaciones cuando subo la foto".
@@ -2837,7 +3874,7 @@ app.post('/api/v1/crm/radar/posts', async (req, res) => {
     if (media && media.length > 512) {
       return res.status(400).json({
         ok: false,
-        error: 'La imagen es demasiado grande. Probá con otra foto (o más chica).',
+        error: 'La imagen es demasiado grande. Prueba con otra foto (o más chica).',
       });
     }
     const alcance = await alcanceInventario(email);
@@ -2979,7 +4016,7 @@ function nuevoId(prefijo) {
  * Por qué: antes un PATCH con un solo campo (por ejemplo la foto) pasaba por el
  * mismo camino que el alta, donde los valores por defecto ("Ítem sin nombre",
  * "Audio / Backline"…) no son vacíos → el UPDATE los escribía y BORRABA el dato
- * original. Acá se arma el SET únicamente con lo que llegó.
+ * original. Aquí se arma el SET únicamente con lo que llegó.
  */
 async function actualizarParcial(tabla, id, campos) {
   const cols = Object.keys(campos);
@@ -3188,7 +4225,7 @@ app.get('/api/v1/crm/inventario', async (req, res) => {
     if (pedida && permitidas && !permitidas.includes(pedida)) {
       return res.status(403).json({
         success: false, alcance,
-        error: 'No tenés acceso al inventario de esa compañía.',
+        error: 'No tienes acceso al inventario de esa compañía.',
         companies: [], boxes: [], items: [],
       });
     }
@@ -3413,7 +4450,7 @@ app.post('/api/v1/crm/inventario/foto', async (req, res) => {
 // ---------------------------------------------------------------------------
 // SESIÓN + PERMISOS · /api/v1/crm/sesion?email=...
 //
-// El CRM es el PROVEEDOR DE IDENTIDAD del ecosistema: acá se valida quién es el
+// El CRM es el PROVEEDOR DE IDENTIDAD del ecosistema: aquí se valida quién es el
 // usuario y QUÉ PUEDE HACER. Los artefactos consultan este endpoint en vez de
 // decidir permisos por su cuenta (así la política vive en UN solo lugar y no hay
 // que tocar 5 apps cuando cambia).
@@ -3637,9 +4674,9 @@ app.get('/puente', (req, res) => {
     if (c) c.innerHTML = html;
   }
   function sinSesion() {
-    aviso('<h1>Necesitás iniciar sesión</h1>' +
-      '<p>Entrá al CRM ATHA con tu cuenta y esta página te lleva a ' + NOMBRE + ' automáticamente. ' +
-      'Si ya iniciaste sesión en otra pestaña, esperá unos segundos.</p>' +
+    aviso('<h1>Necesitas iniciar sesión</h1>' +
+      '<p>Entra al CRM ATHA con tu cuenta y esta página te lleva a ' + NOMBRE + ' automáticamente. ' +
+      'Si ya iniciaste sesión en otra pestaña, espera unos segundos.</p>' +
       '<a class="boton" href="/">Iniciar sesión en el CRM</a>');
     var n = 0;
     var t = setInterval(function () { if (intentar() || ++n > 150) clearInterval(t); }, 2000);
@@ -3650,7 +4687,7 @@ app.get('/puente', (req, res) => {
   }
 
   /* LLAVE: el token del hub vive en este mismo origen (lo dejó el login), así que
-     acá se pide un ticket de un solo uso y se viaja con eso. Nada de correo, rol
+     aquí se pide un ticket de un solo uso y se viaja con eso. Nada de correo, rol
      ni nombre en la URL. */
   function tokenHub() {
     try { return localStorage.getItem('atha_auth_token') || ''; } catch (e) { return ''; }
@@ -3824,7 +4861,7 @@ app.post('/api/v1/crm/companias/:id/solicitudes', async (req, res) => {
       [userId, req.params.id]
     );
     if (yaMiembro.length) {
-      return res.json({ ok: true, ya_pertenece: true, mensaje: `Ya pertenecés a ${comp[0].name}.` });
+      return res.json({ ok: true, ya_pertenece: true, mensaje: `Ya perteneces a ${comp[0].name}.` });
     }
 
     // ¿ya hay un pedido pendiente?
@@ -3884,7 +4921,7 @@ app.post('/api/v1/crm/companias/:id/solicitudes', async (req, res) => {
  * `/radar/perfil?email=<otro>` devuelve EL PROPIO perfil, no el del otro: por
  * eso no se podía ver el perfil de otra persona.
  *
- * Acá el destinatario va en `usuario` (que el middleware no toca) y sólo se
+ * Aquí el destinatario va en `usuario` (que el middleware no toca) y sólo se
  * devuelven datos PÚBLICOS. Si la persona marcó su perfil como privado, se
  * devuelve apenas lo mínimo para poder mostrarla en el muro (nombre y foto),
  * sin progreso ni ciudad.
@@ -4043,7 +5080,7 @@ app.post('/api/v1/crm/companias/nueva', async (req, res) => {
     if (!(await puedeCrearAgrupacion(userId))) {
       return res.status(403).json({
         ok: false,
-        error: 'Sólo dirección o producción puede crear una agrupación. Podés pedir entrar a una de las que ya existen.',
+        error: 'Sólo dirección o producción puede crear una agrupación. Puedes pedir entrar a una de las que ya existen.',
       });
     }
 
@@ -4140,18 +5177,27 @@ app.get('/api/v1/crm/radar/eventos', async (req, res) => {
     const lat = req.query.lat !== undefined ? Number(req.query.lat) : null;
     const lng = req.query.lng !== undefined ? Number(req.query.lng) : null;
     const radioKm = req.query.radio_km !== undefined ? Number(req.query.radio_km) : null;
+    // Los BORRADORES (is_public = 0) sólo los ve administración: es lo que necesita el
+    // panel de agenda del CRM para preparar una función antes de publicarla. La app
+    // nunca los pide, y si alguien lo fuerza sin permiso, la respuesta es la pública.
+    let verBorradores = false;
+    if (req.query.incluir_borradores) {
+      const alcance = await alcanceInventario(emailDeSesion(req) || req.headers['x-atha-email'] || req.query.email || '');
+      verBorradores = !!alcance.total;
+    }
     const [eventos] = await db.execute(
-      `SELECT e.id, e.title, e.obra_id, e.obra_title, e.type, e.date, e.time_start, e.time_end,
+      `SELECT e.id, e.title, e.obra_id, e.obra_title, e.type, e.date, e.date_end, e.time_start, e.time_end,
               e.venue, e.venue_id, e.status, e.notes, e.city, e.ticket_url, e.image_url,
+              e.source, e.source_url,
               e.lat AS lat_propia, e.lng AS lng_propia,
               v.name AS venue_name, v.lat AS lat_venue, v.lng AS lng_venue,
-              p.discipline, p.image_url AS obra_imagen, p.location,
+              p.discipline, p.image_url AS obra_imagen, p.location, p.synopsis,
               c.id AS company_id, c.name AS company_name
          FROM events e
          LEFT JOIN venues v ON v.id = e.venue_id
          LEFT JOIN projects p ON p.id = e.obra_id
          LEFT JOIN companies c ON c.id = p.company_id
-        WHERE e.date >= ? AND (e.is_public IS NULL OR e.is_public = 1)
+        WHERE e.date >= ? ${verBorradores ? '' : 'AND (e.is_public IS NULL OR e.is_public = 1)'}
         ORDER BY e.date ASC, e.time_start ASC
         LIMIT 120`,
       [desde]
@@ -4204,7 +5250,7 @@ app.get('/api/v1/crm/radar/eventos', async (req, res) => {
  * PUBLICAR UN EVENTO · POST /api/v1/crm/radar/eventos
  *
  * Cómo se puebla la cartelera (lo que pidió Francisco): la producción carga sus
- * funciones acá y quedan visibles en el inicio de la app con hora y lugar. Después
+ * funciones aquí y quedan visibles en el inicio de la app con hora y lugar. Después
  * el mismo camino sirve para lo externo (ver `source`/`source_url`: manual | atha |
  * externo), pero cada alta externa tiene que traer SU fuente, no inventarse.
  *
@@ -4264,13 +5310,17 @@ app.post('/api/v1/crm/radar/eventos', async (req, res) => {
     const id = `ev_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
     const tipo = String(b.type || 'Función').slice(0, 50);
     const estado = String(b.status || 'Confirmado').slice(0, 20);
+    // date_end: sólo para muestras de varios días (exposiciones). Si viene igual a la fecha
+    // de inicio, se guarda NULL (una función es de un día).
+    const fin = b.date_end ? String(b.date_end).slice(0, 10) : null;
+    const fechaFin = fin && /^\d{4}-\d{2}-\d{2}$/.test(fin) && fin > fecha ? fin : null;
     await db.execute(
-      `INSERT INTO events (id, owner_id, title, obra_id, obra_title, type, date, time_start, time_end,
+      `INSERT INTO events (id, owner_id, title, obra_id, obra_title, type, date, date_end, time_start, time_end,
          venue, venue_id, cast_count, status, notes, city, lat, lng, is_public, image_url, ticket_url,
          source, source_url, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [id, userId, titulo, b.obra_id || null, String(b.obra_title || '').slice(0, 255) || null, tipo,
-       fecha, hora, b.time_end ? String(b.time_end).slice(0, 8) : null,
+       fecha, fechaFin, hora, b.time_end ? String(b.time_end).slice(0, 8) : null,
        String(b.venue || '').slice(0, 255) || null, venueId, Number(b.cast_count) || null, estado,
        String(b.notes || '') || null, String(b.city || '').slice(0, 120) || null,
        isFinite(lat) ? lat : null, isFinite(lng) ? lng : null,
@@ -4281,11 +5331,126 @@ app.post('/api/v1/crm/radar/eventos', async (req, res) => {
 
     radarEmitir('evento_nuevo', { id, title: titulo, date: fecha, time_start: hora, venue: b.venue || null });
     avisarTelegram(
-      `🎭 <b>Función publicada</b>\n\n<b>${titulo}</b>\n${fecha}${hora ? ` · ${hora.slice(0, 5)}` : ''}` +
-      (b.venue ? `\n${b.venue}` : '') + `\n\nLa publicó ${ident.nombre || email}.`
+      `🎭 <b>${b.is_public === false ? 'Función cargada (borrador)' : 'Función publicada'}</b>\n\n<b>${titulo}</b>\n${fecha}${hora ? ` · ${hora.slice(0, 5)}` : ''}` +
+      (fechaFin ? ` (muestra hasta el ${fechaFin})` : '') +
+      (b.venue ? `\n${b.venue}` : '') +
+      (b.is_public === false ? `\n\nQueda en borrador hasta que la publiquen.` : '') +
+      `\n\nLa cargó ${ident.nombre || email}.`
     ).catch(() => { /* un aviso que falla no rompe la publicación */ });
 
     return res.json({ ok: true, id, title: titulo, date: fecha });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * Editar una función ya publicada (administración o producción de la agrupación dueña).
+ * Igual que el alta: sólo se pisa lo que viene en el cuerpo. `date_end` se limpia si la
+ * nueva fecha de fin no es posterior al inicio (una función es de un día).
+ */
+app.patch('/api/v1/crm/radar/eventos/:id', async (req, res) => {
+  try {
+    const db = getPool();
+    await asegurarColumnasAgenda();
+    const ident = identidad(req);
+    const email = emailDeSesion(req) || ident.email;
+    if (!email) return res.status(400).json({ ok: false, error: 'falta el correo' });
+    const [filas] = await db.execute('SELECT * FROM events WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!filas.length) return res.status(404).json({ ok: false, error: 'evento no encontrado' });
+    const actual = filas[0];
+    const userId = await exploradorId(email, ident.nombre, ident.foto);
+    let empresaObra = null;
+    const obraId = (req.body || {}).obra_id !== undefined ? (req.body.obra_id || null) : actual.obra_id;
+    if (obraId) {
+      const [o] = await db.execute('SELECT company_id FROM projects WHERE id = ? LIMIT 1', [String(obraId)]);
+      empresaObra = (o[0] && o[0].company_id) || null;
+    }
+    let puede = await esAdministrador(email);
+    if (!puede && empresaObra) {
+      const [m] = await db.execute(
+        `SELECT role_in_company FROM company_members
+          WHERE user_id = ? AND company_id = ? AND LOWER(role_in_company) IN ('owner','director','coordinator','productor') LIMIT 1`,
+        [userId, empresaObra]);
+      puede = m.length > 0;
+    }
+    if (!puede) return res.status(403).json({ ok: false, error: 'Sólo la producción de la agrupación (o administración) puede editar eventos.' });
+
+    const b = req.body || {};
+    const alias = { lat: 'lat', lng: 'lng' };
+    const campos = {
+      title: b.title !== undefined ? String(b.title).trim().slice(0, 255) : undefined,
+      obra_id: b.obra_id !== undefined ? (b.obra_id || null) : undefined,
+      obra_title: b.obra_title !== undefined ? (String(b.obra_title || '').slice(0, 255) || null) : undefined,
+      type: b.type !== undefined ? (String(b.type || 'Función').slice(0, 50)) : undefined,
+      date: b.date !== undefined ? String(b.date).slice(0, 10) : undefined,
+      time_start: b.time_start !== undefined ? (b.time_start ? String(b.time_start).slice(0, 8) : null) : undefined,
+      time_end: b.time_end !== undefined ? (b.time_end ? String(b.time_end).slice(0, 8) : null) : undefined,
+      venue: b.venue !== undefined ? (String(b.venue || '').slice(0, 255) || null) : undefined,
+      venue_id: b.venue_id !== undefined ? (b.venue_id ? String(b.venue_id).slice(0, 36) : null) : undefined,
+      cast_count: b.cast_count !== undefined ? (Number(b.cast_count) || null) : undefined,
+      status: b.status !== undefined ? (String(b.status || '').slice(0, 20) || null) : undefined,
+      notes: b.notes !== undefined ? (String(b.notes || '') || null) : undefined,
+      city: b.city !== undefined ? (String(b.city || '').slice(0, 120) || null) : undefined,
+      lat: b.lat !== undefined ? (b.lat === null || b.lat === '' ? null : Number(b.lat)) : undefined,
+      lng: b.lng !== undefined ? (b.lng === null || b.lng === '' ? null : Number(b.lng)) : undefined,
+      is_public: b.is_public !== undefined ? (b.is_public ? 1 : 0) : undefined,
+      image_url: b.image_url !== undefined ? (String(b.image_url || '').slice(0, 512) || null) : undefined,
+      ticket_url: b.ticket_url !== undefined ? (String(b.ticket_url || '').slice(0, 512) || null) : undefined,
+      source: b.source !== undefined ? (String(b.source || '').slice(0, 40) || null) : undefined,
+      source_url: b.source_url !== undefined ? (String(b.source_url || '').slice(0, 512) || null) : undefined,
+      date_end: b.date_end !== undefined ? (b.date_end ? String(b.date_end).slice(0, 10) : null) : undefined,
+    };
+    if (campos.title !== undefined && campos.title.length < 3) {
+      return res.status(400).json({ ok: false, error: 'El título necesita al menos 3 letras.' });
+    }
+    if (campos.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(campos.date)) {
+      return res.status(400).json({ ok: false, error: 'La fecha va como AAAA-MM-DD.' });
+    }
+    if (campos.time_start && !/^\d{2}:\d{2}(:\d{2})?$/.test(campos.time_start)) {
+      return res.status(400).json({ ok: false, error: 'La hora va como HH:MM.' });
+    }
+    const claves = Object.keys(campos).filter((k) => campos[k] !== undefined);
+    if (!claves.length) return res.status(400).json({ ok: false, error: 'no hay nada para actualizar' });
+    // La fecha de fin sólo tiene sentido si es posterior al inicio (si no, se limpia).
+    if (campos.date_end) {
+      const inicio = campos.date !== undefined ? campos.date : String(actual.date).slice(0, 10);
+      if (!(campos.date_end > inicio)) campos.date_end = null;
+    }
+    await db.execute(`UPDATE events SET ${claves.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`,
+      [...claves.map((k) => campos[k]), req.params.id]);
+    radarEmitir('evento_actualizado', { id: req.params.id });
+    return res.json({ ok: true, id: req.params.id });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Dar de baja una función (administración o producción de la agrupación dueña). */
+app.delete('/api/v1/crm/radar/eventos/:id', async (req, res) => {
+  try {
+    const db = getPool();
+    const ident = identidad(req);
+    const email = (req.body && req.body.email) || ident.email || req.headers['x-atha-email'] || '';
+    const [filas] = await db.execute('SELECT id, title, obra_id FROM events WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!filas.length) return res.status(404).json({ ok: false, error: 'evento no encontrado' });
+    let puede = await esAdministrador(email);
+    if (!puede && filas[0].obra_id) {
+      const [o] = await db.execute('SELECT company_id FROM projects WHERE id = ? LIMIT 1', [filas[0].obra_id]);
+      const empresa = (o[0] && o[0].company_id) || null;
+      if (empresa) {
+        const userId = await exploradorId(email);
+        const [m] = await db.execute(
+          `SELECT role_in_company FROM company_members
+            WHERE user_id = ? AND company_id = ? AND LOWER(role_in_company) IN ('owner','director','coordinator','productor') LIMIT 1`,
+          [userId, empresa]);
+        puede = m.length > 0;
+      }
+    }
+    if (!puede) return res.status(403).json({ ok: false, error: 'Sólo la producción de la agrupación (o administración) puede dar de baja eventos.' });
+    await db.execute('DELETE FROM events WHERE id = ?', [req.params.id]);
+    radarEmitir('evento_eliminado', { id: req.params.id });
+    return res.json({ ok: true, id: req.params.id, eliminado: true });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
   }
@@ -4611,7 +5776,7 @@ app.post('/api/v1/crm/piloto/inscripciones', async (req, res) => {
     );
     return res.json({
       ok: true,
-      mensaje: `${nombre}, quedaste anotado en la prueba del ecosistema FASE. Podés empezar ahora mismo con los botones de abajo.`,
+      mensaje: `${nombre}, quedaste anotado en la prueba del ecosistema FASE. Antes de arrancar mira la guía de 5 pasos (${URL_HUB_PUBLICA}/guia) y, si algo te estorba, usa “Reportar algo” adentro de la app.`,
     });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
@@ -4643,7 +5808,7 @@ app.get('/api/v1/crm/piloto/inscripciones', async (req, res) => {
 
 /** Página pública de inscripción. */
 app.get('/piloto', async (req, res) => {
-  let opciones = '<option value="">— Elegí tu compañía o agrupación —</option>';
+  let opciones = '<option value="">— Elige tu compañía o agrupación —</option>';
   try {
     const db = getPool();
     const [cs] = await db.execute(
@@ -4708,19 +5873,19 @@ app.get('/piloto', async (req, res) => {
   </div>
 
   <div class="tarjeta">
-    <h2>1 · Bajá la app</h2>
-    <p style="font-size:13px;color:#d4d4d4;margin:0 0 10px">Android: descargá el APK e instalalo. Si te avisa que es de un origen desconocido, elegí <strong>“Instalar de todos modos”</strong> (pasa con toda app que no viene de la Play Store). Después abrila y entrá con tu cuenta de Google.</p>
+    <h2>1 · Descarga la app</h2>
+    <p style="font-size:13px;color:#d4d4d4;margin:0 0 10px">Android: descarga el APK e instalalo. Si te avisa que es de un origen desconocido, elige <strong>“Instalar de todos modos”</strong> (pasa con toda app que no viene de la Play Store). Después abrila y entra con tu cuenta de Google.</p>
     <a class="boton" href="https://storage.googleapis.com/atha-crm-obras-897089213264/fase-mobile/FASE-Mobile-1.0-piloto.apk">Descargar FASE Mobile · APK 14 MB</a>
-    <p style="font-size:11.5px;color:#737373;margin:10px 0 0">iPhone: todavía no hay app para iOS. Abrí <strong>fase-mobile-897089213264.us-central1.run.app</strong> en Safari y usala desde el navegador (funciona igual, con el mismo botón de reportar).</p>
+    <p style="font-size:11.5px;color:#737373;margin:10px 0 0">iPhone: todavía no hay app para iOS. Abre <strong>fase-mobile-897089213264.us-central1.run.app</strong> en Safari y usala desde el navegador (funciona igual, con el mismo botón de reportar).</p>
   </div>
 
   <div class="tarjeta">
-    <h2>2 · Anotate</h2>
+    <h2>2 · Anótate</h2>
     <form id="f">
       <label for="nombre">Nombre y apellido *</label>
       <input id="nombre" name="nombre" required autocomplete="name" placeholder="Ej: Catalina Noa">
 
-      <label for="email">Correo (con el que entrás a Google) *</label>
+      <label for="email">Correo (con el que entras a Google) *</label>
       <input id="email" name="email" type="email" required autocomplete="email" placeholder="tucorreo@gmail.com">
 
       <label for="telefono">WhatsApp (opcional, para coordinar)</label>
@@ -4731,7 +5896,7 @@ app.get('/piloto', async (req, res) => {
 
       <label for="rol">Tu rol ahí</label>
       <select id="rol" name="rol">
-        <option value="">— Elegí —</option>
+        <option value="">— Elige —</option>
         <option value="artist">Artista / elenco</option>
         <option value="coordinator">Producción / coordinación</option>
         <option value="director">Dirección</option>
@@ -4783,14 +5948,14 @@ app.get('/piloto', async (req, res) => {
       msg.innerHTML =
         '<div class="ok"><strong>¡Listo!</strong><br>' + d.mensaje + '</div>' +
         '<div class="ok" style="margin-top:12px">' +
-          '<strong>Empezá ahora:</strong>' +
+          '<strong>Empieza ahora:</strong>' +
           '<a class="boton" style="margin-top:10px" href="https://fase-mobile-897089213264.us-central1.run.app">Abrir FASE en el navegador</a>' +
           '<a class="boton" style="margin-top:8px;background:#a3a3a3" href="https://storage.googleapis.com/atha-crm-obras-897089213264/fase-mobile/FASE-Mobile-1.0-piloto.apk">Descargar la app (Android · APK)</a>' +
-          '<p style="font-size:11.5px;color:#a3a3a3;margin:10px 0 0">Con el mismo correo que ingresaste entrás a la app (con tu cuenta de Google). ' +
-          'Guardá este enlace: si querés, te lo reenviamos cuando coordinemos la sesión.</p>' +
+          '<p style="font-size:11.5px;color:#a3a3a3;margin:10px 0 0">Con el mismo correo que ingresaste entras a la app (con tu cuenta de Google). ' +
+          'Guarda este enlace: si quieres, te lo reenviamos cuando coordinemos la sesión.</p>' +
         '</div>';
     }).catch(function (e) {
-      msg.innerHTML = '<div class="error">' + (e.message || 'No se pudo enviar. Probá de nuevo.') + '</div>';
+      msg.innerHTML = '<div class="error">' + (e.message || 'No se pudo enviar. Prueba de nuevo.') + '</div>';
       b.disabled = false; b.textContent = 'Anotarme en la prueba';
     });
   });
@@ -4802,7 +5967,7 @@ app.get('/piloto', async (req, res) => {
 // ---------------------------------------------------------------------------
 // PRUEBA PILOTO · reportes desde la app
 //
-// El botón "Reportar algo" de FASE Mobile manda acá lo que la persona vio mal o no
+// El botón "Reportar algo" de FASE Mobile manda aquí lo que la persona vio mal o no
 // entendió, con el contexto automático (pantalla, usuario, versión, plataforma): así
 // el comentario llega ubicado en vez de "no me funcionó". El listado lo ve sólo
 // administración.
@@ -4826,13 +5991,24 @@ async function asegurarTablaReportes(db) {
        KEY idx_reportes_fecha (created_at)
      )`
   );
-  // La tabla ya existía en producción sin la columna de la captura: se agrega sin
-  // perder los reportes que haya.
+  // La tabla ya existía en producción sin algunas columnas: se agregan sin perder
+  // los reportes que haya (idempotente, como el resto de lo que crece en producción).
+  const EXTRAS = [
+    ['imagen_url', 'VARCHAR(500) NULL AFTER version'],
+    // Lo que el equipo dejó dicho del reporte y quién lo atendió (el buzón del piloto).
+    ['nota', 'VARCHAR(500) NULL AFTER estado'],
+    ['atendido_por', 'VARCHAR(255) NULL AFTER nota'],
+    ['atendido_en', 'DATETIME NULL AFTER atendido_por'],
+  ];
   const [colsRep] = await db.execute(
-    `SELECT COUNT(*) n FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'piloto_reportes' AND COLUMN_NAME = 'imagen_url'`);
-  if (!colsRep[0].n) {
-    await db.execute('ALTER TABLE piloto_reportes ADD COLUMN imagen_url VARCHAR(500) NULL AFTER version');
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'piloto_reportes'`);
+  const hay = new Set(colsRep.map((c) => c.COLUMN_NAME));
+  for (const [nombre, tipo] of EXTRAS) {
+    if (!hay.has(nombre)) {
+      await db.execute(`ALTER TABLE piloto_reportes ADD COLUMN ${nombre} ${tipo}`);
+      console.log(`[reportes] columna agregada: piloto_reportes.${nombre}`);
+    }
   }
   tablaReportesLista = true;
 }
@@ -4868,6 +6044,18 @@ app.post('/api/v1/crm/piloto/reportes', async (req, res) => {
        String(b.plataforma || '').slice(0, 30) || null,
        String(b.version || '').slice(0, 40) || null, imagenUrl]
     );
+    // Aviso al BOLSILLO del equipo: un tester reportando algo es EL insumo de la prueba.
+    // Antes estos reportes quedaban sólo en la base y nadie se enteraba (pasó con los 3
+    // de Gabriel Ríos, 13 horas sin leer).
+    avisarTelegram(
+      `🐞 <b>Reporte de la app</b> · ${String(b.categoria || 'otro')}\n\n` +
+      `<b>${nombre || email || 'sin cuenta'}</b>` +
+      (b.pantalla ? ` · pantalla <b>${String(b.pantalla)}</b>` : '') +
+      (b.plataforma ? ` · ${String(b.plataforma)}${b.version ? ' ' + String(b.version) : ''}` : '') +
+      `\n\n<i>${texto.slice(0, 400)}</i>\n\n` +
+      (imagenUrl ? 'Trae captura de pantalla.\n' : '') +
+      `Verlo y responderlo: ${URL_HUB_PUBLICA}/reportes`
+    ).catch(() => { /* un aviso que falla no rompe el reporte del usuario */ });
     return res.json({ ok: true, id, imagen_url: imagenUrl, mensaje: '¡Gracias! Tu reporte llegó al equipo.' });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
@@ -4882,8 +6070,9 @@ app.get('/api/v1/crm/piloto/reportes', async (req, res) => {
     const db = getPool();
     await asegurarTablaReportes(db);
     const [filas] = await db.execute(
-      `SELECT id, email, nombre, categoria, texto, pantalla, plataforma, version, imagen_url, estado, created_at
-         FROM piloto_reportes ORDER BY created_at DESC LIMIT 500`
+      `SELECT id, email, nombre, categoria, texto, pantalla, plataforma, version, imagen_url, estado,
+              nota, atendido_por, atendido_en, created_at
+         FROM piloto_reportes ORDER BY FIELD(estado, 'nuevo', 'visto', 'resuelto'), created_at DESC LIMIT 500`
     );
     const porCategoria = {};
     const porPantalla = {};
@@ -4898,6 +6087,3896 @@ app.get('/api/v1/crm/piloto/reportes', async (req, res) => {
     return res.status(503).json({ ok: false, error: e.message });
   }
 });
+
+/**
+ * Atender un reporte del piloto (sólo administración): estado + nota + quién lo atendió.
+ * Estados: nuevo → visto (lo leímos) → resuelto (ya está arreglado o respondido).
+ * El buzón existe porque estos reportes son el insumo de la prueba: entran desde la app
+ * y hasta ahora no había dónde mirarlos.
+ */
+app.patch('/api/v1/crm/piloto/reportes/:id', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    const alcance = await alcanceInventario(ident.email || req.headers['x-atha-email'] || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const b = req.body || {};
+    const db = getPool();
+    await asegurarTablaReportes(db);
+    const estados = ['nuevo', 'visto', 'resuelto'];
+    const sets = [];
+    const args = [];
+    if (b.estado !== undefined) {
+      const estado = String(b.estado);
+      if (!estados.includes(estado)) return res.status(400).json({ ok: false, error: 'Estado inválido (nuevo · visto · resuelto).' });
+      sets.push('estado = ?'); args.push(estado);
+      if (estado !== 'nuevo') { sets.push('atendido_por = ?', 'atendido_en = NOW()'); args.push(ident.email || null); }
+    }
+    if (b.nota !== undefined) { sets.push('nota = ?'); args.push(String(b.nota || '').slice(0, 500) || null); }
+    if (!sets.length) return res.status(400).json({ ok: false, error: 'no hay nada para actualizar' });
+    args.push(req.params.id);
+    const [r] = await db.execute(`UPDATE piloto_reportes SET ${sets.join(', ')} WHERE id = ?`, args);
+    if (!r.affectedRows) return res.status(404).json({ ok: false, error: 'reporte no encontrado' });
+    return res.json({ ok: true, id: req.params.id });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * Borrar un reporte (sólo administración). Existe para limpiar pruebas y spam:
+ * sin esto, cada corrida de la batería de pruebas dejaba basura en la base.
+ */
+app.delete('/api/v1/crm/piloto/reportes/:id', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    const alcance = await alcanceInventario(ident.email || req.headers['x-atha-email'] || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const db = getPool();
+    await asegurarTablaReportes(db);
+    const [r] = await db.execute('DELETE FROM piloto_reportes WHERE id = ?', [req.params.id]);
+    if (!r.affectedRows) return res.status(404).json({ ok: false, error: 'reporte no encontrado' });
+    return res.json({ ok: true, id: req.params.id, eliminado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * FINANZAS · /api/v1/crm/finances (administración)
+ *
+ * La pestaña Finanzas del CRM llamaba a esta ruta y **no existía**: el catch-all le devolvía el
+ * HTML de la SPA con HTTP 200, así que la tabla se veía vacía y los guardados fallaban en
+ * silencio. La tabla real es `finance_records`; el front manda y espera camelCase.
+ */
+function finanzasDeFila(f) {
+  return {
+    id: f.id,
+    projectId: f.project_id || '',
+    projectName: f.projectName || f.project_title || '',
+    type: f.type,
+    category: f.category,
+    amountCLP: Number(f.amount_clp || 0),
+    date: f.date ? String(f.date).slice(0, 10) : '',
+    status: f.status || 'Pendiente',
+    invoiceRef: f.invoice_ref || '',
+    responsible: f.responsible || '',
+    notes: f.notes || '',
+  };
+}
+async function alcanceFinanzas(req) {
+  return alcanceInventario(emailDeSesion(req) || req.headers['x-atha-email'] || req.query.email || (req.body && req.body.email) || '');
+}
+
+app.get('/api/v1/crm/finances', async (req, res) => {
+  try {
+    if (!(await alcanceFinanzas(req)).total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const db = getPool();
+    const [filas] = await db.execute(
+      `SELECT f.*, p.title AS project_title FROM finance_records f
+         LEFT JOIN projects p ON p.id = f.project_id
+        ORDER BY f.date DESC, f.created_at DESC`);
+    return res.json({ ok: true, finances: filas.map(finanzasDeFila), total: filas.length });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/v1/crm/finances', async (req, res) => {
+  try {
+    if (!(await alcanceFinanzas(req)).total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const b = req.body || {};
+    const db = getPool();
+    // `finance_records.project_id` es NOT NULL y tiene clave foránea a `projects`: el movimiento
+    // tiene que colgar de una obra. Se valida acá para devolver un mensaje entendible en vez del
+    // error crudo de MySQL.
+    const projectId = String(b.projectId || b.project_id || '');
+    if (!projectId) return res.status(400).json({ ok: false, error: 'Elige la obra a la que pertenece el movimiento' });
+    const [obra] = await db.execute('SELECT id FROM projects WHERE id = ?', [projectId]);
+    if (!obra.length) return res.status(400).json({ ok: false, error: 'La obra indicada no existe' });
+    const id = b.id || ('fin_' + randomUUID().slice(0, 12));
+    await db.execute(
+      `INSERT INTO finance_records (id, project_id, type, category, amount_clp, date, status, invoice_ref, responsible, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE project_id = VALUES(project_id), type = VALUES(type),
+         category = VALUES(category), amount_clp = VALUES(amount_clp), date = VALUES(date),
+         status = VALUES(status), invoice_ref = VALUES(invoice_ref), responsible = VALUES(responsible),
+         notes = VALUES(notes)`,
+      [id, b.projectId || b.project_id || '', b.type || 'Gasto', b.category || null,
+       Number(b.amountCLP !== undefined ? b.amountCLP : b.amount_clp) || 0,
+       (b.date || '').slice(0, 10) || null, b.status || 'Pendiente',
+       b.invoiceRef || b.invoice_ref || null, b.responsible || null, b.notes || null]);
+    const [filas] = await db.execute(
+      `SELECT f.*, p.title AS project_title FROM finance_records f LEFT JOIN projects p ON p.id = f.project_id WHERE f.id = ?`, [id]);
+    return res.json({ ok: true, finance: filas[0] ? finanzasDeFila(filas[0]) : null, id });
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+/** Actualiza un movimiento (misma forma que el POST). */
+app.put('/api/v1/crm/finances/:id', async (req, res) => {
+  try {
+    if (!(await alcanceFinanzas(req)).total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const b = req.body || {};
+    const campos = [];
+    const valores = [];
+    const mapa = { projectId: 'project_id', type: 'type', category: 'category', amountCLP: 'amount_clp',
+      amount_clp: 'amount_clp', date: 'date', status: 'status', invoiceRef: 'invoice_ref',
+      invoice_ref: 'invoice_ref', responsible: 'responsible', notes: 'notes' };
+    for (const [clave, columna] of Object.entries(mapa)) {
+      if (b[clave] !== undefined && b[clave] !== null) {
+        campos.push(`${columna} = ?`);
+        valores.push(columna === 'project_id' ? String(b[clave]) : b[clave]);
+      }
+    }
+    if (!campos.length) return res.status(400).json({ ok: false, error: 'nada para actualizar' });
+    valores.push(req.params.id);
+    const db = getPool();
+    const [r] = await db.execute(`UPDATE finance_records SET ${campos.join(', ')} WHERE id = ?`, valores);
+    if (!r.affectedRows) return res.status(404).json({ ok: false, error: 'movimiento no encontrado' });
+    return res.json({ ok: true, id: req.params.id });
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+app.delete('/api/v1/crm/finances/:id', async (req, res) => {
+  try {
+    if (!(await alcanceFinanzas(req)).total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const db = getPool();
+    const [r] = await db.execute('DELETE FROM finance_records WHERE id = ?', [req.params.id]);
+    if (!r.affectedRows) return res.status(404).json({ ok: false, error: 'movimiento no encontrado' });
+    return res.json({ ok: true, id: req.params.id, eliminado: true });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * SUBIR UNA IMAGEN DESDE EL PANEL · POST /api/v1/crm/media (sólo administración)
+ *
+ * Las URLs públicas son difíciles de conseguir para fotos de lugares reales, así que el panel
+ * permite **arrastrar/elegir un archivo**. El navegador lo achica (canvas, máx. 1600 px, JPEG 85%)
+ * y lo manda como data URL; acá se sube al bucket del ecosistema —el mismo del APK y del logo— y
+ * se devuelve la URL pública. Reusa `subirFotoInventario` (que ya valida formato y tamaño).
+ */
+app.post('/api/v1/crm/media', async (req, res) => {
+  try {
+    const alcance = await alcanceInventario(
+      emailDeSesion(req) || req.headers['x-atha-email'] || (req.body && req.body.email) || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const cuerpo = req.body || {};
+    const carpeta = String(cuerpo.carpeta || 'radar').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'radar';
+    const url = await subirFotoInventario(cuerpo.nombre || 'foto', cuerpo.imagen, carpeta);
+    return res.json({ ok: true, url, carpeta });
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * FOTOS SUGERIDAS · GET /api/v1/crm/radar/fotos-sugeridas?q=<lugar>&ciudad=<comuna>
+ *
+ * Muchos nodos no tienen foto (no hay artículo de Wikipedia ni foto libre con nombre verificable).
+ * Para esos, la vía es **manual**: administración busca a ojo y elige. Esto devuelve hasta 8 fotos
+ * libres de Wikimedia Commons para el nombre del lugar, con su página de origen (para dar crédito),
+ * y el panel de /nodos las muestra como galería: se hace clic en la que corresponde y queda en el
+ * campo Foto. No decide solo a propósito: elegir la foto es un juicio humano.
+ */
+app.get('/api/v1/crm/radar/fotos-sugeridas', async (req, res) => {
+  try {
+    const alcance = await alcanceInventario(req.query.email || req.headers['x-atha-email'] || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const nombre = String(req.query.q || '').trim();
+    const ciudad = String(req.query.ciudad || '').trim();
+    if (nombre.length < 3) return res.status(400).json({ ok: false, error: 'Falta el nombre del lugar (q)' });
+    const consulta = [nombre, ciudad].filter(Boolean).join(' ');
+    const url = 'https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({
+      action: 'query', format: 'json', generator: 'search', gsrsearch: consulta, gsrnamespace: '6',
+      gsrlimit: '12', prop: 'imageinfo', iiprop: 'url|mime|extmetadata', iiurlwidth: '800',
+    });
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'ATHAMU-FASE/1.0 (radar cultural; fase.athamu@gmail.com)' },
+    });
+    if (!r.ok) throw new Error('Commons respondió ' + r.status);
+    const d = await r.json();
+    const fotos = Object.values((d.query && d.query.pages) || {})
+      .map((p) => {
+        const info = p.imageinfo && p.imageinfo[0];
+        if (!info) return null;
+        if (info.mime && !/^image\/(jpeg|png|webp)$/.test(info.mime)) return null;
+        if (/mapa|plano|escudo|logo|bandera|svg|diagrama|grafico|cuadro|pintura|escultura|firma/i.test(p.title || '')) return null;
+        const meta = (info.extmetadata || {});
+        return {
+          url: info.thumburl || info.url,
+          url_grande: info.url,
+          titulo: String(p.title || '').replace(/^File:/, ''),
+          pagina: info.descriptionurl || ('https://commons.wikimedia.org/wiki/' + encodeURIComponent(p.title || '')),
+          autor: meta.Artist ? String(meta.Artist.value).replace(/<[^>]*>/g, '').slice(0, 80) : '',
+          licencia: meta.LicenseShortName ? String(meta.LicenseShortName.value).slice(0, 40) : '',
+        };
+      })
+      .filter(Boolean);
+    return res.json({ ok: true, consulta, fotos });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * TABLERO DEL PILOTO · GET /api/v1/crm/piloto/tablero (sólo administración)
+ *
+ * Todo lo que hace falta para saber si la prueba está funcionando, en una sola llamada:
+ * inscripciones, reportes, uso del radar (descubrimientos por persona), muro, rutas, agenda,
+ * agrupaciones, correos y cuentas. Cada bloque va en su propio try: si una tabla cambia o
+ * falta, el resto del tablero igual responde.
+ */
+app.get('/api/v1/crm/piloto/tablero', async (req, res) => {
+  const alcance = await alcanceInventario(req.query.email || req.headers['x-atha-email'] || '');
+  if (!alcance.total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+  const db = getPool();
+  const bloque = async (nombre, fn) => {
+    try { return { [nombre]: await fn() }; }
+    catch (e) { return { [nombre]: { error: e.message } }; }
+  };
+  const uno = async (sql, args = []) => (await db.execute(sql, args))[0];
+  const salida = Object.assign({ ok: true, generado: new Date().toISOString() },
+    await bloque('inscripciones', async () => ({
+      total: (await uno('SELECT COUNT(*) n FROM piloto_inscripciones'))[0].n,
+      por_compania: await uno("SELECT COALESCE(NULLIF(company_name,''),'(sin compañía)') c, COUNT(*) n FROM piloto_inscripciones GROUP BY c ORDER BY n DESC"),
+      por_estado: await uno('SELECT COALESCE(estado,\'(nuevo)\') e, COUNT(*) n FROM piloto_inscripciones GROUP BY e'),
+      ultimos: await uno('SELECT nombre, email, company_name, rol, estado, created_at FROM piloto_inscripciones ORDER BY created_at DESC LIMIT 5'),
+    })),
+    await bloque('reportes', async () => ({
+      por_estado: await uno("SELECT COALESCE(estado,'nuevo') e, COUNT(*) n FROM piloto_reportes GROUP BY e"),
+      por_pantalla: await uno("SELECT COALESCE(pantalla,'(sin pantalla)') p, COUNT(*) n FROM piloto_reportes GROUP BY p ORDER BY n DESC"),
+      por_categoria: await uno("SELECT COALESCE(categoria,'otro') c, COUNT(*) n FROM piloto_reportes GROUP BY c ORDER BY n DESC"),
+      ultimos: await uno('SELECT id, nombre, categoria, texto, estado, created_at FROM piloto_reportes ORDER BY created_at DESC LIMIT 5'),
+    })),
+    await bloque('radar', async () => ({
+      nodos: (await uno('SELECT COUNT(*) total, SUM(is_published=1) publicados, SUM(latitude IS NULL OR longitude IS NULL) sin_coordenada FROM radar_nodes'))[0],
+      por_ciudad: await uno("SELECT COALESCE(city,'(sin comuna)') c, COUNT(*) n FROM radar_nodes WHERE is_published=1 GROUP BY c ORDER BY n DESC LIMIT 8"),
+      descubrimientos: (await uno('SELECT COUNT(*) total, COUNT(DISTINCT user_id) personas FROM radar_discoveries'))[0],
+      // Los que más avanzaron: la métrica estrella del plan
+      top_exploradores: await uno(
+        `SELECT u.email, u.display_name, COUNT(*) n, MAX(d.discovered_at) ultimo
+           FROM radar_discoveries d LEFT JOIN users u ON u.id = d.user_id
+          GROUP BY u.email, u.display_name ORDER BY n DESC LIMIT 6`),
+      ultimos_14_dias: await uno(
+        "SELECT DATE(discovered_at) dia, COUNT(*) n FROM radar_discoveries WHERE discovered_at >= NOW() - INTERVAL 14 DAY GROUP BY dia ORDER BY dia"),
+    })),
+    await bloque('muro', async () => ({
+      posts: (await uno("SELECT COUNT(*) total, SUM(status='approved') aprobadas, SUM(status='pending') pendientes, COUNT(DISTINCT user_id) autores FROM radar_posts"))[0],
+      ultimos: await uno('SELECT id, caption, status, created_at FROM radar_posts ORDER BY created_at DESC LIMIT 5'),
+      comentarios: (await uno('SELECT COUNT(*) n FROM radar_comments'))[0].n,
+      reacciones: (await uno('SELECT COUNT(*) n FROM radar_reactions'))[0].n,
+    })),
+    await bloque('rutas', async () => ({
+      rutas: (await uno('SELECT COUNT(*) total, SUM(is_public=1) publicas FROM radar_routes'))[0],
+      paradas: (await uno('SELECT COUNT(*) n FROM radar_route_nodes'))[0].n,
+      con_progreso: (await uno('SELECT COUNT(DISTINCT route_id) n FROM radar_route_nodes rn JOIN radar_discoveries d ON d.node_id = rn.node_id'))[0].n,
+    })),
+    await bloque('agenda', async () => ({
+      eventos: (await uno("SELECT COUNT(*) total, SUM(is_public=1) publicados, SUM(source='externo') externos, SUM(date_end IS NOT NULL) con_rango FROM events WHERE date >= CURDATE()"))[0],
+      por_tipo: await uno("SELECT COALESCE(type,'(sin tipo)') t, COUNT(*) n FROM events WHERE date >= CURDATE() GROUP BY t ORDER BY n DESC"),
+      por_comuna: await uno("SELECT COALESCE(city,'(sin comuna)') c, COUNT(*) n FROM events WHERE date >= CURDATE() GROUP BY c ORDER BY n DESC LIMIT 6"),
+      proximos: await uno('SELECT title, date, time_start, venue, city, source FROM events WHERE date >= CURDATE() ORDER BY date ASC LIMIT 6'),
+    })),
+    await bloque('agrupaciones', async () => ({
+      companias: (await uno(`SELECT COUNT(*) total,
+          SUM((SELECT COUNT(*) FROM company_members m WHERE m.company_id=c.id) = 0) sin_nadie
+        FROM companies c`))[0],
+      solicitudes: await uno("SELECT COALESCE(status,'(sin estado)') s, COUNT(*) n FROM company_requests GROUP BY s"),
+      cuentas: (await uno(`SELECT (SELECT COUNT(*) FROM users) usuarios,
+          (SELECT COUNT(*) FROM company_members) membresias,
+          (SELECT COUNT(*) FROM company_people) fichas,
+          (SELECT COUNT(*) FROM radar_profiles) perfiles_radar`))[0],
+    })),
+    await bloque('correos', async () => ({
+      total: (await uno('SELECT COUNT(*) n, SUM(ok=1) ok FROM email_log'))[0],
+      ultimos: await uno('SELECT para, asunto, plantilla, ok, created_at FROM email_log ORDER BY created_at DESC LIMIT 5'),
+    })),
+    await bloque('dispositivos', async () => ({
+      activos_7d: await uno(`SELECT COUNT(DISTINCT user_id) personas FROM radar_discoveries WHERE discovered_at >= NOW() - INTERVAL 7 DAY`),
+      publicaron_7d: await uno(`SELECT COUNT(DISTINCT user_id) personas FROM radar_posts WHERE created_at >= NOW() - INTERVAL 7 DAY`),
+      reportaron_7d: await uno(`SELECT COUNT(DISTINCT email) personas FROM piloto_reportes WHERE created_at >= NOW() - INTERVAL 7 DAY`),
+    })));
+  return res.json(salida);
+});
+
+/**
+ * Responderle al tester por correo, desde el propio buzón (sólo administración).
+ * Sale por el emisor del ecosistema (`enviarCorreo`, queda en `email_log`) y, si el
+ * correo salió, marca el reporte como resuelto y guarda la respuesta como nota.
+ */
+app.post('/api/v1/crm/piloto/reportes/:id/responder', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    const alcance = await alcanceInventario(ident.email || req.headers['x-atha-email'] || '');
+    if (!alcance.total) return res.status(403).json({ ok: false, error: 'Sólo administración' });
+    const b = req.body || {};
+    const mensaje = String(b.mensaje || '').trim();
+    if (mensaje.length < 3) return res.status(400).json({ ok: false, error: 'Escribe la respuesta.' });
+    const db = getPool();
+    await asegurarTablaReportes(db);
+    const [filas] = await db.execute('SELECT * FROM piloto_reportes WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!filas.length) return res.status(404).json({ ok: false, error: 'reporte no encontrado' });
+    const rep = filas[0];
+    const para = String(b.para || rep.email || '').trim();
+    if (!para) return res.status(400).json({ ok: false, error: 'El reporte no trae correo: indica uno.' });
+
+    const escapado = (t) => String(t == null ? '' : t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const contenido = `
+<p style="font-size:15px">Hola ${escapado((rep.nombre || '').split(' ')[0] || 'de nuevo')},</p>
+<p>${escapado(mensaje).replace(/\n/g, '<br>')}</p>
+<hr style="border:0;border-top:1px solid #e0d5c0;margin:16px 0">
+<p style="font-size:12px;color:#5e564c">Lo que nos contaste el ${String(rep.created_at).slice(0, 10)} desde
+<b>${escapado(rep.pantalla || 'la app')}</b> (${escapado(rep.plataforma || '')} ${escapado(rep.version || '')}):<br>
+<i>“${escapado(rep.texto)}”</i></p>
+<p style="font-size:12px;color:#5e564c">Gracias por reportar: es lo que hace que esto mejore. Si quieres, sigue
+usando la app y contanos cualquier cosa que veas rara con el botón <b>“Reportar algo”</b>.</p>
+<p>Un abrazo,<br><b>Equipo FASE · ATHAMU</b></p>`;
+    const r = await enviarCorreo({
+      para,
+      asunto: String(b.asunto || 'Sobre lo que nos reportaste en la app FASE').slice(0, 160),
+      html: marcoCorreo(contenido),
+      plantilla: 'respuesta_reporte',
+      enviadoPor: ident.email || null,
+    });
+    if (!r || r.ok === false) return res.status(503).json({ ok: false, error: (r && r.error) || 'el correo no salió' });
+    await db.execute(
+      "UPDATE piloto_reportes SET estado = 'resuelto', nota = ?, atendido_por = ?, atendido_en = NOW() WHERE id = ?",
+      [`Respondido a ${para}: ${mensaje.slice(0, 420)}`, ident.email || null, req.params.id]
+    );
+    return res.json({ ok: true, id: req.params.id, para });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * CALENDARIO · invitaciones de ensayo/función
+ *
+ * Se arma un .ics (método REQUEST) que viaja dentro del mismo correo: Gmail,
+ * Outlook y Apple muestran los botones Sí / No / Quizás y el evento queda en la
+ * agenda del artista. No hace falta OAuth de Google Calendar para esto; el OAuth
+ * (para leer las respuestas y sincronizar el Planner) es el paso siguiente.
+ *
+ * Las horas van en la zona local del ecosistema (America/Santiago) y se convierten
+ * a UTC respetando el horario de verano: en Chile el offset cambia entre -03 y -04,
+ * y usar un valor fijo pondría los ensayos una hora corrida la mitad del año.
+ * ------------------------------------------------------------------------- */
+const ZONA_AGENDA = process.env.ZONA_AGENDA || 'America/Santiago';
+
+/** Offset (en minutos) de una zona para una fecha dada, respetando el horario de verano. */
+function offsetZona(fechaISO, zona) {
+  const base = new Date(`${fechaISO}T12:00:00Z`);
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: zona, timeZoneName: 'longOffset' });
+  const parte = (fmt.formatToParts(base).find((p) => p.type === 'timeZoneName') || {}).value || 'GMT+00:00';
+  const m = /GMT([+-])(\d{2}):(\d{2})/.exec(parte);
+  if (!m) return 0;
+  return (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]));
+}
+
+/** Fecha+hora local (YYYY-MM-DD HH:MM) → sello UTC de iCalendar (20260929T210000Z). */
+function aUtcIcs(fecha, hora, zona = ZONA_AGENDA) {
+  const [y, m, d] = String(fecha).split('-').map(Number);
+  const [hh, mm] = String(hora || '00:00').split(':').map(Number);
+  const ms = Date.UTC(y, m - 1, d, hh, mm || 0) - offsetZona(fecha, zona) * 60000;
+  return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+const icsEscapar = (t) => String(t || '')
+  .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+
+/** iCalendar: se pliegan las líneas largas (>73) como pide la norma. */
+function plegarIcs(linea) {
+  if (linea.length <= 73) return linea;
+  const partes = [];
+  let resto = linea;
+  while (resto.length > 73) { partes.push(resto.slice(0, 73)); resto = ' ' + resto.slice(73); }
+  partes.push(resto);
+  return partes.join('\r\n');
+}
+
+/**
+ * Construye la invitación. `invitado` es el destinatario de ESTE correo: cada persona
+ * recibe su propia copia con su ATTENDEE, para que el RSVP funcione de verdad.
+ */
+function construirIcs({ uid, titulo, descripcion, fecha, horaInicio, horaFin, lugar, organizador, organizadorNombre, invitado, invitadoNombre, zona }) {
+  const fin = horaFin || horaInicio;
+  const lineas = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//ATHAMU//FASE//ES',
+    'CALSCALE:GREGORIAN',
+    'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${aUtcIcs(new Date().toISOString().slice(0, 10), new Date().toISOString().slice(11, 16), zona || ZONA_AGENDA)}`,
+    `DTSTART:${aUtcIcs(fecha, horaInicio, zona || ZONA_AGENDA)}`,
+    `DTEND:${aUtcIcs(fecha, fin, zona || ZONA_AGENDA)}`,
+    `SUMMARY:${icsEscapar(titulo)}`,
+    descripcion ? `DESCRIPTION:${icsEscapar(descripcion)}` : null,
+    lugar ? `LOCATION:${icsEscapar(lugar)}` : null,
+    `ORGANIZER;CN=${icsEscapar(organizadorNombre || 'ATHAMU · FASE')}:mailto:${organizador}`,
+    `ATTENDEE;CN=${icsEscapar(invitadoNombre || invitado)};ROLE=REQ-PARTICIPANT;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:${invitado}`,
+    'STATUS:CONFIRMED',
+    'SEQUENCE:0',
+    'BEGIN:VALARM',
+    'TRIGGER:-PT2H',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Recordatorio',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean);
+  return lineas.map(plegarIcs).join('\r\n') + '\r\n';
+}
+
+/** Invitar a un ensayo/función: correo con calendario a cada invitado y registro. */
+app.post('/api/v1/crm/ensayos/invitar', async (req, res) => {
+  try {
+    await asegurarColumnasAgenda();
+    const ident = identidad(req);
+    const email = emailDeSesion(req) || ident.email;
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+    const db = getPool();
+    const userId = await exploradorId(email, ident.nombre, ident.foto);
+
+    const b = req.body || {};
+    const obraId = b.obra_id ? String(b.obra_id) : null;
+    const empresaObra = obraId
+      ? ((await db.execute('SELECT company_id FROM projects WHERE id = ? LIMIT 1', [obraId]))[0][0] || {}).company_id
+      : (b.company_id ? String(b.company_id) : null);
+
+    // Permiso: administración o producción/dirección de la agrupación.
+    let puede = await esAdministrador(email);
+    if (!puede && empresaObra) {
+      const [m] = await db.execute(
+        `SELECT role_in_company FROM company_members
+          WHERE user_id = ? AND company_id = ?
+            AND LOWER(role_in_company) IN ('owner','director','coordinator','productor') LIMIT 1`,
+        [userId, empresaObra]
+      );
+      puede = m.length > 0;
+    }
+    if (!puede) return res.status(403).json({ ok: false, error: 'Sólo la producción de la agrupación (o administración) puede invitar.' });
+
+    const titulo = String(b.titulo || b.obra_title || '').trim().slice(0, 200);
+    const fecha = String(b.fecha || '').slice(0, 10);
+    const hora = String(b.hora || '').slice(0, 5);
+    const lugar = String(b.lugar || '').trim().slice(0, 180);
+    if (!titulo) return res.status(400).json({ ok: false, error: 'Falta el título del ensayo.' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return res.status(400).json({ ok: false, error: 'La fecha va como AAAA-MM-DD.' });
+    if (!/^\d{2}:\d{2}$/.test(hora)) return res.status(400).json({ ok: false, error: 'La hora va como HH:MM.' });
+    const invitados = (Array.isArray(b.invitados) ? b.invitados : [])
+      .map((i) => (typeof i === 'string' ? { email: i } : i))
+      .map((i) => ({ email: String(i.email || '').trim().toLowerCase(), nombre: String(i.nombre || '').trim() }))
+      .filter((i) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(i.email));
+    if (!invitados.length) return res.status(400).json({ ok: false, error: 'No hay invitados con correo válido.' });
+
+    const uid = `${Date.now()}-${randomUUID().slice(0, 8)}@fase-athamu`;
+    const durMin = Number(b.duracion_min) || 120;
+    const horaFin = String(b.hora_fin || '').slice(0, 5) ||
+      new Date(new Date(`2000-01-01T${hora}:00Z`).getTime() + durMin * 60000).toISOString().slice(11, 16);
+    const descripcion = String(b.notas || '').trim().slice(0, 800);
+    const tipo = String(b.tipo || 'Ensayo').slice(0, 40);
+    const asunto = `${tipo} · ${titulo} · ${fecha.split('-').reverse().join('/')} ${hora}`;
+
+    // Opcional: dejar el ensayo/función en la agenda del CRM (interno por defecto:
+    // los ensayos no van al feed público de la app).
+    let eventoId = null;
+    if (b.crear_evento !== false) {
+      eventoId = `ev_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+      await db.execute(
+        `INSERT INTO events (id, owner_id, title, obra_id, obra_title, type, date, time_start, time_end,
+           venue, cast_count, status, notes, is_public, source, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+        [eventoId, userId, titulo, obraId, String(b.obra_title || '').slice(0, 255) || null, tipo,
+         fecha, `${hora}:00`, `${horaFin}:00`, lugar || null, invitados.length, 'Confirmado',
+         descripcion || null, b.is_public === true ? 1 : 0, 'atha']
+      );
+      radarEmitir('evento_nuevo', { id: eventoId, title: titulo, date: fecha, time_start: `${hora}:00`, venue: lugar || null });
+    }
+
+    /* ACCESO AL PLANNER
+     *
+     * El Planner no tiene login propio: entra por el puente de sesión del hub. Su
+     * bundle NO canjea tickets (`?t=`) — lee `?auth=1&email=…&name=…`, que es el flujo
+     * viejo. Por eso:
+     *   - el link de la invitación va con ese formato (entra directo, sin bucle);
+     *   - y al invitado hay que DEJARLO AUTORIZADO en `planner_director_users`, porque
+     *     si no el Planner lo considera no autorizado y lo devuelve al login (el bucle
+     *     que reportó Francisco el 2026-09-27).
+     * El `role` decide la vista: 'artist' para el elenco, 'director' para dirección.
+     */
+    const plannerBase = DESTINOS_PUENTE.planner;
+    const autorizarEnPlanner = b.autorizar_planner !== false;
+    let autorizadosPlanner = 0;
+
+    const enviados = [];
+    const fallidos = [];
+    for (const inv of invitados) {
+      let rolPlanner = 'artist';
+      if (autorizarEnPlanner) {
+        try {
+          // Rol real: si manda en una compañía, es dirección; si no, elenco.
+          const [u] = await db.execute(
+            `SELECT u.display_name, u.role_title
+               FROM users u WHERE LOWER(u.email) = LOWER(?) LIMIT 1`, [inv.email]
+          );
+          const [dir] = empresaObra
+            ? await db.execute(
+                `SELECT cm.role_in_company FROM company_members cm
+                  JOIN users u ON u.id = cm.user_id
+                 WHERE LOWER(u.email) = LOWER(?) AND cm.company_id = ?
+                   AND LOWER(cm.role_in_company) IN ('owner','director','coordinator','productor') LIMIT 1`,
+                [inv.email, empresaObra])
+            : [[]];
+          const esDireccion = (await esAdministrador(inv.email)) || dir.length > 0;
+          rolPlanner = esDireccion ? 'director' : 'artist';
+          const nombre = inv.nombre || (u[0] && u[0].display_name) || inv.email;
+          const ini = String(nombre).split(/\s+/).filter(Boolean).map((x) => x[0]).join('').slice(0, 2).toUpperCase();
+          const cargo = (u[0] && u[0].role_title) || (rolPlanner === 'director' ? 'Dirección' : 'Elenco');
+          const [ya] = await db.execute(
+            'SELECT id FROM planner_director_users WHERE LOWER(email) = ? LIMIT 1', [inv.email]
+          );
+          if (ya.length) {
+            await db.execute(
+              'UPDATE planner_director_users SET name = ?, role = ?, initials = ?, authorized = 1 WHERE id = ?',
+              [nombre, cargo, ini, ya[0].id]
+            );
+          } else {
+            await db.execute(
+              `INSERT INTO planner_director_users (id, name, email, role, initials, authorized, created_at)
+               VALUES (?,?,?,?,?,1,NOW())`,
+              [`dir_${randomUUID().replace(/-/g, '').slice(0, 8)}`, nombre, inv.email, cargo, ini]
+            );
+          }
+          autorizadosPlanner += 1;
+        } catch (e) {
+          console.warn('[ensayo] no se pudo autorizar en el Planner:', inv.email, e.message);
+        }
+      }
+
+      const linkPlanner = `${plannerBase}/?auth=1&email=${encodeURIComponent(inv.email)}` +
+        `&name=${encodeURIComponent(inv.nombre || inv.email)}&role=${rolPlanner}`;
+      const ics = construirIcs({
+        uid, titulo, descripcion, fecha, horaInicio: hora, horaFin, lugar,
+        organizador: MAIL_FROM, organizadorNombre: MAIL_FROM_NAME,
+        invitado: inv.email, invitadoNombre: inv.nombre,
+      });
+      const r = await enviarCorreo({
+        para: inv.email, asunto, plantilla: 'invitacion_ensayo',
+        html: marcoCorreo(PLANTILLAS_CORREO.invitacion_ensayo({
+          nombre: inv.nombre.split(' ')[0], obra: titulo, fecha, hora, lugar,
+          descripcion, organizador: ident.nombre || email,
+          linkPlanner, linkApp: DESTINOS_PUENTE['app-movil'],
+        })),
+        ics, icsNombre: 'invitacion.ics', enviadoPor: email,
+      });
+      if (r.ok) enviados.push(inv.email); else fallidos.push({ email: inv.email, error: r.error });
+    }
+
+    return res.json({
+      ok: fallidos.length === 0, evento_id: eventoId, uid_ics: uid,
+      enviados, fallidos, total: invitados.length,
+      autorizados_planner: autorizadosPlanner,
+      mensaje: enviados.length
+        ? `Invitación enviada a ${enviados.length} de ${invitados.length}.`
+        : 'No se pudo enviar ninguna invitación.',
+    });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * CORREO Y AGENDA DEL ECOSISTEMA · emisor único de ATHAMU
+ *
+ * Por qué existe: hasta ahora los avisos e invitaciones salían desde la cuenta
+ * PERSONAL de Francisco (token de Google con `gmail.send`). Aquí hay un emisor
+ * propio del agente, con su identidad, que cualquier artefacto puede usar.
+ *
+ * - Sin dependencias: SMTP hablado a mano sobre TLS (el deploy del hub sólo copia
+ *   server.js, así que no se pueden agregar paquetes sin rearmar la imagen).
+ * - Identidad por variables de entorno: MAIL_FROM, MAIL_FROM_NAME, MAIL_REPLY_TO.
+ *   El día que haya dominio propio, se cambian las variables y todo sale desde ahí
+ *   sin tocar código.
+ * - Gmail exige una "contraseña de aplicación" (con 2FA activo): la contraseña
+ *   normal de la cuenta es rechazada (535).
+ * - Todo envío queda registrado en `email_log`: antes no quedaba rastro de qué se
+ *   le mandó a quién.
+ * ------------------------------------------------------------------------- */
+const MAIL_HOST = process.env.MAIL_HOST || 'smtp.gmail.com';
+const MAIL_PORT = Number(process.env.MAIL_PORT || 465);
+const MAIL_USER = process.env.MAIL_USER || '';
+const MAIL_PASS = process.env.MAIL_PASS || '';
+const MAIL_FROM = process.env.MAIL_FROM || MAIL_USER;
+const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || 'ATHAMU · FASE';
+const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || '';
+const MAIL_ACTIVO = !!(MAIL_USER && MAIL_PASS);
+
+/** Espera la respuesta de un comando SMTP (soporta respuestas multilínea). */
+function smtpEsperar(socket, codigos) {
+  return new Promise((resolve, reject) => {
+    let buffer = '';
+    const onData = (d) => {
+      buffer += d.toString('utf8');
+      const lineas = buffer.split(/\r?\n/).filter(Boolean);
+      const ultima = lineas[lineas.length - 1] || '';
+      if (/^\d{3} /.test(ultima)) {
+        const codigo = Number(ultima.slice(0, 3));
+        socket.removeListener('data', onData);
+        if (codigos.includes(codigo)) resolve({ codigo, texto: buffer });
+        else reject(new Error(`SMTP ${codigo}: ${buffer.trim().slice(-160)}`));
+      }
+    };
+    socket.on('data', onData);
+    socket.once('error', (e) => { socket.removeListener('data', onData); reject(e); });
+  });
+}
+
+/** Manda un correo HTML por SMTP. Devuelve {ok, error}. */
+async function enviarPorSmtp({ desde, nombreDesde, replyTo, para, asunto, html, ics, icsNombre }) {
+  // OJO: este archivo es ESM (`type: module`) — `require` NO existe aquí. Se usan los
+  // imports de arriba (tls/net), que es el mismo código que ya se probó contra Gmail.
+  const destinatarios = (Array.isArray(para) ? para : [para]).filter(Boolean);
+  const puerto = MAIL_PORT;
+  const tlsImplicito = puerto === 465;
+
+  let socket = tlsImplicito
+    ? tls.connect({ host: MAIL_HOST, port: puerto, servername: MAIL_HOST })
+    : net.connect({ host: MAIL_HOST, port: puerto });
+  await new Promise((res, rej) => {
+    socket.once(tlsImplicito ? 'secureConnect' : 'connect', res);
+    socket.once('error', rej);
+  });
+
+  await smtpEsperar(socket, [220]);
+  const ehlo = () => socket.write('EHLO fase-athamu\r\n');
+  ehlo();
+  const saludo = await smtpEsperar(socket, [250]);
+
+  if (!tlsImplicito) {
+    if (!/STARTTLS/i.test(saludo.texto)) throw new Error('El servidor no ofrece STARTTLS');
+    socket.write('STARTTLS\r\n');
+    await smtpEsperar(socket, [220]);
+    socket = tls.connect({ socket, servername: MAIL_HOST });
+    await new Promise((res, rej) => { socket.once('secureConnect', res); socket.once('error', rej); });
+    ehlo();
+    await smtpEsperar(socket, [250]);
+  }
+
+  const b64 = (s) => Buffer.from(String(s), 'utf8').toString('base64');
+  socket.write('AUTH LOGIN\r\n');
+  await smtpEsperar(socket, [334]);
+  socket.write(b64(MAIL_USER) + '\r\n');
+  await smtpEsperar(socket, [334]);
+  socket.write(b64(MAIL_PASS) + '\r\n');
+  await smtpEsperar(socket, [235]);
+
+  socket.write(`MAIL FROM:<${desde}>\r\n`);
+  await smtpEsperar(socket, [250]);
+  for (const d of destinatarios) {
+    socket.write(`RCPT TO:<${d}>\r\n`);
+    await smtpEsperar(socket, [250, 251]);
+  }
+  socket.write('DATA\r\n');
+  await smtpEsperar(socket, [354]);
+
+  const cabeceras = [
+    `From: ${nombreDesde ? `"${nombreDesde}" ` : ''}<${desde}>`,
+    `To: ${destinatarios.join(', ')}`,
+    `Subject: =?UTF-8?B?${b64(asunto)}?=`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${Date.now()}.${Math.random().toString(36).slice(2)}@fase-athamu>`,
+    'MIME-Version: 1.0',
+  ];
+  if (replyTo) cabeceras.push(`Reply-To: <${replyTo}>`);
+
+  // Con invitación de calendario: multipart (HTML + text/calendar con RSVP). Gmail,
+  // Outlook y Apple leen el .ics y muestran los botones Sí / No / Quizás.
+  let cuerpo;
+  if (ics) {
+    const b = `fase_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    cabeceras.push(`Content-Type: multipart/mixed; boundary="${b}"`);
+    const htmlB64 = b64(html || '<p></p>').replace(/(.{76})/g, '$1\r\n');
+    const icsB64 = b64(ics).replace(/(.{76})/g, '$1\r\n');
+    cuerpo = `--${b}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${htmlB64}\r\n`
+      + `--${b}\r\nContent-Type: text/calendar; method=REQUEST; charset=UTF-8; name="${icsNombre || 'invitacion.ics'}"\r\nContent-Transfer-Encoding: base64\r\n\r\n${icsB64}\r\n`
+      + `--${b}--\r\n`;
+  } else {
+    cabeceras.push('Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64');
+    cuerpo = b64(html || '<p></p>').replace(/(.{76})/g, '$1\r\n');
+  }
+  socket.write(cabeceras.join('\r\n') + '\r\n\r\n' + cuerpo.replace(/\r\n\./g, '\r\n..') + '\r\n.\r\n');
+  const fin = await smtpEsperar(socket, [250]);
+  try { socket.write('QUIT\r\n'); socket.end(); } catch (e) { /* se cierra igual */ }
+  return { ok: true, servidor: fin.texto.trim().slice(-60) };
+}
+
+/** Registro de correos enviados (antes no quedaba ninguno). */
+async function asegurarTablaCorreos() {
+  const db = getPool();
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS email_log (
+       id varchar(64) NOT NULL PRIMARY KEY,
+       para varchar(255) NOT NULL,
+       asunto varchar(255) NOT NULL,
+       plantilla varchar(60) NULL,
+       desde varchar(255) NULL,
+       ok tinyint(1) NOT NULL DEFAULT 0,
+       error varchar(500) NULL,
+       enviado_por varchar(255) NULL,
+       created_at datetime DEFAULT CURRENT_TIMESTAMP
+     )`
+  );
+}
+
+/** Envía y registra. Nunca lanza: devuelve {ok, error}. */
+async function enviarCorreo({ para, asunto, html, plantilla, enviadoPor, ics, icsNombre }) {
+  const db = getPool();
+  const id = `mail_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  if (!MAIL_ACTIVO) {
+    const error = 'El correo no está configurado todavía (faltan MAIL_USER/MAIL_PASS en el hub).';
+    try {
+      await asegurarTablaCorreos();
+      await db.execute(
+        'INSERT INTO email_log (id, para, asunto, plantilla, desde, ok, error, enviado_por) VALUES (?,?,?,?,?,0,?,?)',
+        [id, String(para).slice(0, 255), String(asunto).slice(0, 255), plantilla || null, MAIL_FROM || null, error, enviadoPor || null]
+      );
+    } catch (e) { /* si ni la tabla se puede tocar, igual se devuelve el error */ }
+    return { ok: false, error };
+  }
+  try {
+    const r = await enviarPorSmtp({
+      desde: MAIL_FROM, nombreDesde: MAIL_FROM_NAME, replyTo: MAIL_REPLY_TO,
+      para, asunto, html, ics, icsNombre,
+    });
+    await asegurarTablaCorreos();
+    await db.execute(
+      'INSERT INTO email_log (id, para, asunto, plantilla, desde, ok, enviado_por) VALUES (?,?,?,?,?,1,?)',
+      [id, String(para).slice(0, 255), String(asunto).slice(0, 255), plantilla || null, MAIL_FROM, enviadoPor || null]
+    );
+    return { ok: true, id, servidor: r.servidor };
+  } catch (e) {
+    try {
+      await asegurarTablaCorreos();
+      await db.execute(
+        'INSERT INTO email_log (id, para, asunto, plantilla, desde, ok, error, enviado_por) VALUES (?,?,?,?,?,0,?,?)',
+        [id, String(para).slice(0, 255), String(asunto).slice(0, 255), plantilla || null, MAIL_FROM || null,
+         String(e.message || e).slice(0, 500), enviadoPor || null]
+      );
+    } catch (e2) { /* el log no puede romper el envío */ }
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+
+/** Plantillas con la identidad FASE (papel + terracota). */
+const PLANTILLAS_CORREO = {
+  generico: (d) => `<h2 style="font-family:Georgia,serif;margin:0 0 10px">${d.titulo || 'Aviso de FASE'}</h2><p>${d.texto || ''}</p>`,
+  invitacion_piloto: (d) => `<p style="font-size:15px">Hola ${d.nombre || ''},</p>
+    <p>Te sumamos a la prueba de <b>FASE</b>, el radar cultural. Puedes empezar ahora mismo:</p>
+    <p><a href="${d.app || ''}" style="background:#b4472c;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;display:inline-block">Abrir FASE en el navegador</a></p>
+    <p><a href="${d.apk || ''}">Descargar la app (Android · APK)</a></p>
+    <p>Entras con tu mismo correo. Cualquier cosa que no funcione, mandala desde el botón "Reportar algo".</p>`,
+  ingreso_aprobado: (d) => `<p style="font-size:15px">Hola ${d.nombre || ''},</p>
+    <p>Ya eres parte de <b>${d.compania || ''}</b>. Vas a ver sus datos (equipo, inventario, obras) en la app.</p>`,
+  invitacion_ensayo: (d) => `<p style="font-size:15px">Hola ${d.nombre || ''},</p>
+    <p>Te invito al <b>${d.obra || 'ensayo'}</b>:</p>
+    <p style="font-size:16px;line-height:1.6">📅 <b>${d.fecha || ''}</b> · 🕗 <b>${d.hora || ''}</b><br>📍 ${d.lugar || 'por confirmar'}</p>
+    ${d.descripcion ? `<p style="color:#5e564c">${d.descripcion}</p>` : ''}
+    <p>En el mismo correo va adjunta la <b>invitación de calendario</b>: confirma con
+    <b>Sí / No / Quizás</b> y el ensayo queda agendado en tu calendario.</p>
+    <p style="margin:18px 0 6px">
+      <a href="${d.linkPlanner || ''}" style="background:#b4472c;color:#fff;padding:11px 16px;border-radius:10px;text-decoration:none;display:inline-block">Abrir el Planner de ensayos</a>
+    </p>
+    <p style="margin:0 0 14px">
+      <a href="${d.linkApp || ''}" style="color:#b4472c">Abrir FASE en el navegador</a>
+    </p>
+    <p style="font-size:11.5px;color:#5e564c">Cualquier duda, respondé este correo (llega a producción).</p>`,
+  recordatorio_ensayo: (d) => `<p style="font-size:15px">Hola ${d.nombre || ''},</p>
+    <p>Te recuerdo el ensayo de <b>${d.obra || ''}</b>:</p>
+    <p style="font-size:16px">📅 <b>${d.fecha || ''}</b> · 🕗 <b>${d.hora || ''}</b><br>📍 ${d.lugar || ''}</p>`,
+  // Invitación al elenco de una obra (Tanda B). Sólo sale cuando producción llama al
+  // endpoint de invitación; nunca se manda sola al inscribir a alguien.
+  invitacion_elenco: (d) => `<p style="font-size:15px">Hola ${d.nombre || ''},</p>
+    <p>Te sumamos al elenco de <b>${d.obra || ''}</b>${d.compania ? `, de <b>${d.compania}</b>` : ''}.</p>
+    <p style="font-size:16px;line-height:1.7">🎭 <b>${d.rol || 'Elenco'}</b>${d.personaje ? ` · personaje: <b>${d.personaje}</b>` : ''}</p>
+    ${d.estreno ? `<p>Estreno: <b>${d.estreno}</b></p>` : ''}
+    <p>En el Planner de ensayos tienes las fechas, los lugares y el equipo de la obra.</p>
+    <p style="margin:18px 0 6px">
+      <a href="${d.linkPlanner || ''}" style="background:#b4472c;color:#fff;padding:11px 16px;border-radius:10px;text-decoration:none;display:inline-block">Abrir el Planner de ensayos</a>
+    </p>`,
+};
+
+function marcoCorreo(contenido) {
+  return `<div style="font-family:Helvetica,Arial,sans-serif;color:#1d1a16;background:#f5efe4;padding:22px">
+    <div style="max-width:520px;margin:0 auto;background:#fffbf4;border:1px solid #d8cdba;border-radius:18px;padding:22px">
+      <p style="margin:0 0 14px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#b4472c"><b>ATHAMU · FASE</b></p>
+      ${contenido}
+      <p style="margin:22px 0 0;font-size:11px;color:#5e564c">FASE · radar cultural del ecosistema ATHA Producciones.</p>
+    </div>
+  </div>`;
+}
+
+/** Prueba real del correo (sólo administración). */
+app.post('/api/v1/crm/avisos/probar-correo', async (req, res) => {
+  try {
+    const email = emailDeSesion(req);
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+    if (!(await esAdministrador(email))) return res.status(403).json({ ok: false, error: 'sólo administración' });
+    const para = String(req.body?.para || email);
+    const r = await enviarCorreo({
+      para, asunto: 'Prueba del correo del ecosistema FASE',
+      plantilla: 'generico',
+      html: marcoCorreo(PLANTILLAS_CORREO.generico({
+        titulo: 'El correo del ecosistema funciona',
+        texto: `Este aviso salió desde <b>${MAIL_FROM || '(sin configurar)'}</b> con la identidad de ATHAMU. ` +
+               `Las respuestas van a ${MAIL_REPLY_TO || '(sin Reply-To)'}.`,
+      })),
+      enviadoPor: email,
+    });
+    return res.status(r.ok ? 200 : 503).json({ ...r, desde: MAIL_FROM, reply_to: MAIL_REPLY_TO });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Enviar un aviso desde el ecosistema (administración o producción). */
+app.post('/api/v1/crm/avisos/correo', async (req, res) => {
+  try {
+    const ident = identidad(req);
+    const email = emailDeSesion(req) || ident.email;
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+    const b = req.body || {};
+    const para = String(b.para || '').trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) return res.status(400).json({ ok: false, error: 'Correo destinatario inválido.' });
+    const asunto = String(b.asunto || '').trim().slice(0, 200);
+    if (asunto.length < 3) return res.status(400).json({ ok: false, error: 'Falta el asunto.' });
+
+    const db = getPool();
+    const userId = await exploradorId(email, ident.nombre, ident.foto);
+    const puede = (await esAdministrador(email)) || (await puedeCrearAgrupacion(userId));
+    if (!puede) return res.status(403).json({ ok: false, error: 'Sólo administración o producción puede enviar avisos.' });
+
+    let contenido;
+    const plantilla = String(b.plantilla || '').trim();
+    if (plantilla && PLANTILLAS_CORREO[plantilla]) {
+      contenido = PLANTILLAS_CORREO[plantilla](b.datos || {});
+    } else if (b.html) {
+      contenido = String(b.html).slice(0, 20000);
+    } else {
+      contenido = PLANTILLAS_CORREO.generico({ titulo: b.titulo, texto: String(b.texto || '').slice(0, 4000) });
+    }
+
+    const r = await enviarCorreo({
+      para, asunto, html: marcoCorreo(contenido),
+      plantilla: plantilla || 'generico', enviadoPor: email,
+    });
+    return res.status(r.ok ? 200 : 503).json(r);
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/** Historial de avisos enviados (sólo administración). */
+app.get('/api/v1/crm/avisos/correos', async (req, res) => {
+  try {
+    const email = emailDeSesion(req);
+    if (!email) return res.status(401).json({ ok: false, error: 'Sesión requerida' });
+    if (!(await esAdministrador(email))) return res.status(403).json({ ok: false, error: 'sólo administración' });
+    await asegurarTablaCorreos();
+    const limite = Math.min(Number(req.query.limite) || 50, 200);
+    const db = getPool();
+    const [filas] = await db.execute(
+      'SELECT id, para, asunto, plantilla, desde, ok, error, enviado_por, created_at FROM email_log ORDER BY created_at DESC LIMIT ?',
+      [limite]
+    );
+    return res.json({ ok: true, total: filas.length, correos: filas, configurado: MAIL_ACTIVO, desde: MAIL_FROM, reply_to: MAIL_REPLY_TO });
+  } catch (e) {
+    return res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+ * VISTA PREVIA MÓVIL · /previa
+ *
+ * Maqueta navegable del rediseño "de pie": qué se hace en el teléfono (con acción
+ * real) y qué queda en el CRM web. No es la app: sirve para iterar el diseño.
+ * Lee datos REALES del propio hub (/api/v1/crm/...) con la sesión del navegador
+ * (claves `user_session` / `atha_user_session`) o con `?email=` para evaluarla.
+ * Se sirve inline (como /piloto) y con las fuentes embebidas: no pide nada afuera.
+ * ------------------------------------------------------------------------- */
+const PAGINA_PREVIA = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista previa · FASE Mobile "de pie"</title>
+<style>
+  @font-face{font-family:'Fraunces';font-style:normal;font-weight:400 700;font-display:swap;src:url('data:font/woff2;base64,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') format('woff2');}
+  @font-face{font-family:'Instrument Sans';font-style:normal;font-weight:400;font-display:swap;src:url('data:font/woff2;base64,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') format('woff2');}@font-face{font-family:'Instrument Sans';font-style:normal;font-weight:500 600;font-display:swap;src:url('data:font/woff2;base64,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') format('woff2');}
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --fondo:#1b1b1f; --fondo2:#242429; --panel:#26262b; --tinta:#f2efe9; --tinta2:#a8a29a;
+    --tarjeta:#2e2e34; --linea:#3d3d45; --acento:#b4472c; --acento-suave:#3a2a25;
+    --serif:'Instrument Sans',sans-serif;
+  }
+  body.tema-dia {
+    --fondo:#eef0f4; --fondo2:#f7f8fa; --panel:#ffffff; --tinta:#171717; --tinta2:#5c5c66;
+    --tarjeta:#ffffff; --linea:#dcdfe6; --acento:#0f766e; --acento-suave:#d7ece8;
+    --serif:'Instrument Sans',sans-serif;
+  }
+  body.tema-papel {
+    --fondo:#e9e0cf; --fondo2:#f5efe4; --panel:#fffbf4; --tinta:#1d1a16; --tinta2:#5e564c;
+    --tarjeta:#fffbf4; --linea:#d8cdba; --acento:#b4472c; --acento-suave:#f0dcd3;
+    --serif:'Fraunces',serif;
+  }
+  body { background:var(--fondo); color:var(--tinta); font-family:'Instrument Sans',system-ui,sans-serif; padding:18px; }
+  h1,h2,h3 { font-family:var(--serif); font-weight:600; letter-spacing:-0.01em; }
+
+  .aviso { max-width:1180px; margin:0 auto 16px; padding:12px 16px; border:1px dashed var(--linea); border-radius:14px; background:var(--panel); font-size:12.5px; line-height:1.5; color:var(--tinta2); }
+  .aviso b { color:var(--tinta); }
+  .barra { max-width:1180px; margin:0 auto 18px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
+  .barra h1 { font-size:22px; }
+  .controles { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { border:1px solid var(--linea); background:var(--panel); color:var(--tinta2); border-radius:999px; padding:6px 12px; font-size:11.5px; font-weight:600; cursor:pointer; }
+  .chip.on { background:var(--acento); border-color:var(--acento); color:#fff; }
+
+  .cuerpo { max-width:1180px; margin:0 auto; display:flex; gap:26px; align-items:flex-start; flex-wrap:wrap; }
+
+  /* ---------- teléfono ---------- */
+  .telefono { width:390px; height:844px; flex:0 0 auto; border-radius:40px; border:1px solid var(--linea); background:var(--fondo2);
+              box-shadow:0 24px 60px rgba(0,0,0,.35); overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .tope { height:4px; background:var(--acento); opacity:.85; }
+  .pantalla { flex:1; overflow-y:auto; padding:16px 16px 22px; }
+  .tabs { height:64px; display:flex; border-top:1px solid var(--linea); background:var(--fondo2); }
+  .tab { flex:1; border:0; background:transparent; color:var(--tinta2); font:600 10.5px 'Instrument Sans',sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; }
+  .tab.on { color:var(--acento); }
+  .tab svg { width:19px; height:19px; }
+  .sello { position:absolute; right:14px; bottom:76px; width:34px; height:34px; border-radius:50%; border:1px solid var(--linea); background:var(--fondo2); display:flex; align-items:center; justify-content:center; }
+
+  .titulo-seccion { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); margin:16px 0 8px; }
+  .tarjeta { border:1px solid var(--linea); background:var(--tarjeta); border-radius:18px; padding:12px; margin-bottom:10px; }
+  .fila { display:flex; gap:10px; align-items:flex-start; }
+  .grow { flex:1; min-width:0; }
+  .mini { font-size:10.5px; color:var(--tinta2); }
+  .dato { font-size:12px; }
+  .fuerte { font-weight:600; }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 6px; border:1px solid var(--acento); color:var(--acento); background:var(--acento-suave); }
+  .acciones { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:7px 12px; font:600 11px 'Instrument Sans',sans-serif; cursor:pointer; }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .fecha { width:52px; flex:0 0 auto; text-align:center; border-right:1px dashed var(--linea); padding-right:8px; }
+  .fecha .d { font-size:19px; font-weight:700; font-family:var(--serif); }
+  .fecha .m { font-size:9.5px; font-weight:700; color:var(--acento); }
+  .perfil { display:flex; gap:12px; align-items:center; }
+  .foto { width:54px; height:54px; border-radius:16px; object-fit:cover; background:var(--acento-suave); display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--acento); font-size:18px; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .chips span { font-size:9.5px; border:1px solid var(--linea); border-radius:999px; padding:2px 8px; color:var(--tinta2); }
+  .vacio { border:1px dashed var(--linea); border-radius:16px; padding:14px; text-align:center; font-size:11.5px; color:var(--tinta2); }
+  .aviso-sim { font-size:11px; border:1px solid var(--acento); background:var(--acento-suave); color:var(--acento); border-radius:12px; padding:8px 10px; margin-bottom:10px; }
+
+  /* ---------- paneles ---------- */
+  .lateral { flex:1; min-width:320px; display:flex; flex-direction:column; gap:14px; }
+  .panel { border:1px solid var(--linea); background:var(--panel); border-radius:18px; padding:14px 16px; }
+  .panel h3 { font-size:14px; margin-bottom:8px; }
+  .panel p, .panel li { font-size:12px; line-height:1.5; color:var(--tinta2); }
+  .panel ul { margin-left:16px; }
+  .modulo { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dashed var(--linea); font-size:12px; }
+  .modulo:last-child { border-bottom:0; }
+  .modulo input { accent-color:var(--acento); }
+  .modulo .nom { flex:1; }
+  .modulo .ro { font-size:10px; color:var(--tinta2); }
+  .fle { border:1px solid var(--linea); background:transparent; color:var(--tinta2); border-radius:6px; width:20px; height:20px; cursor:pointer; font-size:10px; }
+  .dos { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .si { color:#3f7d3f; font-weight:600; }
+  .no { color:#a4453a; font-weight:600; }
+  code { font-family:ui-monospace,monospace; font-size:11px; background:var(--fondo); border:1px solid var(--linea); border-radius:6px; padding:1px 5px; }
+</style>
+</head>
+<body class="tema-papel">
+
+<div class="aviso">
+  <b>Vista previa — no es la app.</b> Es una maqueta navegable para iterar el rediseño
+  "de pie": qué se hace en el teléfono (con acción real) y qué queda en el CRM web.
+  Los datos que ves son <b>reales</b>, leídos del hub (<code>/api/v1/crm/…</code>) con la sesión del CRM;
+  lo que todavía no existe se muestra vacío o marcado como <span class="pill">propuesta</span>.
+</div>
+
+<div class="barra">
+  <h1>FASE Mobile · "de pie"</h1>
+  <div class="controles">
+    <button class="chip" id="t-noche" onclick="tema('tema-noche')">Noche</button>
+    <button class="chip" id="t-dia" onclick="tema('tema-dia')">Día</button>
+    <button class="chip on" id="t-papel" onclick="tema('tema-papel')">Papel</button>
+    <button class="chip" onclick="simularDesdeCrm()">Simular cambio desde el CRM</button>
+  </div>
+</div>
+
+<div class="cuerpo">
+  <!-- ================= TELÉFONO ================= -->
+  <div class="telefono">
+    <div class="tope"></div>
+    <div class="pantalla" id="pantalla">Cargando datos del hub…</div>
+    <nav class="tabs" id="tabs"></nav>
+    <div class="sello" title="Distintivo FASE, siempre visible">
+      <img src="/assets/fase/fase-simbolo.svg" alt="" width="18" height="18">
+    </div>
+  </div>
+
+  <!-- ================= PANELES ================= -->
+  <div class="lateral">
+    <div class="panel">
+      <h3>Menú como datos (no como código)</h3>
+      <p style="margin-bottom:10px">Esto es lo que hoy existe en la base como
+      <code>user_preferences.layout_config.navbar</code> y nadie lee. Aquí se edita desde el CRM y la app
+      lo recibe en vivo: cambiá un check o el orden y mira la barra del teléfono.</p>
+      <div id="editor-modulos"></div>
+      <p style="margin-top:10px">Rol de prueba:</p>
+      <div class="controles" id="roles" style="margin-top:6px"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Qué se hace en la app y qué queda en el CRM</h3>
+      <div class="dos">
+        <div>
+          <p><span class="si">ENTRA (con acción real)</span></p>
+          <ul>
+            <li>Agenda y <b>publicar función</b></li>
+            <li>Radar y roles cercanos, descubrir por QR</li>
+            <li>Muro + chat de compañía</li>
+            <li>Aprobar <b>solicitudes</b> de ingreso</li>
+            <li>Nómina: sumar / quitar integrante</li>
+            <li>Inventario: check-out / check-in por QR</li>
+            <li>Tareas asignadas y avisos</li>
+            <li>Perfil, agrupaciones y apariencia</li>
+          </ul>
+        </div>
+        <div>
+          <p><span class="no">SALE (queda en el CRM web)</span></p>
+          <ul>
+            <li>Planner y Arquitecto</li>
+            <li>Ecosistema / catálogo de artefactos</li>
+            <li>Leads y contactos (mini-CRM)</li>
+            <li>Inventario completo y reportes</li>
+            <li>Finanzas (edición)</li>
+            <li>Editor completo de Obras</li>
+            <li>Curaduría de nodos y QR admin</li>
+            <li>Preferencias de cuenta y permisos</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top:10px">Regla: <b>si entra, tiene que poder hacer algo</b>. Cero saltos al CRM
+      (<code>window.open</code>): o se resuelve aquí, o no se muestra.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Cómo llega "en vivo" al CRM</h3>
+      <p>Hoy el tiempo real va en una sola dirección: el hub emite en
+      <code>/api/v1/crm/radar/stream</code> (SSE) y <b>sólo la app escucha</b>; el CRM web no tiene
+      ningún listener, por eso no ve los cambios hasta recargar.</p>
+      <p style="margin-top:8px">El arreglo propuesto:</p>
+      <ul>
+        <li>un <b>bus único</b>: cada escritura emite <code>cambio {entidad, accion, id}</code></li>
+        <li>las <b>dos</b> superficies escuchan el mismo stream y refrescan sólo lo afectado</li>
+        <li>la app <b>nunca</b> guarda verdad local: escribe al hub y muestra lo que el hub devuelve
+            (el teléfono sólo cachea para cuando no hay señal)</li>
+        <li>escrituras idempotentes + aviso visible de "guardado"</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   Previa navegable. JS sin template literals a propósito: esta página se sirve
+   desde el hub (server.js) y los template literals chocan con los del hub.
+   =========================================================================== */
+var EMAIL = '';
+try {
+  // La previa acepta ?email= para poder evaluarla con datos reales, y si no, usa la
+  // sesión que ya tenga el navegador en el origen del hub (el CRM guarda \`user_session\`,
+  // la app \`atha_user_session\`: se miran las dos).
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['atha_user_session', 'user_session', 'atha_user_profile'];
+  for (var ii = 0; ii < CLAVES.length && !EMAIL; ii++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[ii]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+var estado = {
+  modulo: 'inicio',
+  rol: 'direccion',
+  lat: -33.43985, lng: -70.67211,
+  datos: { perfil: null, agenda: null, nodos: null, muro: null, mias: null, nomina: null, solicitudes: null },
+  simulando: false
+};
+
+/* Módulos = catálogo con acción y rol. El orden aquí es el de la barra. */
+var CATALOGO = [
+  { id:'inicio',    nombre:'Inicio',    roles:['explorador','artista','produccion','direccion'] },
+  { id:'cerca',     nombre:'Cerca',     roles:['explorador','artista','produccion','direccion'] },
+  { id:'muro',      nombre:'Muro',      roles:['explorador','artista','produccion','direccion'] },
+  { id:'tareas',    nombre:'Tareas',    roles:['artista','produccion','direccion'] },
+  { id:'nomina',    nombre:'Nómina',    roles:['produccion','direccion'] },
+  { id:'inventario',nombre:'Inventario',roles:['produccion','direccion'] },
+  { id:'perfil',    nombre:'Perfil',    roles:['explorador','artista','produccion','direccion'] }
+];
+var ACTIVOS = ['inicio','cerca','muro','tareas','nomina','perfil'];
+
+var ICONOS = {
+  inicio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+  cerca:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11z"/></svg>',
+  muro:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 10v10"/></svg>',
+  tareas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3 6 1.5 1.5L7 5"/><path d="m3 12 1.5 1.5L7 11"/></svg>',
+  nomina:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M18 7v6M15 10h6"/></svg>',
+  inventario:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>',
+  perfil:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>'
+};
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+  return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function dist(m) {
+  if (typeof m !== 'number' || !isFinite(m)) return '';
+  return m < 1000 ? Math.round(m) + ' m' : (m/1000).toFixed(1).replace('.', ',') + ' km';
+}
+function hora(h) { return h ? String(h).slice(0,5) : ''; }
+function fechaPartes(iso) {
+  var m = /^(\\\\d{4})-(\\\\d{2})-(\\\\d{2})/.exec(String(iso || ''));
+  if (!m) return null;
+  var d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  var MES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  var DIA = ['dom','lun','mar','mié','jue','vie','sáb'];
+  return { d: d.getDate(), m: MES[d.getMonth()], w: DIA[d.getDay()] };
+}
+var LAT = function () { return '?lat=' + estado.lat + '&lng=' + estado.lng; };
+
+/* --------------------------- carga de datos --------------------------- */
+function pedir(ruta, conEmail) {
+  var cab = { 'Content-Type':'application/json' };
+  if (EMAIL) cab['x-atha-email'] = EMAIL;
+  var url = ruta + (ruta.indexOf('?') >= 0 ? '&' : '?') + 'email=' + encodeURIComponent(EMAIL);
+  return fetch(url, { headers: cab }).then(function (r) { return r.json(); });
+}
+
+function cargarTodo() {
+  if (!EMAIL) { pintar(); return; }
+  var trabajos = [
+    pedir('/api/v1/crm/sesion').then(function (d) { estado.datos.perfil = d && d.user || null; }).catch(function(){}),
+    pedir('/api/v1/crm/radar/eventos' + LAT()).then(function (d) { estado.datos.agenda = d; }).catch(function(){}),
+    pedir('/api/v1/crm/radar/nodos' + LAT()).then(function (d) { estado.datos.nodos = d; }).catch(function(){}),
+    pedir('/api/v1/crm/radar/feed?limite=6').then(function (d) { estado.datos.muro = d; }).catch(function(){}),
+    pedir('/api/v1/crm/companias/mias').then(function (d) { estado.datos.mias = d; }).catch(function(){}),
+    pedir('/api/v1/crm/companias/solicitudes').then(function (d) { estado.datos.solicitudes = d; }).catch(function(){})
+  ];
+  Promise.all(trabajos).then(function () {
+    var mias = (estado.datos.mias && estado.datos.mias.agrupaciones) || [];
+    if (mias.length) {
+      pedir('/api/v1/crm/companias/' + encodeURIComponent(mias[0].company_id) + '/nomina')
+        .then(function (d) { estado.datos.nomina = d; pintar(); }).catch(function () { pintar(); });
+    } else { pintar(); }
+  });
+}
+
+/* --------------------------- pantallas --------------------------- */
+function pantallaInicio() {
+  var p = estado.datos.perfil || {};
+  var ag = estado.datos.agenda || { eventos: [], cartelera: [] };
+  var html = '';
+  if (!EMAIL) html += '<div class="aviso-sim">Entra desde el CRM (o con el link del puente) para ver tus datos. Sin sesión, la previa muestra los estados vacíos.</div>';
+  html += '<div class="tarjeta"><div class="perfil">'
+      + '<div class="foto">' + (p.avatar ? '<img class="foto" src="' + esc(p.avatar) + '" alt="">' : esc((p.name||'?').slice(0,1))) + '</div>'
+      + '<div class="grow"><div class="fuerte dato">' + esc(p.name || 'Tu nombre') + '</div>'
+      + '<div class="mini">' + esc(p.roleTitle || p.role || 'explorador') + '</div>'
+      + '<div class="mini" style="margin-top:4px">Tu descripción y disciplinas se ven aquí (se editan en Perfil).</div></div></div></div>';
+
+  html += '<div class="titulo-seccion">Para hoy</div>';
+  var pend = ((estado.datos.solicitudes || {}).solicitudes || []).filter(function (s) { return s.status === 'pendiente'; });
+  html += '<div class="tarjeta"><div class="fila"><div class="grow"><div class="dato fuerte">Solicitudes de ingreso por resolver</div>'
+        + '<div class="mini">' + (pend.length ? pend.length + ' pedido(s) esperando: se aprueban desde aquí en 2 toques' : 'Nada pendiente ahora') + '</div></div>'
+        + '<span class="pill">' + pend.length + '</span></div>'
+        + '<div class="acciones"><button class="btn principal">Resolver</button><button class="btn">Ver detalle</button></div></div>';
+
+  html += '<div class="titulo-seccion">Próximas funciones</div>';
+  var evs = ag.eventos || [];
+  if (!evs.length) {
+    html += '<div class="vacio">No hay eventos cargados en el CRM.<br>Desde aquí se publican (propuesta): <b>+ Publicar función</b>.</div>';
+  }
+  evs.slice(0, 5).forEach(function (e) {
+    var f = fechaPartes(e.date);
+    html += '<div class="tarjeta"><div class="fila">'
+      + '<div class="fecha"><div class="m">' + (f ? f.w : '') + '</div><div class="d">' + (f ? f.d : '—') + '</div><div class="m">' + (f ? f.m : '') + '</div></div>'
+      + '<div class="grow"><div class="dato fuerte">' + esc(e.title) + '</div>'
+      + '<div class="mini">' + [hora(e.time_start), e.venue || e.location, e.company_name].filter(Boolean).map(esc).join(' · ') + '</div>'
+      + (typeof e.distance_m === 'number' ? '<div class="mini">a ' + dist(e.distance_m) + ' de vos</div>' : '')
+      + '</div></div></div>';
+  });
+
+  html += '<div class="titulo-seccion">En cartelera</div>';
+  (ag.cartelera || []).slice(0, 3).forEach(function (o) {
+    html += '<div class="tarjeta"><div class="dato fuerte">' + esc(o.title) + '</div>'
+      + '<div class="mini">' + [o.company_name, o.discipline, o.status].filter(Boolean).map(esc).join(' · ') + '</div></div>';
+  });
+  return html;
+}
+
+function pantallaCerca() {
+  var d = estado.datos.nodos || { nodos: [] };
+  var nodos = (d.nodos || []).slice().sort(function (a, b) { return (a.distance_m||9e9) - (b.distance_m||9e9); });
+  var html = '<div class="titulo-seccion">Todo cerca</div>'
+    + '<div class="mini" style="margin-bottom:8px">' + nodos.length + ' lugares · ordenados por distancia real (GPS del teléfono)</div>';
+  if (!nodos.length) return html + '<div class="vacio">Sin lugares cargados.</div>';
+  nodos.slice(0, 6).forEach(function (n) {
+    html += '<div class="tarjeta"><div class="fila"><div class="grow">'
+      + '<div class="dato fuerte">' + esc(n.is_discovered ? n.name : 'Lugar por descubrir') + '</div>'
+      + '<div class="mini">' + esc(n.category) + (n.hours ? ' · ' + esc(n.hours) : '') + '</div>'
+      + '<div class="mini">' + (n.is_discovered ? esc((n.short_description||'').slice(0,70)) : 'Acércate para desbloquear su ficha') + '</div>'
+      + '</div><div class="mini fuerte">' + dist(n.distance_m) + '</div></div>'
+      + '<div class="acciones"><button class="btn">Cómo llegar</button><button class="btn">Ver agenda</button></div></div>';
+  });
+  return html;
+}
+
+function pantallaMuro() {
+  var d = estado.datos.muro || { posts: [] };
+  var posts = d.posts || [];
+  var html = '<div class="titulo-seccion">Muro</div>'
+    + '<div class="tarjeta"><div class="mini">Lo que se publica aquí llega al instante al CRM y al resto de la app.</div>'
+    + '<div class="acciones"><button class="btn principal">+ Publicar con foto</button><button class="btn">Chat de compañía</button></div></div>';
+  if (!posts.length) return html + '<div class="vacio">Todavía no hay publicaciones.</div>';
+  posts.forEach(function (p) {
+    html += '<div class="tarjeta"><div class="dato fuerte">' + esc((p.autor && p.autor.name) || p.user_name || 'Alguien') + '</div>'
+      + '<div class="mini">' + esc((p.content || '').slice(0, 120)) + '</div></div>';
+  });
+  return html;
+}
+
+function pantallaTareas() {
+  var sol = ((estado.datos.solicitudes || {}).solicitudes || []).filter(function (s) { return s.status === 'pendiente'; });
+  var html = '<div class="titulo-seccion">Tareas · lo que se hace de pie</div>';
+  sol.forEach(function (s) {
+    html += '<div class="tarjeta"><div class="dato fuerte">' + esc(s.nombre || s.email) + ' pide entrar a ' + esc(s.company_name) + '</div>'
+      + '<div class="mini">rol pedido: ' + esc(s.role_in_company || 'artist') + (s.mensaje ? ' · "' + esc(s.mensaje) + '"' : '') + '</div>'
+      + '<div class="acciones"><button class="btn principal">Aceptar</button><button class="btn">Rechazar</button></div></div>';
+  });
+  html += '<div class="tarjeta"><div class="dato fuerte">Confirmar asistencia a función <span class="pill">propuesta</span></div>'
+    + '<div class="mini">Ensayo general · martes 18:00 · Sala ATHA</div>'
+    + '<div class="acciones"><button class="btn principal">Confirmo</button><button class="btn">No puedo</button></div></div>';
+  html += '<div class="tarjeta"><div class="dato fuerte">Inventario: retirar equipos <span class="pill">propuesta</span></div>'
+    + '<div class="mini">Escanear QR del item y queda el check-out con tu nombre y hora</div>'
+    + '<div class="acciones"><button class="btn principal">Escanear QR</button></div></div>';
+  if (!sol.length) html += '<div class="vacio">Sin solicitudes pendientes: cuando alguien pida entrar a tu agrupación, aparece aquí.</div>';
+  return html;
+}
+
+function pantallaNomina() {
+  var n = estado.datos.nomina;
+  var mias = (estado.datos.mias && estado.datos.mias.agrupaciones) || [];
+  var html = '<div class="titulo_seccion titulo-seccion">Nómina de ' + esc((mias[0] && mias[0].company_name) || 'tu agrupación') + '</div>';
+  if (!n || !(n.personas || []).length) return html + '<div class="vacio">Sin datos de nómina. (En la app real: alta y baja de integrantes aquí mismo.)</div>';
+  (n.personas || []).slice(0, 6).forEach(function (p) {
+    html += '<div class="tarjeta"><div class="fila"><div class="grow"><div class="dato fuerte">' + esc(p.full_name) + '</div>'
+      + '<div class="mini">' + esc(p.role_title || p.role_in_company || '') + ' · ' + esc(p.kind || '') + '</div></div></div></div>';
+  });
+  html += '<div class="acciones"><button class="btn principal">+ Sumar integrante</button></div>';
+  return html;
+}
+
+function pantallaPerfil() {
+  var p = estado.datos.perfil || {};
+  var mias = (estado.datos.mias && estado.datos.mias.agrupaciones) || [];
+  var html = '<div class="tarjeta"><div class="perfil">'
+    + '<div class="foto">' + esc((p.name||'?').slice(0,1)) + '</div>'
+    + '<div class="grow"><div class="dato fuerte">' + esc(p.name || 'Tu nombre') + '</div>'
+    + '<div class="mini">' + esc(p.email || EMAIL || 'sin sesión') + '</div></div></div></div>';
+  html += '<div class="titulo-seccion">Mis agrupaciones</div>';
+  if (!mias.length) html += '<div class="vacio">No perteneces a ninguna agrupación.</div>';
+  mias.forEach(function (m) {
+    html += '<div class="tarjeta"><div class="dato fuerte">' + esc(m.company_name) + '</div>'
+      + '<div class="mini">tu rol: ' + esc(m.role_in_company) + '</div></div>';
+  });
+  html += '<div class="titulo-seccion">Apariencia</div>'
+    + '<div class="tarjeta"><div class="mini">Noche · Día · Papel (los tres modos ya funcionan en la app).</div></div>'
+    + '<div class="titulo-seccion">Se gestiona en el CRM web</div>'
+    + '<div class="tarjeta"><div class="mini">Planner · Arquitecto · Ecosistema · Leads · Inventario completo · Finanzas · Obras · Curaduría de nodos · Permisos. Sin saltos: la app no te saca al navegador.</div></div>';
+  return html;
+}
+
+var PANTALLAS = { inicio:pantallaInicio, cerca:pantallaCerca, muro:pantallaMuro, tareas:pantallaTareas, nomina:pantallaNomina,
+  inventario:function(){ return '<div class="vacio">Inventario móvil: check-out / check-in con QR. <span class="pill">propuesta</span></div>'; },
+  perfil:pantallaPerfil };
+
+/* --------------------------- pintado --------------------------- */
+function pintar() {
+  var pantalla = document.getElementById('pantalla');
+  if (!pantalla) return;
+  var fn = PANTALLAS[estado.modulo] || pantallaInicio;
+  var html = '';
+  if (estado.simulando) {
+    html += '<div class="aviso-sim">Cambio recibido del CRM en vivo: el menú de la app se actualizó sin recargar.</div>';
+    estado.simulando = false;
+  }
+  pantalla.innerHTML = html + fn();
+  pantalla.scrollTop = 0;
+
+  var activos = activosDelRol();
+  var tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  activos.forEach(function (id) {
+    var m = CATALOGO.filter(function (c) { return c.id === id; })[0];
+    if (!m) return;
+    var b = document.createElement('button');
+    b.className = 'tab' + (estado.modulo === id ? ' on' : '');
+    b.innerHTML = ICONOS[id] + '<span>' + esc(m.nombre) + '</span>';
+    b.onclick = function () { estado.modulo = id; pintar(); };
+    tabs.appendChild(b);
+  });
+}
+
+function activosDelRol() {
+  return ACTIVOS.filter(function (id) {
+    var m = CATALOGO.filter(function (c) { return c.id === id; })[0];
+    return m && m.roles.indexOf(estado.rol) >= 0;
+  });
+}
+
+function editorModulos() {
+  var caja = document.getElementById('editor-modulos');
+  caja.innerHTML = '';
+  ACTIVOS.forEach(function (id, i) {
+    var m = CATALOGO.filter(function (c) { return c.id === id; })[0];
+    if (!m) return;
+    var fila = document.createElement('div');
+    fila.className = 'modulo';
+    fila.innerHTML = '<input type="checkbox" checked>'
+      + '<span class="nom">' + esc(m.nombre) + '</span>'
+      + '<span class="ro">' + esc(m.roles.length === 4 ? 'todos' : m.roles.join(', ')) + '</span>';
+    fila.querySelector('input').onchange = function () { quitar(id); };
+    var arriba = document.createElement('button');
+    arriba.className = 'fle'; arriba.textContent = '↑';
+    arriba.onclick = function () { mover(id, -1); };
+    var abajo = document.createElement('button');
+    abajo.className = 'fle'; abajo.textContent = '↓';
+    abajo.onclick = function () { mover(id, 1); };
+    fila.appendChild(arriba); fila.appendChild(abajo);
+    caja.appendChild(fila);
+  });
+  var sobrantes = CATALOGO.filter(function (c) { return ACTIVOS.indexOf(c.id) < 0; });
+  sobrantes.forEach(function (m) {
+    var fila = document.createElement('div');
+    fila.className = 'modulo';
+    fila.innerHTML = '<input type="checkbox">'
+      + '<span class="nom">' + esc(m.nombre) + '</span><span class="ro">' + esc(m.roles.join(', ')) + '</span>';
+    fila.querySelector('input').onchange = function () { agregar(m.id); };
+    caja.appendChild(fila);
+  });
+}
+
+function roles() {
+  var caja = document.getElementById('roles');
+  caja.innerHTML = '';
+  ['explorador','artista','produccion','direccion'].forEach(function (r) {
+    var b = document.createElement('button');
+    b.className = 'chip' + (estado.rol === r ? ' on' : '');
+    b.textContent = r;
+    b.onclick = function () { estado.rol = r; roles(); editorModulos(); ajustarModulo(); pintar(); };
+    caja.appendChild(b);
+  });
+}
+
+function ajustarModulo() {
+  var act = activosDelRol();
+  if (act.indexOf(estado.modulo) < 0) estado.modulo = act[0] || 'inicio';
+}
+function quitar(id) { ACTIVOS = ACTIVOS.filter(function (x) { return x !== id; }); ajustarModulo(); editorModulos(); pintar(); }
+function agregar(id) { if (ACTIVOS.indexOf(id) < 0) ACTIVOS.push(id); editorModulos(); pintar(); }
+function mover(id, delta) {
+  var i = ACTIVOS.indexOf(id), j = i + delta;
+  if (i < 0 || j < 0 || j >= ACTIVOS.length) return;
+  var tmp = ACTIVOS[i]; ACTIVOS[i] = ACTIVOS[j]; ACTIVOS[j] = tmp;
+  editorModulos(); pintar();
+}
+
+function tema(nombre) {
+  document.body.className = nombre;
+  ['tema-noche','tema-dia','tema-papel'].forEach(function (t) {
+    var b = document.getElementById('t-' + t.split('-')[1]);
+    if (b) b.className = 'chip' + (t === nombre ? ' on' : '');
+  });
+}
+
+/* Simula el cambio que hoy NO llega: algo se edita en el CRM y la app lo recibe. */
+function simularDesdeCrm() {
+  var entra = ['nomina','inventario'].filter(function (id) { return ACTIVOS.indexOf(id) < 0; });
+  if (entra.length) { ACTIVOS.push(entra[0]); }
+  else if (ACTIVOS.length > 3) { ACTIVOS = ACTIVOS.filter(function (id) { return id !== 'nomina'; }); }
+  estado.simulando = true;
+  editorModulos(); ajustarModulo(); pintar();
+}
+
+/* arranque */
+if (typeof navigator !== 'undefined' && navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    estado.lat = pos.coords.latitude; estado.lng = pos.coords.longitude;
+    cargarTodo();
+  }, function () { cargarTodo(); }, { timeout: 4000 });
+} else { cargarTodo(); }
+
+editorModulos(); roles(); pintar();
+</script>
+</body>
+</html>
+`;
+app.get('/previa', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('html').send(PAGINA_PREVIA);
+});
+
+// ---------------------------------------------------------------------------
+// NODOS DEL RADAR CULTURAL (ADMINISTRACIÓN)
+//
+// Página servida en línea por el hub (/nodos). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/nodos.html (ver docs/NODOS_ADMIN.md).
+// ---------------------------------------------------------------------------
+// PANEL DE NODOS DEL RADAR (ADMINISTRACIÓN)
+//
+// Página servida en línea por el hub (/nodos). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/nodos.html (ver docs/).
+// ---------------------------------------------------------------------------
+// PANEL DE NODOS DEL RADAR (ADMINISTRACIÓN)
+//
+// Página servida en línea por el hub (/nodos). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/nodos.html (ver docs/).
+// ---------------------------------------------------------------------------
+const PAGINA_NODOS = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nodos del radar · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --panel:#FFFBF4;
+    --tinta:#1D1A16; --tinta2:#5E564C; --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA;
+    --ok:#4E6B3A; --alerta:#C98A1E; --malo:#8A3B6B;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  a { color:var(--acento); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1220px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .marca img { width:26px; height:26px; }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  .quien b { color:var(--tinta); }
+  main { max-width:1220px; margin:0 auto; padding:16px; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  input, select, textarea { font:13px var(--sans); color:var(--tinta); background:var(--tarjeta); border:1px solid var(--linea); border-radius:10px; padding:8px 10px; }
+  textarea { min-height:74px; resize:vertical; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--acento-suave); border-color:var(--acento); }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .btn.principal:hover { color:#fff; filter:brightness(1.06); }
+  .btn.chico { padding:5px 10px; font-size:11.5px; }
+  .btn.peligro:hover { border-color:var(--malo); color:var(--malo); }
+  /* Galería de fotos candidatas (búsqueda manual de la foto del lugar) */
+  .galeria { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:8px; }
+  .galeria img { width:100%; height:66px; object-fit:cover; border-radius:8px; border:1px solid var(--linea); cursor:pointer; }
+  .galeria img:hover { border-color:var(--acento); }
+  .metricas { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .metrica { background:var(--tarjeta); border:1px solid var(--linea); border-radius:14px; padding:8px 12px; min-width:104px; }
+  .metrica .n { font:700 19px var(--serif); }
+  .metrica .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); }
+  .metrica.aviso .n { color:var(--alerta); }
+  .layout { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+  .col-principal { flex:1 1 640px; min-width:320px; }
+  .col-lateral { flex:0 1 360px; min-width:300px; display:flex; flex-direction:column; gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--linea); border-radius:18px; padding:14px 16px; }
+  .panel h3 { font:700 14px var(--serif); margin:0 0 8px; }
+  .panel p, .panel li { font-size:12.5px; color:var(--tinta2); }
+  table { width:100%; border-collapse:collapse; background:var(--tarjeta); border:1px solid var(--linea); border-radius:16px; overflow:hidden; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--linea); font-size:12.5px; vertical-align:top; }
+  th { background:var(--fondo2); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); }
+  tr:last-child td { border-bottom:0; }
+  tr.sin-coords td { background:#FDF6E8; }
+  .nom { font-weight:600; }
+  .mini { font-size:10.5px; color:var(--tinta2); }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 6px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.ok { border-color:var(--ok); color:var(--ok); }
+  .pill.borrador { border-color:var(--alerta); color:var(--alerta); }
+  .pill.malo { border-color:var(--malo); color:var(--malo); }
+  .acciones-fila { display:flex; gap:6px; flex-wrap:wrap; }
+  #mapaGeneral { height:330px; border-radius:14px; border:1px solid var(--linea); }
+  #mapaEditor { height:250px; border-radius:12px; border:1px solid var(--linea); margin-top:6px; }
+  .modal-fondo { position:fixed; inset:0; background:rgba(29,26,22,.55); display:none; z-index:50; padding:18px; overflow:auto; }
+  .modal-fondo.abierto { display:block; }
+  .modal { max-width:760px; margin:0 auto; background:var(--tarjeta); border:1px solid var(--linea); border-radius:20px; padding:18px; }
+  .modal h2 { font:700 18px var(--serif); margin:0 0 4px; }
+  .campos { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .campo { display:flex; flex-direction:column; gap:4px; }
+  .campo.ancho { grid-column:1 / -1; }
+  .campo label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); font-weight:700; }
+  .campo .ayuda { font-size:10.5px; color:var(--tinta2); }
+  .fila-campos { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .pie-modal { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+  .pie-modal .crece { flex:1; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .aviso-sesion { background:#FDF6E8; border:1px solid var(--alerta); color:#7a5410; border-radius:12px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--tinta); color:#fff; border-radius:999px; padding:9px 16px; font-size:12.5px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.visible { opacity:1; }
+  .vacio { border:1px dashed var(--linea); border-radius:16px; padding:16px; text-align:center; color:var(--tinta2); font-size:12.5px; }
+  .duplicado { border-bottom:1px dashed var(--linea); padding:7px 0; font-size:12px; }
+  .duplicado:last-child { border-bottom:0; }
+  @media (max-width:720px) {
+    .campos { grid-template-columns:1fr; }
+    th:nth-child(4), td:nth-child(4) { display:none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> Nodos del radar cultural</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="sinSesion" class="aviso-sesion" style="display:none"></div>
+
+  <div class="barra">
+    <input id="buscar" type="search" placeholder="Buscar por nombre, ciudad o dirección…" style="flex:1 1 260px" />
+    <select id="fCiudad"><option value="">Todas las comunas</option></select>
+    <select id="fCategoria"><option value="">Todas las categorías</option></select>
+    <select id="fEstado">
+      <option value="">Publicados y borradores</option>
+      <option value="1">Sólo publicados</option>
+      <option value="0">Sólo borradores</option>
+      <option value="sin">Sólo sin coordenada</option>
+    </select>
+    <button class="btn principal" id="btnNuevo">+ Nodo nuevo</button>
+    <button class="btn" id="btnRecargar">Recargar</button>
+  </div>
+
+  <div class="metricas" id="metricas"></div>
+
+  <div class="layout">
+    <div class="col-principal">
+      <div id="tablaContenedor"></div>
+    </div>
+    <div class="col-lateral">
+      <div class="panel">
+        <h3>Mapa de lo filtrado</h3>
+        <p class="mini">Cada punto es un nodo del radar. Tocar un punto abre su ficha para editarla.</p>
+        <div id="mapaGeneral"></div>
+      </div>
+      <div class="panel">
+        <h3>Posibles duplicados</h3>
+        <p class="mini">Nodos a menos de 200 m con el nombre parecido (el mismo lugar cargado dos veces).</p>
+        <div id="duplicados"></div>
+      </div>
+      <div class="panel">
+        <h3>Cómo se usa</h3>
+        <ul style="margin:6px 0 0 16px; padding:0">
+          <li>Un nodo <b>publicado</b> aparece en la app; un <b>borrador</b> sólo se ve aquí.</li>
+          <li>El <b>radio de desbloqueo</b> es la distancia a la que el lugar se abre en el teléfono (por defecto 120 m).</li>
+          <li>El <b>horario</b> lo muestra la app tal como se escriba ("Lun a Sáb 10:00 a 18:45"). Si está vacío, no se inventa.</li>
+          <li>Si falta la coordenada, el lugar se ve sin distancia: se puede ubicar haciendo clic en el mapa.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-fondo" id="modalFondo">
+  <div class="modal">
+    <h2 id="modalTitulo">Nodo nuevo</h2>
+    <div class="mini" id="modalSub"></div>
+    <div class="campos">
+      <div class="campo ancho">
+        <label for="eName">Nombre del lugar *</label>
+        <input id="eName" type="text" placeholder="Teatro Regional Lucho Gatica" />
+      </div>
+      <div class="campo">
+        <label for="eCategory">Categoría</label>
+        <input id="eCategory" list="cats" type="text" placeholder="Teatro" />
+        <datalist id="cats"></datalist>
+      </div>
+      <div class="campo">
+        <label for="eUnlock">Radio de desbloqueo (m)</label>
+        <input id="eUnlock" type="number" min="20" max="5000" step="10" placeholder="120" />
+      </div>
+      <div class="campo ancho">
+        <label for="eShort">Descripción corta</label>
+        <input id="eShort" type="text" maxlength="300" placeholder="Sala de teatro municipal de Rancagua" />
+      </div>
+      <div class="campo ancho">
+        <label for="eFull">Descripción larga</label>
+        <textarea id="eFull" placeholder="Qué es, qué se puede ver, historia, cómo llegar…"></textarea>
+      </div>
+      <div class="campo ancho">
+        <label for="eAddress">Dirección</label>
+        <input id="eAddress" type="text" placeholder="Avenida Capitán Antonio Millán 342" />
+      </div>
+      <div class="campo">
+        <label for="eCity">Comuna</label>
+        <input id="eCity" type="text" placeholder="Rancagua" />
+      </div>
+      <div class="campo">
+        <label for="eRegion">Región</label>
+        <input id="eRegion" type="text" placeholder="Región del Libertador Gral. Bernardo O'Higgins" />
+      </div>
+      <div class="campo">
+        <label for="eLat">Latitud</label>
+        <input id="eLat" type="number" step="0.0000001" placeholder="-34.1755663" />
+      </div>
+      <div class="campo">
+        <label for="eLng">Longitud</label>
+        <input id="eLng" type="number" step="0.0000001" placeholder="-70.7406144" />
+      </div>
+      <div class="campo ancho">
+        <div class="fila-campos">
+          <button class="btn chico" id="btnUbicarme" type="button">Usar mi ubicación</button>
+          <button class="btn chico" id="btnBuscarDir" type="button">Ubicar por la dirección (OpenStreetMap)</button>
+          <button class="btn chico" id="btnVerMaps" type="button">Ver en Google Maps</button>
+          <span class="mini">La dirección la resuelve OpenStreetMap y es aproximada: mueves el punto a mano si hace falta.</span>
+        </div>
+        <div id="mapaEditor"></div>
+      </div>
+      <div class="campo">
+        <label for="eHours">Horario</label>
+        <input id="eHours" type="text" maxlength="160" placeholder="Mar a Vie 11:00 a 17:00" />
+      </div>
+      <div class="campo">
+        <label for="eCover">Foto</label>
+        <div style="display:flex;gap:6px;align-items:stretch;flex-wrap:wrap">
+          <input id="eCover" type="text" placeholder="https://… (o sube un archivo)" style="flex:1;min-width:140px" />
+          <button type="button" class="btn principal" id="btnSubirFoto" title="Subir una foto desde tu computador o teléfono">Subir foto</button>
+          <button type="button" class="btn" id="btnBuscarFotos" title="Buscar fotos libres en Wikimedia Commons">Buscar en Commons</button>
+        </div>
+        <input id="archivoFoto" type="file" accept="image/*" style="display:none" />
+        <!-- Galería de candidatas: se elige a ojo (por eso no la decide el sistema) -->
+        <div id="galeriaFotos" class="galeria" style="display:none"></div>
+        <img id="previewCover" alt="" style="display:none;width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--linea)" />
+        <p class="mini" id="estadoFoto" style="margin-top:4px">Sube una foto propia (se achica sola antes de guardarse) o elige una candidata libre. Sin foto el lugar se ve con un marcador “Sin foto”.</p>
+      </div>
+      <div class="campo">
+        <label for="eQr">Código QR</label>
+        <input id="eQr" type="text" placeholder="nd_…" />
+      </div>
+      <div class="campo">
+        <label for="ePublicado">Estado</label>
+        <label class="fila-campos" style="text-transform:none; letter-spacing:0; font-weight:400">
+          <input id="ePublicado" type="checkbox" style="width:auto" /> Publicado (visible en la app)
+        </label>
+      </div>
+    </div>
+    <div class="pie-modal">
+      <span class="crece mini" id="modalPista"></span>
+      <button class="btn peligro" id="btnBorrar" type="button">Eliminar</button>
+      <button class="btn" id="btnCancelar" type="button">Cancelar</button>
+      <button class="btn principal" id="btnGuardar" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Panel de administración de los nodos culturales del radar (FASE CRM).
+   Habla con la API del propio hub: /api/v1/crm/radar/nodos (permiso: administración).
+   La identidad sale de la sesión del navegador en este origen (el CRM guarda
+   \`user_session\`, la app \`atha_user_session\`) o de ?email= para poder abrirlo con
+   una cuenta puntual.
+--------------------------------------------------------------------------- */
+var EMAIL = '';
+try {
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['user_session', 'atha_user_session', 'atha_user_profile'];
+  for (var i = 0; i < CLAVES.length && !EMAIL; i++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[i]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+var NODOS = [];
+var filtrados = [];
+var editando = null;
+var mapaGeneral = null;
+var mapaEditor = null;
+var marcadorEditor = null;
+var capaGeneral = null;
+var limitesChile = { lat: [-56.5, -17.0], lng: [-76.0, -66.0] };
+
+function esc(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function cabeceras() {
+  var c = { 'Content-Type': 'application/json' };
+  if (EMAIL) c['x-atha-email'] = EMAIL;
+  return c;
+}
+function conEmail(ruta) {
+  return ruta + (ruta.indexOf('?') >= 0 ? '&' : '?') + 'email=' + encodeURIComponent(EMAIL);
+}
+function toast(txt) {
+  var t = document.getElementById('toast');
+  t.textContent = txt;
+  t.className = 'toast visible';
+  setTimeout(function () { t.className = 'toast'; }, 2600);
+}
+function mostrarError(txt) {
+  var e = document.getElementById('error');
+  e.textContent = txt;
+  e.style.display = txt ? 'block' : 'none';
+}
+function distM(a, b, c, d) {
+  var R = 6371000, rad = Math.PI / 180;
+  var dLat = (c - a) * rad, dLng = (d - b) * rad;
+  var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(a * rad) * Math.cos(c * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
+function norm(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim();
+}
+function necesitaCoord(n) {
+  return !n.latitude || !n.longitude || isNaN(Number(n.latitude)) || isNaN(Number(n.longitude));
+}
+function fueraDeChile(lat, lng) {
+  return lat < limitesChile.lat[0] || lat > limitesChile.lat[1] || lng < limitesChile.lng[0] || lng > limitesChile.lng[1];
+}
+
+/* ------------------------------- carga ---------------------------------- */
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL
+    ? 'Sesión: <b>' + esc(EMAIL) + '</b>'
+    : 'Sin sesión';
+  if (!EMAIL) {
+    var av = document.getElementById('sinSesion');
+    av.innerHTML = 'No hay sesión en este navegador. Abre el panel desde el CRM, o agrega <b>?email=tucorreo@dominio.cl</b> a la dirección. Sólo las cuentas de administración pueden editar el radar.';
+    av.style.display = 'block';
+  }
+  fetch('/api/v1/crm/radar/nodos?incluir_borradores=1', { headers: cabeceras() })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok || !res.d.ok) {
+        mostrarError('No se pudieron leer los nodos: ' + (res.d && res.d.error ? res.d.error : 'HTTP ' + res.status));
+        NODOS = [];
+      } else {
+        NODOS = res.d.nodos || [];
+        mostrarError('');
+      }
+      pintar();
+    })
+    .catch(function (e) {
+      mostrarError('No se pudo conectar con el hub: ' + e.message);
+      NODOS = []; pintar();
+    });
+}
+
+/* ------------------------------ filtros --------------------------------- */
+function filtrar() {
+  var q = norm(document.getElementById('buscar').value);
+  var ciudad = document.getElementById('fCiudad').value;
+  var cat = document.getElementById('fCategoria').value;
+  var estado = document.getElementById('fEstado').value;
+  filtrados = NODOS.filter(function (n) {
+    if (ciudad && (n.city || '') !== ciudad) return false;
+    if (cat && (n.category || '') !== cat) return false;
+    if (estado === '1' && !n.is_published) return false;
+    if (estado === '0' && n.is_published) return false;
+    if (estado === 'sin' && !necesitaCoord(n)) return false;
+    if (q) {
+      var texto = norm([n.name, n.city, n.address, n.category, n.short_description].join(' '));
+      if (texto.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+  filtrados.sort(function (a, b) {
+    var ca = (a.city || '') + '|' + norm(a.name), cb = (b.city || '') + '|' + norm(b.name);
+    return ca < cb ? -1 : ca > cb ? 1 : 0;
+  });
+}
+
+function llenarSelects() {
+  var ciudades = {}, cats = {};
+  NODOS.forEach(function (n) {
+    if (n.city) ciudades[n.city] = (ciudades[n.city] || 0) + 1;
+    if (n.category) cats[n.category] = (cats[n.category] || 0) + 1;
+  });
+  function opciones(id, datos, primera) {
+    var sel = document.getElementById(id), actual = sel.value;
+    sel.innerHTML = '<option value="">' + primera + '</option>';
+    Object.keys(datos).sort().forEach(function (k) {
+      var o = document.createElement('option');
+      o.value = k; o.textContent = k + ' (' + datos[k] + ')';
+      sel.appendChild(o);
+    });
+    sel.value = actual && datos[actual] ? actual : '';
+  }
+  opciones('fCiudad', ciudades, 'Todas las comunas');
+  opciones('fCategoria', cats, 'Todas las categorías');
+  var dl = document.getElementById('cats');
+  dl.innerHTML = '';
+  Object.keys(cats).sort().forEach(function (k) {
+    var o = document.createElement('option'); o.value = k; dl.appendChild(o);
+  });
+}
+
+/* ------------------------------ pintado --------------------------------- */
+function pintar() {
+  llenarSelects();
+  filtrar();
+
+  var publicados = NODOS.filter(function (n) { return n.is_published; }).length;
+  var sinCoord = NODOS.filter(necesitaCoord).length;
+  var metros = [
+    ['Nodos', NODOS.length, false],
+    ['Publicados', publicados, false],
+    ['Borradores', NODOS.length - publicados, NODOS.length - publicados > 0],
+    ['Sin coordenada', sinCoord, sinCoord > 0],
+    ['En pantalla', filtrados.length, false]
+  ];
+  document.getElementById('metricas').innerHTML = metros.map(function (m) {
+    return '<div class="metrica' + (m[2] ? ' aviso' : '') + '"><div class="n">' + m[1] + '</div><div class="t">' + m[0] + '</div></div>';
+  }).join('');
+
+  var cont = document.getElementById('tablaContenedor');
+  if (!NODOS.length) {
+    cont.innerHTML = '<div class="vacio">Todavía no hay nodos cargados. Puedes crear el primero con “+ Nodo nuevo”, o cosecharlos de OpenStreetMap con <b>scripts/recolectar_nodos.py</b>.</div>';
+  } else if (!filtrados.length) {
+    cont.innerHTML = '<div class="vacio">Ningún nodo coincide con el filtro.</div>';
+  } else {
+    var filas = filtrados.map(function (n) {
+      var coords = necesitaCoord(n) ? '<span class="pill borrador">sin coordenada</span>'
+        : '<span class="mini">' + Number(n.latitude).toFixed(5) + ', ' + Number(n.longitude).toFixed(5) + '</span>';
+      return '<tr class="' + (necesitaCoord(n) ? 'sin-coords' : '') + '">' +
+        '<td><div class="nom">' + esc(n.name) + '</div>' +
+          '<div class="mini">' + esc(n.short_description || '') + '</div>' +
+          '<div class="mini">' + (n.hours ? 'Horario: ' + esc(n.hours) : 'sin horario') + '</div></td>' +
+        '<td>' + esc(n.category || '—') + '<div class="mini">' + esc(n.city || 'sin comuna') + '</div></td>' +
+        '<td>' + coords + '<div class="mini">' + esc(n.address || '') + '</div></td>' +
+        '<td>' + (n.unlock_radius_m || 120) + ' m<div class="mini">' + (n.created_by ? esc(n.created_by) : '') + '</div></td>' +
+        '<td>' + (n.is_published ? '<span class="pill ok">publicado</span>' : '<span class="pill borrador">borrador</span>') + '</td>' +
+        '<td><div class="acciones-fila">' +
+          '<button class="btn chico" data-accion="editar" data-id="' + esc(n.id) + '">Editar</button>' +
+          '<button class="btn chico" data-accion="estado" data-id="' + esc(n.id) + '">' + (n.is_published ? 'Ocultar' : 'Publicar') + '</button>' +
+          (necesitaCoord(n) ? '' : '<a class="btn chico" target="_blank" rel="noreferrer" href="https://www.google.com/maps?q=' + n.latitude + ',' + n.longitude + '">Mapa</a>') +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+    cont.innerHTML = '<table><thead><tr><th>Lugar</th><th>Categoría</th><th>Coordenada</th><th>Desbloqueo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>' + filas + '</tbody></table>';
+  }
+  pintarMapaGeneral();
+  pintarDuplicados();
+}
+
+function pintarMapaGeneral() {
+  var conCoords = filtrados.filter(function (n) { return !necesitaCoord(n); });
+  if (!mapaGeneral) {
+    mapaGeneral = L.map('mapaGeneral', { scrollWheelZoom: true }).setView([-34.1708, -70.7444], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(mapaGeneral);
+  }
+  if (capaGeneral) mapaGeneral.removeLayer(capaGeneral);
+  capaGeneral = L.layerGroup().addTo(mapaGeneral);
+  var puntos = [];
+  conCoords.forEach(function (n) {
+    var m = L.circleMarker([Number(n.latitude), Number(n.longitude)], {
+      radius: 7, color: n.is_published ? '#B4472C' : '#C98A1E', weight: 2, fillOpacity: .55
+    }).addTo(capaGeneral);
+    m.bindPopup('<b>' + esc(n.name) + '</b><br>' + esc(n.category || '') + ' · ' + esc(n.city || '') +
+      '<br><button class="btn chico" data-accion="editar" data-id="' + esc(n.id) + '">Editar</button>');
+    puntos.push([Number(n.latitude), Number(n.longitude)]);
+  });
+  if (puntos.length) mapaGeneral.fitBounds(puntos, { padding: [24, 24], maxZoom: 15 });
+  mapaGeneral.invalidateSize();
+}
+
+function pintarDuplicados() {
+  var conCoords = NODOS.filter(function (n) { return !necesitaCoord(n); });
+  var pares = [];
+  for (var i = 0; i < conCoords.length; i++) {
+    for (var j = i + 1; j < conCoords.length; j++) {
+      var a = conCoords[i], b = conCoords[j];
+      var d = distM(Number(a.latitude), Number(a.longitude), Number(b.latitude), Number(b.longitude));
+      if (d > 200) continue;
+      var pa = norm(a.name).split(' ').filter(function (w) { return w.length > 3; });
+      var pb = norm(b.name).split(' ').filter(function (w) { return w.length > 3; });
+      var corto = Math.min(pa.length, pb.length) || 1;
+      var comunes = pa.filter(function (w) { return pb.indexOf(w) >= 0; }).length;
+      var parecido = comunes / corto;
+      var contenido = norm(a.name).indexOf(norm(b.name)) >= 0 || norm(b.name).indexOf(norm(a.name)) >= 0;
+      if (parecido >= 0.6 || contenido) pares.push({ a: a, b: b, d: d });
+    }
+  }
+  var cont = document.getElementById('duplicados');
+  if (!pares.length) {
+    cont.innerHTML = '<p class="mini">No se ven duplicados entre los ' + conCoords.length + ' nodos con coordenada.</p>';
+    return;
+  }
+  cont.innerHTML = pares.sort(function (x, y) { return x.d - y.d; }).slice(0, 12).map(function (p) {
+    return '<div class="duplicado"><b>' + esc(p.a.name) + '</b> (' + esc(p.a.city || '?') + ') y <b>' + esc(p.b.name) +
+      '</b> (' + esc(p.b.city || '?') + ') — a ' + p.d + ' m<br>' +
+      '<button class="btn chico" data-accion="editar" data-id="' + esc(p.a.id) + '">Editar 1</button> ' +
+      '<button class="btn chico" data-accion="editar" data-id="' + esc(p.b.id) + '">Editar 2</button></div>';
+  }).join('');
+}
+
+/* ------------------------------- editor --------------------------------- */
+function porId(id) {
+  for (var i = 0; i < NODOS.length; i++) if (NODOS[i].id === id) return NODOS[i];
+  return null;
+}
+function set(id, valor) { document.getElementById(id).value = valor == null ? '' : valor; }
+
+function abrirEditor(id) {
+  var n = id ? porId(id) : null;
+  editando = n;
+  document.getElementById('modalTitulo').textContent = n ? 'Editar nodo' : 'Nodo nuevo';
+  document.getElementById('modalSub').textContent = n
+    ? 'ID ' + n.id + (n.created_by ? ' · creado por ' + n.created_by : '')
+    : 'Se crea sólo en el CRM: queda borrador hasta que lo publiques.';
+  set('eName', n ? n.name : '');
+  set('eCategory', n ? n.category : '');
+  set('eShort', n ? n.short_description : '');
+  set('eFull', n ? n.full_description : '');
+  set('eAddress', n ? n.address : '');
+  set('eCity', n ? n.city : '');
+  set('eRegion', n ? n.region : '');
+  set('eLat', n && n.latitude ? Number(n.latitude) : '');
+  set('eLng', n && n.longitude ? Number(n.longitude) : '');
+  set('eUnlock', n && n.unlock_radius_m ? n.unlock_radius_m : 120);
+  set('eHours', n ? n.hours : '');
+  set('eCover', n ? n.cover_url : '');
+  // La galería de candidatas se limpia al abrir otro nodo, y la vista previa muestra la foto actual
+  document.getElementById('galeriaFotos').style.display = 'none';
+  document.getElementById('galeriaFotos').innerHTML = '';
+  var previa = document.getElementById('previewCover');
+  if (n && n.cover_url) { previa.src = n.cover_url; previa.style.display = 'block'; }
+  else { previa.removeAttribute('src'); previa.style.display = 'none'; }
+  avisoFoto('Sube una foto propia (se achica sola antes de guardarse) o elige una candidata libre.');
+  set('eQr', n ? n.qr_code : '');
+  document.getElementById('ePublicado').checked = n ? !!n.is_published : false;
+  document.getElementById('btnBorrar').style.display = n ? 'inline-block' : 'none';
+  document.getElementById('modalPista').textContent = '';
+  document.getElementById('modalFondo').className = 'modal-fondo abierto';
+  setTimeout(function () {
+    montarMapaEditor();
+    var lat = parseFloat(document.getElementById('eLat').value);
+    var lng = parseFloat(document.getElementById('eLng').value);
+    if (!isNaN(lat) && !isNaN(lng)) centroEditor(lat, lng, true);
+  }, 60);
+}
+function cerrarEditor() {
+  document.getElementById('modalFondo').className = 'modal-fondo';
+  editando = null;
+}
+function montarMapaEditor() {
+  if (mapaEditor) { mapaEditor.remove(); mapaEditor = null; }
+  mapaEditor = L.map('mapaEditor').setView([-34.1708, -70.7444], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapaEditor);
+  marcadorEditor = null;
+  mapaEditor.on('click', function (ev) { ponerPin(ev.latlng.lat, ev.latlng.lng); });
+  setTimeout(function () { mapaEditor.invalidateSize(); }, 80);
+}
+function centroEditor(lat, lng, poner) {
+  if (!mapaEditor) return;
+  mapaEditor.setView([lat, lng], 16);
+  if (poner) ponerPin(lat, lng);
+}
+function ponerPin(lat, lng) {
+  set('eLat', lat.toFixed(7));
+  set('eLng', lng.toFixed(7));
+  if (!mapaEditor) return;
+  if (marcadorEditor) { marcadorEditor.setLatLng([lat, lng]); return; }
+  marcadorEditor = L.marker([lat, lng], { draggable: true, title: 'Arrastrame al lugar exacto' }).addTo(mapaEditor);
+  marcadorEditor.on('dragend', function () {
+    var p = marcadorEditor.getLatLng();
+    set('eLat', p.lat.toFixed(7));
+    set('eLng', p.lng.toFixed(7));
+  });
+}
+
+function cuerpoFormulario() {
+  var lat = parseFloat(document.getElementById('eLat').value);
+  var lng = parseFloat(document.getElementById('eLng').value);
+  var radio = parseInt(document.getElementById('eUnlock').value, 10);
+  return {
+    name: document.getElementById('eName').value.trim(),
+    category: document.getElementById('eCategory').value.trim() || null,
+    short_description: document.getElementById('eShort').value.trim() || null,
+    full_description: document.getElementById('eFull').value.trim() || null,
+    address: document.getElementById('eAddress').value.trim() || null,
+    city: document.getElementById('eCity').value.trim() || null,
+    region: document.getElementById('eRegion').value.trim() || null,
+    latitude: isNaN(lat) ? null : lat,
+    longitude: isNaN(lng) ? null : lng,
+    unlock_radius_m: isNaN(radio) ? 120 : radio,
+    hours: document.getElementById('eHours').value.trim() || null,
+    cover_url: document.getElementById('eCover').value.trim() || null,
+    qr_code: document.getElementById('eQr').value.trim() || null,
+    is_published: document.getElementById('ePublicado').checked ? 1 : 0,
+    email: EMAIL
+  };
+}
+
+function guardar() {
+  var b = cuerpoFormulario();
+  if (b.name.length < 3) { document.getElementById('modalPista').textContent = 'El nombre necesita al menos 3 letras.'; return; }
+  if (b.latitude != null && b.longitude != null && fueraDeChile(b.latitude, b.longitude)) {
+    document.getElementById('modalPista').textContent = 'Esas coordenadas no caen en Chile: revisa el pin.';
+    return;
+  }
+  if ((b.latitude == null) !== (b.longitude == null)) {
+    document.getElementById('modalPista').textContent = 'Latitud y longitud van juntas: pon las dos o ninguna.';
+    return;
+  }
+  var url = editando ? '/api/v1/crm/radar/nodos/' + encodeURIComponent(editando.id) : '/api/v1/crm/radar/nodos';
+  document.getElementById('modalPista').textContent = 'Guardando…';
+  fetch(url, { method: editando ? 'PATCH' : 'POST', headers: cabeceras(), body: JSON.stringify(b) })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) {
+        document.getElementById('modalPista').textContent = res.d && res.d.error ? res.d.error : 'No se pudo guardar (HTTP ' + res.status + ')';
+        return;
+      }
+      toast(editando ? 'Nodo actualizado' : 'Nodo creado');
+      cerrarEditor();
+      cargar();
+    })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'Error de red: ' + e.message; });
+}
+
+function borrar() {
+  if (!editando) return;
+  if (!confirm('¿Eliminar «' + editando.name + '»? Se borran también sus descubrimientos y su lugar en las rutas. No se puede deshacer.')) return;
+  fetch('/api/v1/crm/radar/nodos/' + encodeURIComponent(editando.id), { method: 'DELETE', headers: cabeceras(), body: JSON.stringify({ email: EMAIL }) })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { document.getElementById('modalPista').textContent = (res.d && res.d.error) || ('no se pudo borrar (HTTP ' + res.status + ')'); return; }
+      toast('Nodo eliminado');
+      cerrarEditor();
+      cargar();
+    })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'Error de red: ' + e.message; });
+}
+
+function alternarEstado(id) {
+  var n = porId(id);
+  if (!n) return;
+  fetch('/api/v1/crm/radar/nodos/' + encodeURIComponent(id), {
+    method: 'PATCH', headers: cabeceras(),
+    body: JSON.stringify({ email: EMAIL, is_published: n.is_published ? 0 : 1 })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { toast(d.error || 'no se pudo cambiar el estado'); return; }
+    toast(n.is_published ? 'Pasó a borrador' : 'Publicado en la app');
+    cargar();
+  }).catch(function (e) { toast('Error de red: ' + e.message); });
+}
+
+/* ------------------------------ geocodificar ---------------------------- */
+function ubicarme() {
+  if (!navigator.geolocation) { document.getElementById('modalPista').textContent = 'Este navegador no da la ubicación.'; return; }
+  document.getElementById('modalPista').textContent = 'Pidiendo la ubicación…';
+  navigator.geolocation.getCurrentPosition(function (p) {
+    centroEditor(p.coords.latitude, p.coords.longitude, true);
+    document.getElementById('modalPista').textContent = 'Ubicación puesta (±' + Math.round(p.coords.accuracy) + ' m).';
+  }, function (e) {
+    document.getElementById('modalPista').textContent = 'No se pudo obtener la ubicación: ' + e.message;
+  }, { enableHighAccuracy: true, timeout: 12000 });
+}
+function buscarDireccion() {
+  var dir = document.getElementById('eAddress').value.trim();
+  var comuna = document.getElementById('eCity').value.trim();
+  if (!dir && !comuna) { document.getElementById('modalPista').textContent = 'Escribe una dirección o una comuna para buscarla.'; return; }
+  var q = [dir, comuna, 'Chile'].filter(Boolean).join(', ');
+  document.getElementById('modalPista').textContent = 'Buscando «' + q + '» en OpenStreetMap…';
+  fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=cl&q=' + encodeURIComponent(q))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.length) { document.getElementById('modalPista').textContent = 'OpenStreetMap no encontró esa dirección: ubica el punto a mano en el mapa.'; return; }
+      centroEditor(parseFloat(d[0].lat), parseFloat(d[0].lon), true);
+      document.getElementById('modalPista').textContent = 'Aproximado por OpenStreetMap — revisa el pin y movelo si hace falta.';
+    })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'No se pudo consultar OpenStreetMap: ' + e.message; });
+}
+function verMaps() {
+  var lat = document.getElementById('eLat').value, lng = document.getElementById('eLng').value;
+  if (!lat || !lng) { document.getElementById('modalPista').textContent = 'Todavía no hay coordenada.'; return; }
+  window.open('https://www.google.com/maps?q=' + lat + ',' + lng, '_blank', 'noreferrer');
+}
+
+/* ---------------------------------------------------------------------------
+   Subir una foto propia (lo que pidió Francisco: las URLs públicas son
+   difíciles de conseguir). El navegador la achica a 1600 px y la manda como
+   JPEG 85 %, así no viajan 8 MB desde el teléfono; el hub la deja en el bucket
+   del ecosistema y devuelve la URL pública.
+   --------------------------------------------------------------------------- */
+function avisoFoto(texto) {
+  document.getElementById('estadoFoto').textContent = texto;
+}
+
+function procesarArchivo(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\\//.test(file.type)) { avisoFoto('Elige una imagen (JPG, PNG o WebP).'); input.value = ''; return; }
+  avisoFoto('Preparando la imagen…');
+  var lector = new FileReader();
+  lector.onload = function () {
+    var img = new Image();
+    img.onload = function () {
+      var max = 1600;
+      var escala = Math.min(1, max / Math.max(img.width, img.height));
+      var lienzo = document.createElement('canvas');
+      lienzo.width = Math.round(img.width * escala);
+      lienzo.height = Math.round(img.height * escala);
+      lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+      var dataUrl = lienzo.toDataURL('image/jpeg', 0.85);
+      avisoFoto('Subiendo ' + lienzo.width + '×' + lienzo.height + ' (' + Math.round(dataUrl.length / 1365) + ' KB)…');
+      enviarFoto(dataUrl, file.name);
+    };
+    img.onerror = function () { avisoFoto('No se pudo leer la imagen.'); };
+    img.src = lector.result;
+  };
+  lector.onerror = function () { avisoFoto('No se pudo leer el archivo.'); };
+  lector.readAsDataURL(file);
+  input.value = '';
+}
+
+function enviarFoto(dataUrl, nombreArchivo) {
+  var nombre = document.getElementById('eName').value.trim() || nombreArchivo || 'foto';
+  fetch('/api/v1/crm/media', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-atha-email': EMAIL },
+    body: JSON.stringify({ imagen: dataUrl, nombre: nombre, carpeta: 'radar', email: EMAIL }),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { avisoFoto('No se pudo subir: ' + (d.error || 'error')); return; }
+      document.getElementById('eCover').value = d.url;
+      var previa = document.getElementById('previewCover');
+      previa.src = d.url; previa.style.display = 'block';
+      avisoFoto('Foto subida. Se guarda al apretar Guardar.');
+    })
+    .catch(function (e) { avisoFoto('No se pudo subir: ' + e.message); });
+}
+
+/* ---------------------------------------------------------------------------
+   Fotografías: buscar candidatas libres (Wikimedia Commons) y elegir a ojo.
+   El nombre del lugar es lo que busca; se le suma la comuna para desambiguar.
+   La foto elegida queda en el campo Foto; el sistema NO elige solo.
+   --------------------------------------------------------------------------- */
+function buscarFotos() {
+  var nombre = document.getElementById('eName').value.trim();
+  var comuna = document.getElementById('eCity').value.trim();
+  var caja = document.getElementById('galeriaFotos');
+  if (nombre.length < 3) { document.getElementById('modalPista').textContent = 'Escribe primero el nombre del lugar.'; return; }
+  caja.style.display = 'block';
+  caja.innerHTML = '<p class="mini">Buscando fotos libres de «' + esc(nombre) + '»…</p>';
+  fetch('/api/v1/crm/radar/fotos-sugeridas?q=' + encodeURIComponent(nombre) + '&ciudad=' + encodeURIComponent(comuna) + '&email=' + encodeURIComponent(EMAIL), { headers: { 'x-atha-email': EMAIL } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { caja.innerHTML = '<p class="mini">No se pudo buscar: ' + esc(d.error || 'error') + '</p>'; return; }
+      if (!d.fotos.length) {
+        caja.innerHTML = '<p class="mini">No hay fotos libres con ese nombre. Prueba con otro texto (el nombre de la calle, «teatro municipal», el nombre de la obra) o pega una URL propia.</p>';
+        return;
+      }
+      var html = d.fotos.map(function (f) {
+        return '<img src="' + esc(f.url) + '" data-u="' + esc(f.url_grande || f.url) + '" title="' + esc(f.titulo) + (f.licencia ? ' · ' + esc(f.licencia) : '') + (f.autor ? ' · ' + esc(f.autor) : '') + '">';
+      }).join('');
+      html += '<p class="mini" style="grid-column:1/-1">Elige la que corresponde al lugar (queda en el campo Foto) — ' +
+        '<a href="https://commons.wikimedia.org/w/index.php?search=' + encodeURIComponent([nombre, comuna].filter(Boolean).join(' ')) + '" target="_blank" rel="noreferrer">ver todas en Commons</a> · ' +
+        '<a href="https://www.google.com/search?tbm=isch&q=' + encodeURIComponent([nombre, comuna, 'Chile'].filter(Boolean).join(' ')) + '" target="_blank" rel="noreferrer">buscar en Google Imágenes</a></p>';
+      caja.innerHTML = html;
+      var imgs = caja.querySelectorAll('img');
+      for (var i = 0; i < imgs.length; i++) {
+        imgs[i].addEventListener('click', function () {
+          var u = this.getAttribute('data-u');
+          document.getElementById('eCover').value = u;
+          var prev = document.getElementById('previewCover');
+          prev.src = u; prev.style.display = 'block';
+          document.getElementById('modalPista').textContent = 'Foto elegida: se guarda al apretar Guardar.';
+        });
+      }
+    })
+    .catch(function (e) { caja.innerHTML = '<p class="mini">No se pudo buscar: ' + esc(e.message) + '</p>'; });
+}
+
+/* ------------------------------- eventos -------------------------------- */
+document.getElementById('buscar').addEventListener('input', function () { pintar(); });
+['fCiudad', 'fCategoria', 'fEstado'].forEach(function (id) {
+  document.getElementById(id).addEventListener('change', function () { pintar(); });
+});
+document.getElementById('btnSubirFoto').addEventListener('click', function () { document.getElementById('archivoFoto').click(); });
+document.getElementById('archivoFoto').addEventListener('change', function () { procesarArchivo(this); });
+document.getElementById('btnBuscarFotos').addEventListener('click', buscarFotos);
+document.getElementById('btnNuevo').addEventListener('click', function () { abrirEditor(null); });
+document.getElementById('btnRecargar').addEventListener('click', function () { cargar(); });
+document.getElementById('btnGuardar').addEventListener('click', guardar);
+document.getElementById('btnBorrar').addEventListener('click', borrar);
+document.getElementById('btnCancelar').addEventListener('click', cerrarEditor);
+document.getElementById('btnUbicarme').addEventListener('click', ubicarme);
+document.getElementById('btnBuscarDir').addEventListener('click', buscarDireccion);
+document.getElementById('btnVerMaps').addEventListener('click', verMaps);
+document.getElementById('modalFondo').addEventListener('click', function (ev) {
+  if (ev.target.id === 'modalFondo') cerrarEditor();
+});
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest ? ev.target.closest('[data-accion]') : null;
+  if (!el) return;
+  var accion = el.getAttribute('data-accion'), id = el.getAttribute('data-id');
+  if (accion === 'editar') abrirEditor(id);
+  if (accion === 'estado') alternarEstado(id);
+});
+document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') cerrarEditor(); });
+
+cargar();
+</script>
+</body>
+</html>
+`;
+app.get('/nodos', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('html').send(PAGINA_NODOS);
+});
+
+
+
+
+// ---------------------------------------------------------------------------
+// BUZÓN DEL PILOTO (REPORTES DE LA APP)
+//
+// Página servida en línea por el hub (/reportes). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/reportes.html (ver docs/).
+// ---------------------------------------------------------------------------
+const PAGINA_REPORTES = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Buzón del piloto · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A; --alerta:#C98A1E; --malo:#8A3B6B;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  a { color:var(--acento); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1080px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .marca img { width:26px; height:26px; }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  main { max-width:1080px; margin:0 auto; padding:16px; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  input, select, textarea { font:13px var(--sans); color:var(--tinta); background:var(--tarjeta); border:1px solid var(--linea); border-radius:10px; padding:8px 10px; }
+  textarea { min-height:70px; resize:vertical; width:100%; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--acento-suave); border-color:var(--acento); }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .btn.principal:hover { color:#fff; filter:brightness(1.06); }
+  .btn.chico { padding:5px 10px; font-size:11.5px; }
+  .metricas { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .metrica { background:var(--tarjeta); border:1px solid var(--linea); border-radius:14px; padding:8px 12px; min-width:96px; }
+  .metrica .n { font:700 19px var(--serif); }
+  .metrica .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); }
+  .metrica.rojo .n { color:var(--acento); }
+  .reporte { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:14px 16px; margin-bottom:12px; }
+  .reporte.nuevo { border-left:4px solid var(--acento); }
+  .reporte .cab { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .reporte .quien-rep { font-weight:600; }
+  .reporte .texto { font-size:14px; margin:8px 0; }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 7px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.nuevo { border-color:var(--acento); color:var(--acento); background:var(--acento-suave); }
+  .pill.visto { border-color:var(--alerta); color:#7a5410; }
+  .pill.resuelto { border-color:var(--ok); color:var(--ok); }
+  .mini { font-size:11px; color:var(--tinta2); }
+  .captura { max-width:260px; border:1px solid var(--linea); border-radius:12px; margin-top:8px; display:block; }
+  .nota { background:var(--fondo2); border-radius:10px; padding:8px 10px; font-size:12px; margin-top:8px; }
+  .acciones-rep { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .responder { margin-top:10px; display:none; }
+  .responder.abierto { display:block; }
+  .vacio { border:1px dashed var(--linea); border-radius:16px; padding:18px; text-align:center; color:var(--tinta2); }
+  .aviso-sesion { background:#FDF6E8; border:1px solid var(--alerta); color:#7a5410; border-radius:12px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--tinta); color:#fff; border-radius:999px; padding:9px 16px; font-size:12.5px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.visible { opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> Buzón del piloto</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="sinSesion" class="aviso-sesion" style="display:none"></div>
+
+  <div class="metricas" id="metricas"></div>
+
+  <div class="barra">
+    <input id="buscar" type="search" placeholder="Buscar por texto, nombre o correo…" style="flex:1 1 240px" />
+    <select id="fEstado">
+      <option value="">Todos (nuevos primero)</option>
+      <option value="nuevo">Sólo nuevos</option>
+      <option value="visto">Sólo vistos</option>
+      <option value="resuelto">Sólo resueltos</option>
+    </select>
+    <select id="fCategoria"><option value="">Todas las categorías</option></select>
+    <button class="btn" id="btnRecargar">Recargar</button>
+  </div>
+
+  <div id="lista"></div>
+
+  <div class="mini" style="margin-top:18px">
+    Los reportes llegan desde el botón <b>“Reportar algo”</b> de la app, con la pantalla, la
+    versión y la captura. Cada uno avisa por Telegram al equipo. Responder desde aquí sale por
+    el correo del ecosistema (queda registrado en <code>email_log</code>).
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var EMAIL = '';
+try {
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['user_session', 'atha_user_session', 'atha_user_profile'];
+  for (var i = 0; i < CLAVES.length && !EMAIL; i++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[i]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+var REPORTES = [];
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function cabeceras() { var c = { 'Content-Type': 'application/json' }; if (EMAIL) c['x-atha-email'] = EMAIL; return c; }
+function toast(t) { var e = document.getElementById('toast'); e.textContent = t; e.className = 'toast visible'; setTimeout(function () { e.className = 'toast'; }, 2600); }
+function fechaBonita(t) { var m = /^(\\d{4})-(\\d{2})-(\\d{2})[T ](\\d{2}):(\\d{2})/.exec(String(t || '')); if (!m) return String(t || ''); var MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']; return m[3] + ' ' + MES[Number(m[2]) - 1] + ' · ' + m[4] + ':' + m[5]; }
+
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL ? 'Sesión: <b>' + esc(EMAIL) + '</b>' : 'Sin sesión';
+  if (!EMAIL) {
+    var av = document.getElementById('sinSesion');
+    av.innerHTML = 'No hay sesión en este navegador. Abre el buzón desde el CRM, o agrega <b>?email=tucorreo@dominio.cl</b>. Sólo administración puede ver y responder los reportes.';
+    av.style.display = 'block';
+  }
+  fetch('/api/v1/crm/piloto/reportes', { headers: cabeceras() })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { docError('No se pudieron leer los reportes: ' + ((res.d && res.d.error) || 'HTTP ' + res.status)); REPORTES = []; }
+      else { docError(''); REPORTES = res.d.reportes || []; }
+      pintar();
+    })
+    .catch(function (e) { docError('No se pudo conectar con el hub: ' + e.message); pintar(); });
+}
+function docError(t) { var e = document.getElementById('error'); e.textContent = t || ''; e.style.display = t ? 'block' : 'none'; }
+
+function filtrados() {
+  var q = String(document.getElementById('buscar').value || '').toLowerCase().trim();
+  var estado = document.getElementById('fEstado').value;
+  var cat = document.getElementById('fCategoria').value;
+  return REPORTES.filter(function (r) {
+    if (estado && (r.estado || 'nuevo') !== estado) return false;
+    if (cat && (r.categoria || 'otro') !== cat) return false;
+    if (q) {
+      var blob = [r.texto, r.nombre, r.email, r.categoria, r.pantalla, r.nota].join(' ').toLowerCase();
+      if (blob.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+
+function pintar() {
+  var cats = {};
+  REPORTES.forEach(function (r) { var k = r.categoria || 'otro'; cats[k] = (cats[k] || 0) + 1; });
+  var sel = document.getElementById('fCategoria'), actual = sel.value;
+  sel.innerHTML = '<option value="">Todas las categorías</option>';
+  Object.keys(cats).sort().forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = k + ' (' + cats[k] + ')'; sel.appendChild(o); });
+  if (actual && cats[actual]) sel.value = actual;
+
+  var nuevos = REPORTES.filter(function (r) { return (r.estado || 'nuevo') === 'nuevo'; }).length;
+  var vistos = REPORTES.filter(function (r) { return r.estado === 'visto'; }).length;
+  var resueltos = REPORTES.filter(function (r) { return r.estado === 'resuelto'; }).length;
+  document.getElementById('metricas').innerHTML = [
+    ['Nuevos sin leer', nuevos, nuevos > 0],
+    ['Vistos', vistos, false],
+    ['Resueltos', resueltos, false],
+    ['Total', REPORTES.length, false]
+  ].map(function (m) {
+    return '<div class="metrica' + (m[2] ? ' rojo' : '') + '"><div class="n">' + m[1] + '</div><div class="t">' + m[0] + '</div></div>';
+  }).join('');
+
+  var lista = filtrados();
+  var cont = document.getElementById('lista');
+  if (!REPORTES.length) {
+    cont.innerHTML = '<div class="vacio">Todavía no llegó ningún reporte desde la app. Cuando alguien use <b>“Reportar algo”</b>, aparece aquí y suena en el teléfono del equipo.</div>';
+    return;
+  }
+  if (!lista.length) { cont.innerHTML = '<div class="vacio">Ningún reporte coincide con el filtro.</div>'; return; }
+  cont.innerHTML = lista.map(function (r) {
+    var estado = r.estado || 'nuevo';
+    return '<div class="reporte ' + estado + '">' +
+      '<div class="cab">' +
+        '<span class="pill ' + estado + '">' + estado + '</span>' +
+        '<span class="quien-rep">' + esc(r.nombre || r.email || 'sin cuenta') + '</span>' +
+        (r.nombre && r.email ? '<span class="mini">' + esc(r.email) + '</span>' : '') +
+        '<span class="mini">· ' + fechaBonita(r.created_at) + '</span>' +
+        '<span class="pill">' + esc(r.categoria || 'otro') + '</span>' +
+        (r.pantalla ? '<span class="mini">pantalla ' + esc(r.pantalla) + '</span>' : '') +
+        (r.plataforma ? '<span class="mini">' + esc(r.plataforma) + (r.version ? ' ' + esc(r.version) : '') + '</span>' : '') +
+      '</div>' +
+      '<div class="texto">' + esc(r.texto) + '</div>' +
+      (r.imagen_url ? '<a href="' + esc(r.imagen_url) + '" target="_blank" rel="noreferrer"><img class="captura" src="' + esc(r.imagen_url) + '" alt="captura de pantalla" /></a>' : '') +
+      (r.nota ? '<div class="nota"><b>Nota:</b> ' + esc(r.nota) + (r.atendido_por ? ' <span class="mini">· ' + esc(r.atendido_por) + '</span>' : '') + '</div>' : '') +
+      '<div class="acciones-rep">' +
+        (estado === 'nuevo' ? '<button class="btn chico" data-accion="estado" data-id="' + esc(r.id) + '" data-estado="visto">Marcar visto</button>' : '') +
+        '<button class="btn chico" data-accion="nota" data-id="' + esc(r.id) + '">Guardar nota</button>' +
+        '<button class="btn chico principal" data-accion="responder" data-id="' + esc(r.id) + '">Responder por correo</button>' +
+        (estado !== 'resuelto' ? '<button class="btn chico" data-accion="estado" data-id="' + esc(r.id) + '" data-estado="resuelto">Marcar resuelto</button>' : '') +
+      '</div>' +
+      '<div class="responder" id="resp-' + esc(r.id) + '">' +
+        '<textarea id="msg-' + esc(r.id) + '" placeholder="Qué le quieres decir a ' + esc((r.nombre || 'quien reportó').split(' ')[0]) + '…">' + esc(sugerencia(r)) + '</textarea>' +
+        '<div class="acciones-rep">' +
+          '<input id="para-' + esc(r.id) + '" value="' + esc(r.email || '') + '" placeholder="correo de destino" style="flex:1 1 200px" />' +
+          '<button class="btn chico principal" data-accion="enviar" data-id="' + esc(r.id) + '">Enviar respuesta</button>' +
+          '<span class="mini" id="env-' + esc(r.id) + '"></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="nota" id="nota-' + esc(r.id) + '" style="display:none">' +
+        '<textarea id="txt-' + esc(r.id) + '" placeholder="Qué se hizo con este reporte (queda en la ficha)">' + esc(r.nota || '') + '</textarea>' +
+        '<div class="acciones-rep"><button class="btn chico" data-accion="guardar-nota" data-id="' + esc(r.id) + '">Guardar</button></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/** Respuesta sugerida: corta, en el tono del ecosistema, siempre honesta. */
+function sugerencia(r) {
+  var nombre = (r.nombre || '').split(' ')[0] || '';
+  return (nombre ? nombre + ', ' : '') + 'gracias por reportarlo. ';
+}
+
+/* ------------------------------- acciones -------------------------------- */
+function cambiarEstado(id, estado) {
+  fetch('/api/v1/crm/piloto/reportes/' + encodeURIComponent(id), {
+    method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ estado: estado, email: EMAIL })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { toast(d.error || 'no se pudo cambiar el estado'); return; }
+    toast(estado === 'resuelto' ? 'Marcado como resuelto' : 'Marcado como visto');
+    cargar();
+  }).catch(function (e) { toast('Error de red: ' + e.message); });
+}
+
+function guardarNota(id) {
+  var texto = document.getElementById('txt-' + id).value;
+  fetch('/api/v1/crm/piloto/reportes/' + encodeURIComponent(id), {
+    method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ nota: texto, email: EMAIL })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { toast(d.error || 'no se pudo guardar la nota'); return; }
+    toast('Nota guardada'); cargar();
+  }).catch(function (e) { toast('Error de red: ' + e.message); });
+}
+
+function responder(id) {
+  var caja = document.getElementById('resp-' + id);
+  caja.className = 'responder abierto';
+  var ta = document.getElementById('msg-' + id);
+  if (ta) ta.focus();
+}
+
+function enviar(id) {
+  var mensaje = document.getElementById('msg-' + id).value.trim();
+  var para = document.getElementById('para-' + id).value.trim();
+  var aviso = document.getElementById('env-' + id);
+  if (mensaje.length < 3) { aviso.textContent = 'Escribe la respuesta.'; return; }
+  if (!para) { aviso.textContent = 'Falta el correo de destino.'; return; }
+  aviso.textContent = 'Enviando…';
+  fetch('/api/v1/crm/piloto/reportes/' + encodeURIComponent(id) + '/responder', {
+    method: 'POST', headers: cabeceras(), body: JSON.stringify({ mensaje: mensaje, para: para, email: EMAIL })
+  }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { aviso.textContent = (res.d && res.d.error) || ('no salió (HTTP ' + res.status + ')'); return; }
+      toast('Respuesta enviada a ' + res.d.para);
+      cargar();
+    })
+    .catch(function (e) { aviso.textContent = 'Error de red: ' + e.message; });
+}
+
+document.getElementById('buscar').addEventListener('input', pintar);
+document.getElementById('fEstado').addEventListener('change', pintar);
+document.getElementById('fCategoria').addEventListener('change', pintar);
+document.getElementById('btnRecargar').addEventListener('click', cargar);
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest ? ev.target.closest('[data-accion]') : null;
+  if (!el) return;
+  var accion = el.getAttribute('data-accion'), id = el.getAttribute('data-id');
+  if (accion === 'estado') cambiarEstado(id, el.getAttribute('data-estado'));
+  if (accion === 'nota') { var n = document.getElementById('nota-' + id); n.style.display = n.style.display === 'none' ? 'block' : 'none'; }
+  if (accion === 'guardar-nota') guardarNota(id);
+  if (accion === 'responder') responder(id);
+  if (accion === 'enviar') enviar(id);
+});
+
+cargar();
+</script>
+</body>
+</html>
+`;
+app.get('/reportes', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('html').send(PAGINA_REPORTES);
+});
+
+// ---------------------------------------------------------------------------
+// AGENDA CULTURAL (CARGAR FUNCIONES EN EL CRM)
+//
+// Página servida en línea por el hub (/agenda). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/agenda.html (ver docs/).
+// ---------------------------------------------------------------------------
+const PAGINA_AGENDA = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agenda cultural · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A; --alerta:#C98A1E; --malo:#8A3B6B;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  a { color:var(--acento); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1080px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .marca img { width:26px; height:26px; }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  main { max-width:1080px; margin:0 auto; padding:16px; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  input, select, textarea { font:13px var(--sans); color:var(--tinta); background:var(--tarjeta); border:1px solid var(--linea); border-radius:10px; padding:8px 10px; }
+  textarea { min-height:66px; resize:vertical; width:100%; }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .btn.principal:hover { color:#fff; filter:brightness(1.06); }
+  .btn.chico { padding:5px 10px; font-size:11.5px; }
+  table { width:100%; border-collapse:collapse; background:var(--tarjeta); border:1px solid var(--linea); border-radius:16px; overflow:hidden; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--linea); font-size:12.5px; vertical-align:top; }
+  th { background:var(--fondo2); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); }
+  tr:last-child td { border-bottom:0; }
+  tr.borrador td { background:#FDF6E8; }
+  tr.pasado td { opacity:.55; }
+  .nom { font-weight:600; }
+  .mini { font-size:10.5px; color:var(--tinta2); }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 7px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.pub { border-color:var(--ok); color:var(--ok); }
+  .pill.bor { border-color:var(--alerta); color:#7a5410; }
+  .pill.ext { border-color:var(--malo); color:var(--malo); }
+  .acciones-fila { display:flex; gap:6px; flex-wrap:wrap; }
+  .modal-fondo { position:fixed; inset:0; background:rgba(29,26,22,.55); display:none; z-index:50; padding:18px; overflow:auto; }
+  .modal-fondo.abierto { display:block; }
+  .modal { max-width:720px; margin:0 auto; background:var(--tarjeta); border:1px solid var(--linea); border-radius:20px; padding:18px; }
+  .modal h2 { font:700 18px var(--serif); margin:0 0 4px; }
+  .campos { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .campo { display:flex; flex-direction:column; gap:4px; }
+  .campo.ancho { grid-column:1 / -1; }
+  .campo label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); font-weight:700; }
+  .pie-modal { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+  .pie-modal .crece { flex:1; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--tinta); color:#fff; border-radius:999px; padding:9px 16px; font-size:12.5px; z-index:80; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.visible { opacity:1; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .aviso-sesion { background:#FDF6E8; border:1px solid var(--alerta); color:#7a5410; border-radius:12px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+  .vacio { border:1px dashed var(--linea); border-radius:16px; padding:18px; text-align:center; color:var(--tinta2); }
+  @media (max-width:720px) { .campos { grid-template-columns:1fr; } th:nth-child(4), td:nth-child(4) { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> Agenda cultural</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="sinSesion" class="aviso-sesion" style="display:none"></div>
+
+  <div class="barra">
+    <input id="buscar" type="search" placeholder="Buscar por título, lugar o comuna…" style="flex:1 1 220px" />
+    <select id="fEstado">
+      <option value="">Publicadas y borradores</option>
+      <option value="1">Sólo publicadas (lo que ve la app)</option>
+      <option value="0">Sólo borradores</option>
+      <option value="pasado">Sólo ya pasadas</option>
+    </select>
+    <label class="mini"><input type="checkbox" id="fLejos" style="width:auto" /> incluir más allá de 90 días</label>
+    <button class="btn principal" id="btnNuevo">+ Función nueva</button>
+    <button class="btn" id="btnRecargar">Recargar</button>
+  </div>
+
+  <div id="tabla"></div>
+
+  <div class="mini" style="margin-top:16px">
+    Esto alimenta el <b>Inicio</b> de la app: cada función publicada aparece con su hora, su
+    recinto y —si tiene coordenadas— a cuántos metros queda de quien la mira. Al publicar,
+    el equipo recibe un aviso por Telegram. Las funciones de una agrupación también las puede
+    cargar la producción de esa compañía desde la app del CRM.
+  </div>
+</main>
+
+<div class="modal-fondo" id="modalFondo">
+  <div class="modal">
+    <h2 id="modalTitulo">Función nueva</h2>
+    <div class="mini" id="modalSub"></div>
+    <div class="campos">
+      <div class="campo ancho">
+        <label for="eTitle">Título *</label>
+        <input id="eTitle" type="text" placeholder="Inti-Illimani: gira «Caminos»" />
+      </div>
+      <div class="campo">
+        <label for="eType">Tipo</label>
+        <select id="eType">
+          <option>Función</option><option>Teatro</option><option>Música</option><option>Danza</option>
+          <option>Exposición</option><option>Taller</option><option>Cine</option><option>Evento</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="eStatus">Condición</label>
+        <input id="eStatus" type="text" placeholder="Confirmado · Entrada liberada" />
+      </div>
+      <div class="campo">
+        <label for="eDate">Fecha *</label>
+        <input id="eDate" type="date" />
+      </div>
+      <div class="campo">
+        <label for="eDateEnd">Hasta (sólo muestras)</label>
+        <input id="eDateEnd" type="date" />
+      </div>
+      <div class="campo">
+        <label for="eHora">Hora</label>
+        <input id="eHora" type="time" />
+      </div>
+      <div class="campo">
+        <label for="eHoraFin">Hora de término</label>
+        <input id="eHoraFin" type="time" />
+      </div>
+      <div class="campo ancho">
+        <label for="eVenue">Lugar</label>
+        <input id="eVenue" type="text" placeholder="Teatro Regional Lucho Gatica" />
+      </div>
+      <div class="campo">
+        <label for="eCity">Comuna</label>
+        <input id="eCity" type="text" placeholder="Rancagua" />
+      </div>
+      <div class="campo">
+        <label for="eRegion">Región</label>
+        <input id="eRegion" type="text" placeholder="Región del Libertador Gral. Bernardo O'Higgins" />
+      </div>
+      <div class="campo">
+        <label for="eLat">Latitud</label>
+        <input id="eLat" type="number" step="0.0000001" placeholder="-34.1755663" />
+      </div>
+      <div class="campo">
+        <label for="eLng">Longitud</label>
+        <input id="eLng" type="number" step="0.0000001" placeholder="-70.7406144" />
+      </div>
+      <div class="campo ancho">
+        <div class="acciones-fila">
+          <button class="btn chico" id="btnUbicarme" type="button">Usar mi ubicación</button>
+          <button class="btn chico" id="btnBuscarDir" type="button">Ubicar por la dirección (OpenStreetMap)</button>
+          <span class="mini">Sin coordenada la función se ve igual, sólo que sin distancia.</span>
+        </div>
+      </div>
+      <div class="campo">
+        <label for="eImage">Imagen (URL)</label>
+        <input id="eImage" type="text" placeholder="https://…" />
+      </div>
+      <div class="campo">
+        <label for="eTicket">Entradas (URL)</label>
+        <input id="eTicket" type="text" placeholder="https://…" />
+      </div>
+      <div class="campo ancho">
+        <label for="eNotes">Notas internas</label>
+        <textarea id="eNotes" placeholder="Quién la produce, contacto de la sala, detalles de carga…"></textarea>
+      </div>
+      <div class="campo ancho">
+        <label class="mini" style="text-transform:none; letter-spacing:0">
+          <input type="checkbox" id="ePublic" style="width:auto" /> Publicada (visible en la app)
+        </label>
+      </div>
+    </div>
+    <div class="pie-modal">
+      <span class="crece mini" id="modalPista"></span>
+      <button class="btn" id="btnBorrar" type="button" style="display:none">Eliminar</button>
+      <button class="btn" id="btnCancelar" type="button">Cancelar</button>
+      <button class="btn principal" id="btnGuardar" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var EMAIL = '';
+try {
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['user_session', 'atha_user_session', 'atha_user_profile'];
+  for (var i = 0; i < CLAVES.length && !EMAIL; i++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[i]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+var EVENTOS = [];
+var editando = null;
+var HOY = new Date().toISOString().slice(0, 10);
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function cabeceras() { var c = { 'Content-Type': 'application/json' }; if (EMAIL) c['x-atha-email'] = EMAIL; return c; }
+function toast(t) { var e = document.getElementById('toast'); e.textContent = t; e.className = 'toast visible'; setTimeout(function () { e.className = 'toast'; }, 2600); }
+function err(t) { var e = document.getElementById('error'); e.textContent = t || ''; e.style.display = t ? 'block' : 'none'; }
+function soloFecha(v) { var m = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(String(v || '')); return m ? m[0] : ''; }
+function soloHora(v) { var m = /^(\\d{2}):(\\d{2})/.exec(String(v || '')); return m ? m[1] + ':' + m[2] : ''; }
+function fechaLinda(iso) {
+  var f = soloFecha(iso); if (!f) return '';
+  var MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var DIA = ['dom','lun','mar','mié','jue','vie','sáb'];
+  var d = new Date(Number(f.slice(0, 4)), Number(f.slice(5, 7)) - 1, Number(f.slice(8, 10)));
+  return DIA[d.getDay()] + ' ' + d.getDate() + ' ' + MES[d.getMonth()];
+}
+
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL ? 'Sesión: <b>' + esc(EMAIL) + '</b>' : 'Sin sesión';
+  if (!EMAIL) {
+    var av = document.getElementById('sinSesion');
+    av.innerHTML = 'No hay sesión en este navegador. Abre la agenda desde el CRM, o agrega <b>?email=tucorreo@dominio.cl</b>. Publicar requiere administración o ser producción de la agrupación de la obra.';
+    av.style.display = 'block';
+  }
+  var lejos = document.getElementById('fLejos').checked;
+  var desde = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);
+  var url = '/api/v1/crm/radar/eventos?incluir_borradores=1&desde=' + desde;
+  fetch(url, { headers: cabeceras() })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { err('No se pudo leer la agenda: ' + ((res.d && res.d.error) || 'HTTP ' + res.status)); EVENTOS = []; }
+      else { err(''); EVENTOS = res.d.eventos || []; }
+      pintar();
+    })
+    .catch(function (e) { err('No se pudo conectar con el hub: ' + e.message); pintar(); });
+}
+
+function filtrados() {
+  var q = String(document.getElementById('buscar').value || '').toLowerCase().trim();
+  var estado = document.getElementById('fEstado').value;
+  var lejos = document.getElementById('fLejos').checked;
+  var limite = new Date(Date.now() + (lejos ? 730 : 90) * 86400000).toISOString().slice(0, 10);
+  return EVENTOS.filter(function (e) {
+    var fecha = soloFecha(e.date);
+    if (estado === 'pasado' ? !(fecha < HOY) : (fecha < HOY)) return false;
+    if (estado === '1' && !e.is_public) return false;
+    if (estado === '0' && e.is_public) return false;
+    if (fecha > limite) return false;
+    if (q) {
+      var blob = [e.title, e.venue, e.city, e.type, e.company_name].join(' ').toLowerCase();
+      if (blob.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+
+function pintar() {
+  var lista = filtrados();
+  var cont = document.getElementById('tabla');
+  if (!EVENTOS.length) {
+    cont.innerHTML = '<div class="vacio">No hay funciones en la agenda. Crea la primera con <b>“+ Función nueva”</b>.</div>';
+    return;
+  }
+  if (!lista.length) { cont.innerHTML = '<div class="vacio">Ninguna función coincide con el filtro.</div>'; return; }
+  var filas = lista.map(function (e) {
+    var fecha = soloFecha(e.date);
+    var cuando = fechaLinda(e.date) + (e.time_start ? ' · ' + soloHora(e.time_start) : '') +
+      (soloFecha(e.date_end) ? ' <span class="mini">→ hasta ' + fechaLinda(e.date_end) + '</span>' : '');
+    var coords = (e.lat && e.lng) ? '<span class="mini">' + Number(e.lat).toFixed(5) + ', ' + Number(e.lng).toFixed(5) + (e.distance_m != null ? ' · a ' + (e.distance_m < 1000 ? e.distance_m + ' m' : (e.distance_m / 1000).toFixed(1) + ' km') : '') + '</span>' : '<span class="pill bor">sin coordenada</span>';
+    return '<tr class="' + (!e.is_public ? 'borrador' : (fecha < HOY ? 'pasado' : '')) + '">' +
+      '<td><div class="nom">' + esc(e.title) + '</div>' +
+        '<div class="mini">' + esc(e.type || '') + (e.company_name ? ' · ' + esc(e.company_name) : '') + (e.status ? ' · ' + esc(e.status) : '') + '</div></td>' +
+      '<td>' + cuando + '</td>' +
+      '<td>' + esc(e.venue || e.location || '—') + '<div class="mini">' + esc(e.city || 'sin comuna') + '</div></td>' +
+      '<td>' + coords + '</td>' +
+      '<td>' + (e.is_public ? '<span class="pill pub">publicada</span>' : '<span class="pill bor">borrador</span>') +
+        (e.source === 'externo' ? ' <span class="pill ext">externa</span>' : '') +
+        (e.source_url ? '<div class="mini"><a href="' + esc(e.source_url) + '" target="_blank" rel="noreferrer">fuente</a></div>' : '') + '</td>' +
+      '<td><div class="acciones-fila">' +
+        '<button class="btn chico" data-accion="editar" data-id="' + esc(e.id) + '">Editar</button>' +
+        '<button class="btn chico" data-accion="estado" data-id="' + esc(e.id) + '">' + (e.is_public ? 'Ocultar' : 'Publicar') + '</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+  cont.innerHTML = '<table><thead><tr><th>Función</th><th>Cuándo</th><th>Dónde</th><th>Coordenada</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>' + filas + '</tbody></table>';
+}
+
+/* ------------------------------- editor ---------------------------------- */
+function set(id, v) { document.getElementById(id).value = v == null ? '' : v; }
+function porId(id) { for (var i = 0; i < EVENTOS.length; i++) if (EVENTOS[i].id === id) return EVENTOS[i]; return null; }
+
+function abrirEditor(id) {
+  var e = id ? porId(id) : null;
+  editando = e;
+  document.getElementById('modalTitulo').textContent = e ? 'Editar función' : 'Función nueva';
+  document.getElementById('modalSub').textContent = e
+    ? (e.source === 'externo' ? 'Esta función viene de una fuente externa: si la editas aquí, la próxima cosecha la vuelve a su versión original.' : 'ID ' + e.id)
+    : 'Queda como borrador hasta que la publiques.';
+  set('eTitle', e ? e.title : '');
+  set('eType', e && e.type ? e.type : 'Función');
+  set('eStatus', e ? e.status : '');
+  set('eDate', e ? soloFecha(e.date) : HOY);
+  set('eDateEnd', e ? soloFecha(e.date_end) : '');
+  set('eHora', e ? soloHora(e.time_start) : '');
+  set('eHoraFin', e ? soloHora(e.time_end) : '');
+  set('eVenue', e ? e.venue : '');
+  set('eCity', e ? e.city : '');
+  set('eRegion', '');
+  set('eLat', e && e.lat ? Number(e.lat) : '');
+  set('eLng', e && e.lng ? Number(e.lng) : '');
+  set('eImage', e ? e.image_url : '');
+  set('eTicket', e ? e.ticket_url : '');
+  set('eNotes', e ? e.notes : '');
+  document.getElementById('ePublic').checked = e ? !!e.is_public : false;
+  document.getElementById('btnBorrar').style.display = e ? 'inline-block' : 'none';
+  document.getElementById('modalPista').textContent = '';
+  document.getElementById('modalFondo').className = 'modal-fondo abierto';
+}
+
+function cuerpo() {
+  var lat = parseFloat(document.getElementById('eLat').value);
+  var lng = parseFloat(document.getElementById('eLng').value);
+  return {
+    title: document.getElementById('eTitle').value.trim(),
+    type: document.getElementById('eType').value,
+    status: document.getElementById('eStatus').value.trim() || null,
+    date: document.getElementById('eDate').value,
+    date_end: document.getElementById('eDateEnd').value || null,
+    time_start: document.getElementById('eHora').value || null,
+    time_end: document.getElementById('eHoraFin').value || null,
+    venue: document.getElementById('eVenue').value.trim() || null,
+    city: document.getElementById('eCity').value.trim() || null,
+    lat: isNaN(lat) ? null : lat,
+    lng: isNaN(lng) ? null : lng,
+    image_url: document.getElementById('eImage').value.trim() || null,
+    ticket_url: document.getElementById('eTicket').value.trim() || null,
+    notes: document.getElementById('eNotes').value.trim() || null,
+    is_public: document.getElementById('ePublic').checked,
+    email: EMAIL
+  };
+}
+
+function guardar() {
+  var b = cuerpo();
+  var pista = document.getElementById('modalPista');
+  if (b.title.length < 3) { pista.textContent = 'El título necesita al menos 3 letras.'; return; }
+  if (!b.date) { pista.textContent = 'Falta la fecha.'; return; }
+  if ((b.lat == null) !== (b.lng == null)) { pista.textContent = 'Latitud y longitud van juntas.'; return; }
+  var url = editando ? '/api/v1/crm/radar/eventos/' + encodeURIComponent(editando.id) : '/api/v1/crm/radar/eventos';
+  pista.textContent = 'Guardando…';
+  fetch(url, { method: editando ? 'PATCH' : 'POST', headers: cabeceras(), body: JSON.stringify(b) })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) { pista.textContent = (res.d && res.d.error) || ('no se pudo guardar (HTTP ' + res.status + ')'); return; }
+      toast(editando ? 'Función actualizada' : 'Función creada');
+      cerrar(); cargar();
+    })
+    .catch(function (e) { pista.textContent = 'Error de red: ' + e.message; });
+}
+
+function borrar() {
+  if (!editando) return;
+  if (!confirm('¿Dar de baja «' + editando.title + '»? No se puede deshacer.')) return;
+  fetch('/api/v1/crm/radar/eventos/' + encodeURIComponent(editando.id), { method: 'DELETE', headers: cabeceras(), body: JSON.stringify({ email: EMAIL }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (!d.ok) { document.getElementById('modalPista').textContent = d.error || 'no se pudo borrar'; return; } toast('Función dada de baja'); cerrar(); cargar(); })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'Error de red: ' + e.message; });
+}
+
+function alternar(id) {
+  var e = porId(id); if (!e) return;
+  fetch('/api/v1/crm/radar/eventos/' + encodeURIComponent(id), {
+    method: 'PATCH', headers: cabeceras(), body: JSON.stringify({ is_public: e.is_public ? 0 : 1, email: EMAIL })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { toast(d.error || 'no se pudo cambiar'); return; }
+    toast(e.is_public ? 'Pasó a borrador' : 'Publicada en la app');
+    cargar();
+  }).catch(function (e2) { toast('Error de red: ' + e2.message); });
+}
+
+function cerrar() { document.getElementById('modalFondo').className = 'modal-fondo'; editando = null; }
+
+function ubicarme() {
+  if (!navigator.geolocation) { document.getElementById('modalPista').textContent = 'Este navegador no da la ubicación.'; return; }
+  navigator.geolocation.getCurrentPosition(function (p) {
+    set('eLat', p.coords.latitude.toFixed(7)); set('eLng', p.coords.longitude.toFixed(7));
+    document.getElementById('modalPista').textContent = 'Ubicación puesta (±' + Math.round(p.coords.accuracy) + ' m).';
+  }, function (e) { document.getElementById('modalPista').textContent = 'No se pudo: ' + e.message; }, { enableHighAccuracy: true, timeout: 12000 });
+}
+
+function buscarDireccion() {
+  var q = [document.getElementById('eVenue').value.trim(), document.getElementById('eCity').value.trim(), 'Chile'].filter(Boolean).join(', ');
+  if (!q) { document.getElementById('modalPista').textContent = 'Escribe el lugar o la comuna.'; return; }
+  document.getElementById('modalPista').textContent = 'Buscando «' + q + '» en OpenStreetMap…';
+  fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=cl&q=' + encodeURIComponent(q))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.length) { document.getElementById('modalPista').textContent = 'No lo encontró: pon las coordenadas a mano si las tienes.'; return; }
+      set('eLat', Number(d[0].lat).toFixed(7)); set('eLng', Number(d[0].lon).toFixed(7));
+      document.getElementById('modalPista').textContent = 'Aproximado por OpenStreetMap — revisa antes de publicar.';
+    })
+    .catch(function (e) { document.getElementById('modalPista').textContent = 'No se pudo consultar: ' + e.message; });
+}
+
+document.getElementById('buscar').addEventListener('input', pintar);
+document.getElementById('fEstado').addEventListener('change', pintar);
+document.getElementById('fLejos').addEventListener('change', pintar);
+document.getElementById('btnNuevo').addEventListener('click', function () { abrirEditor(null); });
+document.getElementById('btnRecargar').addEventListener('click', cargar);
+document.getElementById('btnGuardar').addEventListener('click', guardar);
+document.getElementById('btnBorrar').addEventListener('click', borrar);
+document.getElementById('btnCancelar').addEventListener('click', cerrar);
+document.getElementById('btnUbicarme').addEventListener('click', ubicarme);
+document.getElementById('btnBuscarDir').addEventListener('click', buscarDireccion);
+document.getElementById('modalFondo').addEventListener('click', function (ev) { if (ev.target.id === 'modalFondo') cerrar(); });
+document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') cerrar(); });
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest ? ev.target.closest('[data-accion]') : null;
+  if (!el) return;
+  if (el.getAttribute('data-accion') === 'editar') abrirEditor(el.getAttribute('data-id'));
+  if (el.getAttribute('data-accion') === 'estado') alternar(el.getAttribute('data-id'));
+});
+
+cargar();
+</script>
+</body>
+</html>
+`;
+app.get('/agenda', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('html').send(PAGINA_AGENDA);
+});
+
+// ---------------------------------------------------------------------------
+// GUÍA DE USO PARA NUEVOS USUARIOS (PÚBLICA)
+//
+// Página servida en línea por el hub (/guia). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/guia.html (ver docs/).
+// ---------------------------------------------------------------------------
+const PAGINA_GUIA = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cómo usar FASE · guía para nuevos usuarios</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:16px/1.6 var(--sans); }
+  a { color:var(--acento); }
+  .env { max-width:640px; margin:0 auto; padding:22px 18px 40px; }
+  .marca { display:flex; align-items:center; gap:10px; font:700 17px var(--serif); }
+  .marca img { width:28px; height:28px; }
+  h1 { font:700 30px/1.2 var(--serif); margin:22px 0 8px; }
+  h2 { font:700 19px var(--serif); margin:30px 0 6px; }
+  p { margin:10px 0; }
+  .mini { font-size:13.5px; color:var(--tinta2); }
+  .tarjeta { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:16px 18px; margin:14px 0; }
+  .paso { display:flex; gap:14px; align-items:flex-start; background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:16px 18px; margin:12px 0; }
+  .num { flex:0 0 34px; height:34px; border-radius:50%; background:var(--acento); color:#fff; font:700 16px var(--serif); display:flex; align-items:center; justify-content:center; }
+  .paso h3 { font:700 16px var(--sans); margin:3px 0 4px; }
+  .paso p { margin:0; font-size:14.5px; }
+  .paso ul { margin:8px 0 0 18px; padding:0; font-size:14px; color:#3a342c; }
+  .btn { display:inline-block; background:var(--acento); color:#fff; padding:12px 20px; border-radius:999px; text-decoration:none; font-weight:600; }
+  .btn.suave { background:var(--fondo2); color:var(--tinta); border:1px solid var(--linea); }
+  .destacado { background:var(--fondo2); border:1px solid var(--linea); border-radius:18px; padding:16px 18px; margin:18px 0; }
+  .pie { margin-top:30px; font-size:13px; color:var(--tinta2); }
+  .sep { border:0; border-top:1px solid var(--linea); margin:26px 0; }
+  code { background:var(--fondo2); border-radius:5px; padding:1px 5px; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="env">
+  <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> FASE · ATHAMU</div>
+
+  <h1>Qué es FASE y cómo se usa</h1>
+  <p class="mini">Guía corta para el primer día. No hace falta instalarlo: si prefieres la app en el
+  teléfono, el APK está al final.</p>
+
+  <div class="tarjeta">
+    <b>FASE es el radar cultural de ATHAMU.</b> Te muestra <b>qué está pasando</b> en tu ciudad
+    —teatro, música, talleres, exposiciones, con hora y lugar—, <b>qué espacios culturales tienes
+    cerca</b> y te deja <b>descubrirlos</b> cuando estás ahí. Además es la puerta a tu agrupación:
+    tu equipo, sus montajes y los ensayos.
+  </div>
+
+  <p>Está en <b>prueba</b>: lo que veas raro, decilo ahí mismo (paso 5) y se arregla. Varias de las
+  cosas que ya funcionan las pidieron personas probándola.</p>
+
+  <h2>Tus cinco primeros pasos</h2>
+
+  <div class="paso">
+    <div class="num">1</div>
+    <div>
+      <h3>Entra con tu correo</h3>
+      <p>Con el mismo correo de Google que usás para el resto del ecosistema: así el sistema sabe
+      quién eres y te muestra <b>tu agrupación</b>.</p>
+      <ul>
+        <li>Si entras con otro correo, vas a ver la app funcionando pero <b>sin tu equipo</b>.</li>
+        <li>Puedes entrar desde el navegador del teléfono: no hace falta instalar nada.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">2</div>
+    <div>
+      <h3>Mira la agenda en <i>Inicio</i></h3>
+      <p>Ahí están las funciones reales de tu ciudad, con <b>día, hora y lugar</b>. Cuando das el
+      permiso de ubicación, cada una te dice <b>a cuántos metros te queda</b>.</p>
+      <ul>
+        <li>Los eventos con <b>“Ver la fuente”</b> vienen de la cartelera oficial de la ciudad: no son inventados.</li>
+        <li>Lo que dice <b>“hasta el …”</b> es una muestra o exposición que dura varios días.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">3</div>
+    <div>
+      <h3>Ve a <i>Radar</i> y mira qué tienes cerca</h3>
+      <p>Es la lista de espacios culturales ordenada por cercanía, con la distancia real (si no hay
+      permiso de ubicación, la app lo dice: <b>no inventa distancias</b>).</p>
+      <ul>
+        <li>Chips de <b>1 / 3 / 10 km</b> para acotar.</li>
+        <li><b>“Cómo llegar”</b> abre el mapa con las coordenadas del lugar.</li>
+        <li>Los que no visitaste se ven como <b>“lugar por descubrir”</b>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">4</div>
+    <div>
+      <h3>Camina hasta uno y <b>descubrilo</b></h3>
+      <p>Cuando estés a menos de <b>120 metros</b>, se abre la ficha del lugar: qué es, su historia,
+      su horario si lo tiene. Sumas experiencia y queda marcado como descubierto por vos.</p>
+      <ul>
+        <li>Es el corazón de la app: <b>funciona en el lugar</b>, no desde el sillón.</li>
+        <li>Después puedes <b>publicar en el Muro</b> con una foto, reaccionar y comentar.</li>
+        <li>Si quieres un recorrido armado, <i>Rutas</i> tiene caminos de 4 a 6 paradas.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="num">5</div>
+    <div>
+      <h3>Si algo no funciona, <b>repórtalo ahí mismo</b></h3>
+      <p>El botón <b>“Reportar algo”</b> está flotando en todas las pantallas. Escribe qué pasó y,
+      si quieres, adjunta una <b>captura de pantalla</b>.</p>
+      <ul>
+        <li>El reporte viaja con la pantalla donde estabas, tu cuenta y la versión: por eso se puede arreglar.</li>
+        <li>Es lo que más ayuda: <b>cada reporte suena en el teléfono del equipo</b> y se responde.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="destacado">
+    <b>Y en <i>Perfil</i> está tu parte de trabajo:</b> tus agrupaciones con su equipo y sus
+    montajes, y —si eres elenco o dirección— el <b>Planner</b> con la disponibilidad y los ensayos.
+    Si todavía no perteneces a ninguna agrupación, desde ahí puedes <b>pedir entrar</b> a una; si
+    eres dirección o producción, puedes <b>crear</b> una.
+  </div>
+
+  <hr class="sep" />
+
+  <h2>Abrir la app</h2>
+  <p><a class="btn" href="https://fase-mobile-897089213264.us-central1.run.app">Abrir FASE</a></p>
+  <p class="mini" style="margin-top:10px">
+    ¿La quieres instalada? <a href="https://storage.googleapis.com/atha-crm-obras-897089213264/fase-mobile/FASE-Mobile-1.0-piloto.apk">Descargar el APK (Android)</a>.
+    En iPhone, por ahora, desde el navegador.
+  </p>
+
+  <h2>Preguntas que nos hacen siempre</h2>
+  <p><b>¿Necesito estar en la calle para usarla?</b> Para la agenda y el Muro no. Para descubrir
+  lugares sí: el desbloqueo es por ubicación real.</p>
+  <p><b>¿Por qué no veo mi agrupación?</b> Casi siempre es que entraste con otro correo. Escribinos
+  y lo unimos.</p>
+  <p><b>¿Esto reemplaza a WhatsApp?</b> No. El Muro es para lo que pasa <i>en los lugares</i>: una
+  foto de lo que estás viendo, una reacción. Lo demás sigue donde está.</p>
+  <p><b>¿Quién ve lo que publico?</b> La comunidad de FASE. Lo que reportas como problema lo ve
+  sólo el equipo.</p>
+
+  <div class="pie">
+    ¿Dudas o algo que no está aquí? Respondé el correo con el que te invitaron: lo leemos.<br />
+    <b>ATHAMU · ATHA Producciones</b>
+  </div>
+</div>
+</body>
+</html>
+`;
+app.get('/guia', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('html').send(PAGINA_GUIA);
+});
+
+// ---------------------------------------------------------------------------
+// TABLERO DEL PILOTO (MÉTRICAS DE LA PRUEBA)
+//
+// Página servida en línea por el hub (/tablero). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/tablero.html (ver docs/).
+// ---------------------------------------------------------------------------
+// TABLERO DEL PILOTO (MÉTRICAS DE LA PRUEBA)
+//
+// Página servida en línea por el hub (/tablero). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/tablero.html (ver docs/).
+// ---------------------------------------------------------------------------
+const PAGINA_TABLERO = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tablero del piloto · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A; --alerta:#C98A1E; --malo:#8A3B6B;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  a { color:var(--acento); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1120px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .marca img { width:26px; height:26px; }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  main { max-width:1120px; margin:0 auto; padding:16px 16px 40px; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-bottom:8px; }
+  .kpi { background:var(--tarjeta); border:1px solid var(--linea); border-radius:16px; padding:12px 14px; }
+  .kpi .n { font:700 26px var(--serif); line-height:1.1; }
+  .kpi .t { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--tinta2); margin-top:2px; }
+  .kpi .sub { font-size:11px; color:var(--tinta2); margin-top:4px; }
+  .kpi.acento .n { color:var(--acento); }
+  .kpi.ok .n { color:var(--ok); }
+  .kpi.alerta .n { color:var(--alerta); }
+  h2 { font:700 15px var(--serif); margin:22px 0 8px; }
+  .dos { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:12px; }
+  .panel { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:12px 14px; }
+  .panel h3 { font:700 13px var(--serif); margin:0 0 6px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:6px 6px; border-bottom:1px solid var(--linea); font-size:12px; vertical-align:top; }
+  th { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); }
+  tr:last-child td { border-bottom:0; }
+  .mini { font-size:11px; color:var(--tinta2); }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 6px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.ok { border-color:var(--ok); color:var(--ok); }
+  .pill.nuevo { border-color:var(--acento); color:var(--acento); background:var(--acento-suave); }
+  .pill.ext { border-color:var(--malo); color:var(--malo); }
+  .barras { display:flex; align-items:flex-end; gap:3px; height:54px; margin-top:6px; }
+  .barras div { flex:1; background:var(--acento); border-radius:3px 3px 0 0; min-height:2px; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .aviso-sesion { background:#FDF6E8; border:1px solid var(--alerta); color:#7a5410; border-radius:12px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca"><img src="/assets/fase/fase-simbolo.svg" alt="FASE" /> Tablero del piloto</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="error" style="display:none"></div>
+  <div id="sinSesion" class="aviso-sesion" style="display:none"></div>
+
+  <div class="barra">
+    <button class="btn" id="btnRecargar">Recargar</button>
+    <span class="mini" id="generado"></span>
+  </div>
+
+  <div id="contenido"></div>
+
+  <div class="mini" style="margin-top:22px">
+    Es la lectura del plan de prueba: <b>descubrimientos por persona</b> es la métrica estrella
+    (que el radar lleve a la puerta), y <b>reportes por pantalla</b> dice dónde duele. El ritual es
+    semanal: mirar esto 30 minutos, cerrar los reportes con nota y elegir <b>máximo dos arreglos</b>.
+  </div>
+</main>
+
+<script>
+var EMAIL = '';
+try {
+  var params = new URLSearchParams(location.search);
+  EMAIL = params.get('email') || '';
+  var CLAVES = ['user_session', 'atha_user_session', 'atha_user_profile'];
+  for (var i = 0; i < CLAVES.length && !EMAIL; i++) {
+    var us = JSON.parse(localStorage.getItem(CLAVES[i]) || 'null');
+    EMAIL = (us && (us.email || (us.user && us.user.email))) || '';
+  }
+} catch (e) { EMAIL = ''; }
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function cabeceras() { var c = { 'Content-Type': 'application/json' }; if (EMAIL) c['x-atha-email'] = EMAIL; return c; }
+function kpi(n, t, sub, clase) {
+  return '<div class="kpi ' + (clase || '') + '"><div class="n">' + n + '</div><div class="t">' + t + '</div>' +
+    (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>';
+}
+function tabla(filas, cols) {
+  if (!filas || !filas.length) return '<p class="mini">Sin datos todavía.</p>';
+  var head = '<tr>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '</tr>';
+  var body = filas.map(function (f) {
+    return '<tr>' + cols.map(function (c) { return '<td>' + c[1](f) + '</td>'; }).join('') + '</tr>';
+  }).join('');
+  return '<table>' + head + body + '</table>';
+}
+function fechaCorta(t) { return String(t || '').slice(0, 16).replace('T', ' '); }
+function lista(obj) {
+  if (!obj || !obj.length) return '<p class="mini">Sin datos.</p>';
+  return obj.map(function (o) {
+    var k = o.c || o.e || o.p || o.s || o.t || o.dia || o.nombre || o.title || o.destino || '(sin dato)';
+    var v = (o.n !== undefined) ? o.n : '';
+    return '<span class="pill">' + esc(k) + (v !== '' ? ' · ' + v : '') + '</span> ';
+  }).join('');
+}
+
+function pintar(d) {
+  var cont = document.getElementById('contenido');
+  if (!d || !d.ok) { cont.innerHTML = ''; return; }
+  var html = '';
+  var rad = d.radar || {}, rep = d.reportes || {}, ins = d.inscripciones || {};
+  var muro = d.muro || {}, ag = d.agenda || {}, ru = d.rutas || {}, agru = d.agrupaciones || {}, cor = d.correos || {}, disp = d.dispositivos || {};
+  var desc = rad.descubrimientos || {}, nodos = rad.nodos || {}, posts = muro.posts || {};
+  var nuevos = ((rep.por_estado || []).find(function (x) { return x.e === 'nuevo'; }) || {}).n || 0;
+
+  /* --- lo que importa de un vistazo --- */
+  html += '<div class="grid">' +
+    kpi(desc.total || 0, 'lugares descubiertos', (desc.personas || 0) + ' personas', 'acento') +
+    kpi(ins.total || 0, 'anotados al piloto', lista(ins.por_estado).replace(/<[^>]+>/g, '').trim() || '', '') +
+    kpi(nuevos, 'reportes sin leer', 'total ' + ((rep.por_estado || []).reduce(function (a, x) { return a + x.n; }, 0)) || 0, nuevos > 0 ? 'acento' : 'ok') +
+    kpi(posts.total || 0, 'publicaciones en el muro', (posts.autores || 0) + ' autores', '') +
+    kpi((ag.eventos || {}).publicados || 0, 'funciones publicadas', ((ag.eventos || {}).externos || 0) + ' con fuente externa', '') +
+    kpi((nodos.publicados || 0), 'lugares en el radar', (nodos.sin_coordenada || 0) + ' sin coordenada', '') +
+    '</div>';
+
+  /* --- uso de los últimos 7 días: ¿la gente está volviendo? --- */
+  html += '<h2>Uso de los últimos 7 días</h2><div class="grid">' +
+    kpi((disp.activos_7d || [{}])[0].personas || 0, 'descubrieron algo', '', '') +
+    kpi((disp.publicaron_7d || [{}])[0].personas || 0, 'publicaron', '', '') +
+    kpi((disp.reportaron_7d || [{}])[0].personas || 0, 'reportaron', '', '') +
+    kpi((ru.rutas || {}).total || 0, 'rutas cargadas', (ru.paradas || 0) + ' paradas · ' + (ru.con_progreso || 0) + ' con avance', '') +
+    '</div>';
+
+  html += '<div class="dos">';
+
+  /* --- quién avanza --- */
+  html += '<div class="panel"><h3>Quiénes avanzan</h3>' +
+    tabla(rad.top_exploradores, [
+      ['Persona', function (f) { return '<b>' + esc(f.display_name || f.email || '—') + '</b><div class="mini">' + esc(f.email || '') + '</div>'; }],
+      ['Lugares', function (f) { return f.n; }],
+      ['Último', function (f) { return '<span class="mini">' + fechaCorta(f.ultimo) + '</span>'; }],
+    ]) +
+    '<div class="mini" style="margin-top:8px">Descubrimientos por día (14 días)</div>' +
+    '<div class="barras">' + (function () {
+      var dias = rad.ultimos_14_dias || [];
+      var max = Math.max.apply(null, dias.map(function (x) { return x.n; }).concat([1]));
+      if (!dias.length) return '<div style="background:transparent"></div>';
+      return dias.map(function (x) { return '<div style="height:' + Math.max(2, Math.round(x.n / max * 54)) + 'px" title="' + esc(x.dia) + ': ' + x.n + '"></div>'; }).join('');
+    })() + '</div></div>';
+
+  /* --- reportes --- */
+  html += '<div class="panel"><h3>Reportes de la app</h3>' +
+    '<div class="mini" style="margin-bottom:6px">' + lista(rep.por_estado) + '</div>' +
+    tabla(rep.ultimos, [
+      ['Reporte', function (f) { return esc(String(f.texto || '').slice(0, 70)) + '<div class="mini">' + esc(f.nombre || '') + ' · ' + esc(f.categoria || '') + '</div>'; }],
+      ['Estado', function (f) { var e = f.estado || 'nuevo'; return '<span class="pill ' + (e === 'nuevo' ? 'nuevo' : e === 'resuelto' ? 'ok' : '') + '">' + esc(e) + '</span>'; }],
+    ]) +
+    '<div class="mini" style="margin-top:8px">Por pantalla: ' + lista(rep.por_pantalla) + '</div>' +
+    '<p class="mini" style="margin-top:8px"><a href="/reportes">Abrir el buzón y responder →</a></p></div>';
+
+  /* --- agenda --- */
+  html += '<div class="panel"><h3>Agenda (lo que ve la app)</h3>' +
+    tabla(ag.proximos, [
+      ['Función', function (f) { return '<b>' + esc(String(f.title || '').slice(0, 60)) + '</b><div class="mini">' + esc(f.venue || '') + ' · ' + esc(f.city || '') + '</div>'; }],
+      ['Cuándo', function (f) { return '<span class="mini">' + String(f.date || '').slice(0, 10) + (f.time_start ? ' ' + String(f.time_start).slice(0, 5) : '') + '</span>'; }],
+      ['Fuente', function (f) { return f.source === 'externo' ? '<span class="pill ext">externa</span>' : '<span class="pill">propia</span>'; }],
+    ]) +
+    '<div class="mini" style="margin-top:8px">Por comuna: ' + lista(ag.por_comuna) + '</div>' +
+    '<div class="mini">Por tipo: ' + lista(ag.por_tipo) + '</div>' +
+    '<p class="mini" style="margin-top:8px"><a href="/agenda">Cargar o corregir funciones →</a></p></div>';
+
+  /* --- datos y gente --- */
+  var cuentas = agru.cuentas || {};
+  html += '<div class="panel"><h3>Datos y gente</h3>' +
+    '<div class="mini" style="margin-bottom:6px">' +
+    (cuentas.usuarios || 0) + ' cuentas · ' + (cuentas.membresias || 0) + ' membresías · ' +
+    (cuentas.fichas || 0) + ' fichas de nómina · ' + (cuentas.perfiles_radar || 0) + ' perfiles de radar<br>' +
+    'Compañías: ' + ((agru.companias || {}).total || 0) + ' (' + ((agru.companias || {}).sin_nadie || 0) + ' sin gente)' +
+    '</div>' +
+    '<div class="mini">Solicitudes: ' + lista(agru.solicitudes) + '</div>' +
+    '<div class="mini" style="margin-top:6px">Nodos por comuna: ' + lista(rad.por_ciudad) + '</div>' +
+    '<p class="mini" style="margin-top:8px"><a href="/nodos">Administrar lugares del radar →</a></p></div>';
+
+  /* --- muro y correos --- */
+  html += '<div class="panel"><h3>Muro y correos</h3>' +
+    '<div class="mini" style="margin-bottom:6px">' + (posts.total || 0) + ' publicaciones (' + (posts.aprobadas || 0) + ' aprobadas, ' +
+    (posts.pendientes || 0) + ' pendientes) · ' + (muro.comentarios || 0) + ' comentarios · ' + (muro.reacciones || 0) + ' reacciones<br>' +
+    'Correos enviados: ' + ((cor.total || {}).n || 0) + ' (' + ((cor.total || {}).ok || 0) + ' ok)</div>' +
+    tabla(muro.ultimos, [
+      ['Publicación', function (f) { return esc(String(f.caption || '(sin texto)').slice(0, 60)); }],
+      ['Fecha', function (f) { return '<span class="mini">' + fechaCorta(f.created_at) + '</span>'; }],
+    ]) +
+    tabla(cor.ultimos, [
+      ['Correo a', function (f) { return esc(f.para || '') + '<div class="mini">' + esc(String(f.asunto || '').slice(0, 50)) + '</div>'; }],
+      ['Estado', function (f) { return f.ok ? '<span class="pill ok">enviado</span>' : '<span class="pill">falló</span>'; }],
+    ]) + '</div>';
+
+  html += '</div>';
+  cont.innerHTML = html;
+}
+
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL ? 'Sesión: <b>' + esc(EMAIL) + '</b>' : 'Sin sesión';
+  if (!EMAIL) {
+    var av = document.getElementById('sinSesion');
+    av.innerHTML = 'No hay sesión en este navegador. Abre el tablero desde el CRM o agrega <b>?email=tucorreo@dominio.cl</b>. Sólo administración.';
+    av.style.display = 'block';
+  }
+  fetch('/api/v1/crm/piloto/tablero', { headers: cabeceras() })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+    .then(function (res) {
+      if (!res.d || !res.d.ok) {
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'No se pudo leer el tablero: ' + ((res.d && res.d.error) || 'HTTP ' + res.status);
+        return;
+      }
+      document.getElementById('error').style.display = 'none';
+      document.getElementById('generado').textContent = 'actualizado ' + fechaCorta(res.d.generado);
+      pintar(res.d);
+    })
+    .catch(function (e) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = 'No se pudo conectar con el hub: ' + e.message;
+    });
+}
+
+document.getElementById('btnRecargar').addEventListener('click', cargar);
+cargar();
+</script>
+</body>
+</html>
+`;
+app.get('/tablero', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('html').send(PAGINA_TABLERO);
+});
+
+
+/**
+ * RUTAS DE API QUE NO EXISTEN: 404 en JSON, nunca el HTML de la SPA.
+ *
+ * Antes, cualquier `/api/...` desconocido caía en el catch-all y recibía el `index.html` con
+ * **HTTP 200**. Consecuencia real: la pestaña Finanzas llamaba a `/api/v1/crm/finances` (que no
+ * existía), el `fetch` "andaba", el `.json()` explotaba y la pantalla quedaba vacía sin decir
+ * nada — una falla invisible. Este guardia va ANTES del catch-all y hace ruidoso el error.
+ */
+app.all('/api/*', (req, res) => {
+  res.status(404).json({
+    ok: false,
+    error: `La ruta ${req.method} ${req.path} no existe en el hub`,
+    pista: 'Si es una pantalla del CRM que quedó sin backend, hay que implementarla: el catch-all ya no devuelve HTML.',
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AGRUPACIONES: DATOS, ELENCO Y MONTAJES
+//
+// Página servida en línea por el hub (/companias). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/companias.html (ver docs/).
+// ---------------------------------------------------------------------------
+// AGRUPACIONES: DATOS, ELENCO Y MONTAJES
+//
+// Página servida en línea por el hub (/companias). Se sirve el HTML desde aquí a propósito:
+// el deploy con tag sólo copia server.js, así que un archivo estático nuevo en
+// public/ NO viajaría en la imagen. Fuente editable del HTML: paginas/companias.html (ver docs/).
+// ---------------------------------------------------------------------------
+const PAGINA_COMPANIAS = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agrupaciones · FASE CRM</title>
+<link rel="icon" type="image/svg+xml" href="/assets/fase/fase-simbolo.svg" />
+<style>
+  :root {
+    --fondo:#F5EFE4; --fondo2:#EDE4D3; --tarjeta:#FFFBF4; --tinta:#1D1A16; --tinta2:#5E564C;
+    --linea:#D8CDBA; --acento:#B4472C; --acento-suave:#F3E1DA; --ok:#4E6B3A;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:14px/1.5 var(--sans); }
+  header { position:sticky; top:0; z-index:20; background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 16px; }
+  .env { max-width:1180px; margin:0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .marca { display:flex; align-items:center; gap:9px; font:700 16px var(--serif); }
+  .quien { margin-left:auto; font-size:12px; color:var(--tinta2); }
+  main { max-width:1180px; margin:0 auto; padding:16px; display:grid; grid-template-columns:320px 1fr; gap:16px; }
+  @media (max-width:820px) { main { grid-template-columns:1fr; } }
+  .panel { background:var(--tarjeta); border:1px solid var(--linea); border-radius:18px; padding:14px; }
+  .panel h2 { font:700 15px var(--serif); margin:0 0 10px; }
+  .lista { display:flex; flex-direction:column; gap:6px; max-height:70vh; overflow:auto; }
+  .item { text-align:left; border:1px solid var(--linea); background:var(--fondo2); border-radius:12px; padding:8px 10px; cursor:pointer; }
+  .item:hover { border-color:var(--acento); }
+  .item.activo { border-color:var(--acento); background:var(--acento-suave); }
+  .item .n { font-weight:700; font-size:12.5px; }
+  .item .m { font-size:10.5px; color:var(--tinta2); }
+  .pill { display:inline-block; font-size:9.5px; font-weight:700; border-radius:6px; padding:2px 6px; border:1px solid var(--linea); color:var(--tinta2); }
+  .pill.propia { border-color:var(--acento); color:var(--acento); background:var(--acento-suave); }
+  .campo { margin-bottom:10px; }
+  .campo label { display:block; font-size:11px; font-weight:700; color:var(--tinta2); margin-bottom:3px; text-transform:uppercase; letter-spacing:.04em; }
+  input[type=text], textarea, select { width:100%; padding:8px 10px; border:1px solid var(--linea); border-radius:10px; background:#fff; font:13px var(--sans); color:var(--tinta); }
+  textarea { min-height:88px; resize:vertical; }
+  .fila { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .btn { border:1px solid var(--linea); background:var(--fondo2); color:var(--tinta); border-radius:999px; padding:8px 14px; font:600 12.5px var(--sans); cursor:pointer; }
+  .btn:hover { border-color:var(--acento); color:var(--acento); }
+  .btn.principal { background:var(--acento); border-color:var(--acento); color:#fff; }
+  .btn.principal:hover { color:#fff; filter:brightness(1.06); }
+  .btn.chico { padding:4px 9px; font-size:11px; }
+  .btn.peligro:hover { border-color:#8A3B6B; color:#8A3B6B; }
+  .barra { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  h3 { font:700 13px var(--serif); margin:18px 0 6px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:6px 6px; border-bottom:1px solid var(--linea); font-size:12px; vertical-align:middle; }
+  th { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--tinta2); }
+  tr:last-child td { border-bottom:0; }
+  .mini { font-size:11px; color:var(--tinta2); }
+  .aviso { border-radius:10px; padding:8px 10px; font-size:12px; margin-bottom:10px; display:none; }
+  .aviso.ok { background:#EDF3E6; border:1px solid var(--ok); color:#3C5527; display:block; }
+  .aviso.malo { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); display:block; }
+  .error { background:var(--acento-suave); border:1px solid var(--acento); color:var(--acento); border-radius:12px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+  .galeria { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px; }
+  .galeria img { width:100%; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--linea); }
+</style>
+</head>
+<body>
+<header>
+  <div class="env">
+    <div class="marca">Agrupaciones del ecosistema</div>
+    <div class="quien" id="quien">cargando…</div>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Agrupaciones (<span id="total">0</span>)</h2>
+    <div class="campo"><input id="buscar" type="text" placeholder="Buscar por nombre…" /></div>
+    <div class="mini" style="margin-bottom:8px">Los montajes salen del <b>catálogo real de obras</b>: lo que vincules acá es la misma obra que ves en el catálogo y en la app.</div>
+    <div class="lista" id="lista"></div>
+    <p class="mini" id="sinSesion" style="display:none;margin-top:10px"></p>
+  </section>
+
+  <section>
+    <div id="error" class="error" style="display:none"></div>
+    <div class="panel" id="detalle" style="display:none">
+      <div class="barra">
+        <h2 style="margin:0" id="tituloComp">—</h2>
+        <span class="pill" id="pillTipo">—</span>
+        <span class="mini" id="contadores"></span>
+        <span style="margin-left:auto"></span>
+        <button class="btn principal" id="btnGuardar">Guardar cambios</button>
+        <button class="btn" id="btnDescartar">Descartar</button>
+      </div>
+      <div class="aviso" id="aviso"></div>
+
+      <h3>Datos de la agrupación</h3>
+      <div class="fila">
+        <div class="campo"><label for="fNombre">Nombre</label><input id="fNombre" type="text" /></div>
+        <div class="campo"><label for="fRazon">Razón social</label><input id="fRazon" type="text" placeholder="Como figura legalmente" /></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label for="fDisciplina">Disciplina</label><input id="fDisciplina" type="text" placeholder="Teatro contemporáneo &amp; género" /></div>
+        <div class="campo"><label for="fTipo">Tipo</label>
+          <select id="fTipo"><option value="propia">Propia (del ecosistema)</option><option value="colaboradora">Colaboradora</option></select>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label for="fCiudad">Ciudad</label><input id="fCiudad" type="text" placeholder="Rancagua" /></div>
+        <div class="campo"><label for="fCorreo">Correo de contacto</label><input id="fCorreo" type="text" placeholder="contacto@…" /></div>
+      </div>
+      <div class="campo"><label for="fEstado">Estado</label>
+        <select id="fEstado"><option value="active">Activa</option><option value="inactive">Inactiva</option></select>
+      </div>
+      <div class="campo"><label for="fDescripcion">Descripción</label>
+        <textarea id="fDescripcion" placeholder="Qué hace la agrupación, su línea de trabajo, su historia…"></textarea>
+      </div>
+
+      <h3>Montajes (obras del catálogo)</h3>
+      <table><tbody id="obras"></tbody></table>
+      <div class="barra" style="margin-top:8px">
+        <select id="selObra" style="max-width:340px"></select>
+        <button class="btn" id="btnVincular">Vincular obra del catálogo</button>
+        <span class="mini">Se guarda al instante (no hace falta apretar Guardar).</span>
+      </div>
+      <p class="mini" id="pistaObras"></p>
+
+      <h3>Elenco y equipo</h3>
+      <table><tbody id="gente"></tbody></table>
+      <div class="fila" style="margin-top:8px">
+        <div class="campo"><label for="pNombre">Nombre y apellido</label><input id="pNombre" type="text" placeholder="Josefa Schultz" /></div>
+        <div class="campo"><label for="pRol">Rol</label><input id="pRol" type="text" placeholder="Dirección, producción, elenco…" /></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label for="pTipo">En qué parte</label>
+          <select id="pTipo"><option value="elenco">Elenco (artistas)</option><option value="equipo">Equipo (técnica y producción)</option><option value="socio">Socio/a</option><option value="colaborador">Colaborador/a</option></select>
+        </div>
+        <div class="campo"><label for="pCorreo">Correo (opcional)</label><input id="pCorreo" type="text" placeholder="para vincular su cuenta" /></div>
+      </div>
+      <div class="campo"><label for="pPersonaje">Personaje (opcional — sólo si es un papel de un montaje)</label>
+        <input id="pPersonaje" type="text" placeholder="Se puede dejar vacío: no es un dato fijo del integrante" /></div>
+      <div class="barra">
+        <button class="btn" id="btnAgregarPersona">Agregar al elenco</button>
+        <button class="btn" id="btnCancelarPersona" style="display:none">Cancelar edición</button>
+      </div>
+    </div>
+    <div class="panel" id="vacio"><p class="mini">Elige una agrupación de la lista para editar sus datos, su elenco y sus montajes.</p></div>
+  </section>
+</main>
+
+<script>
+var EMAIL = '';
+try {
+  var q = new URLSearchParams(location.search);
+  EMAIL = q.get('email') || '';
+  ['user_session', 'atha_user_session', 'atha_user_profile'].forEach(function (k) {
+    if (EMAIL) return;
+    var u = JSON.parse(localStorage.getItem(k) || 'null');
+    EMAIL = (u && (u.email || (u.user && u.user.email))) || '';
+  });
+} catch (e) { EMAIL = ''; }
+
+var COMPANIAS = [];
+var CATALOGO = [];
+var ACTUAL = null;
+var PERSONA_EDITANDO = '';
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function cabeceras(conJson) { var h = { 'Content-Type': 'application/json' }; if (EMAIL) h['x-atha-email'] = EMAIL; return h; }
+function aviso(texto, tipo) {
+  var a = document.getElementById('aviso');
+  a.textContent = texto || '';
+  a.className = 'aviso ' + (tipo || '');
+  if (!texto) { a.className = 'aviso'; a.style.display = 'none'; }
+}
+function pedir(url, metodo, cuerpo) {
+  return fetch(url, {
+    method: metodo || 'GET',
+    headers: cabeceras(),
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+  }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); });
+}
+
+function pintarLista() {
+  var filtro = document.getElementById('buscar').value.trim().toLowerCase();
+  var visibles = COMPANIAS.filter(function (c) { return !filtro || c.name.toLowerCase().indexOf(filtro) >= 0; });
+  document.getElementById('total').textContent = String(COMPANIAS.length);
+  document.getElementById('lista').innerHTML = visibles.map(function (c) {
+    var activo = ACTUAL && ACTUAL.id === c.id ? ' activo' : '';
+    return '<button class="item' + activo + '" data-id="' + esc(c.id) + '">' +
+      '<div class="n">' + esc(c.name) + '</div>' +
+      '<div class="m">' + ([c.kind === 'propia' ? 'propia' : 'colaboradora', (c.obras || []).length + ' montaje(s)', (c.people || []).length + ' persona(s)'].join(' · ')) + '</div>' +
+      '</button>';
+  }).join('') || '<p class="mini">Ninguna coincide.</p>';
+  Array.prototype.forEach.call(document.querySelectorAll('#lista .item'), function (b) {
+    b.addEventListener('click', function () { elegir(b.getAttribute('data-id')); });
+  });
+}
+
+function elegir(id) {
+  ACTUAL = COMPANIAS.filter(function (c) { return c.id === id; })[0] || null;
+  pintarLista();
+  if (!ACTUAL) return;
+  document.getElementById('detalle').style.display = 'block';
+  document.getElementById('vacio').style.display = 'none';
+  document.getElementById('tituloComp').textContent = ACTUAL.name;
+  var pill = document.getElementById('pillTipo');
+  pill.textContent = ACTUAL.kind === 'propia' ? 'propia del ecosistema' : 'colaboradora';
+  pill.className = 'pill' + (ACTUAL.kind === 'propia' ? ' propia' : '');
+  document.getElementById('contadores').textContent =
+    (ACTUAL.obras || []).length + ' montaje(s) · ' + (ACTUAL.people || []).length + ' persona(s)';
+  document.getElementById('fNombre').value = ACTUAL.name || '';
+  document.getElementById('fRazon').value = ACTUAL.legalName || '';
+  document.getElementById('fDisciplina').value = ACTUAL.discipline || '';
+  document.getElementById('fTipo').value = ACTUAL.kind === 'propia' ? 'propia' : 'colaboradora';
+  document.getElementById('fCiudad').value = ACTUAL.city || '';
+  document.getElementById('fCorreo').value = ACTUAL.contactEmail || '';
+  document.getElementById('fEstado').value = ACTUAL.status === 'inactive' ? 'inactive' : 'active';
+  document.getElementById('fDescripcion').value = ACTUAL.description || '';
+  pintarObras();
+  pintarGente();
+  aviso('');
+}
+
+function pintarObras() {
+  var obras = (ACTUAL && ACTUAL.obras) || [];
+  document.getElementById('obras').innerHTML = obras.length ? obras.map(function (o) {
+    return '<tr><td><b>' + esc(o.title) + '</b><div class="mini">' + esc(o.discipline || '') + (o.status ? ' · ' + esc(o.status) : '') + '</div></td>' +
+      '<td style="text-align:right"><button class="btn chico peligro" data-quitar="' + esc(o.id) + '">Quitar</button></td></tr>';
+  }).join('') : '<tr><td class="mini">Todavía no tiene montajes vinculados.</td></tr>';
+  Array.prototype.forEach.call(document.querySelectorAll('#obras [data-quitar]'), function (b) {
+    b.addEventListener('click', function () { quitarObra(b.getAttribute('data-quitar')); });
+  });
+
+  var yaEstan = obras.map(function (o) { return o.id; });
+  // Del catálogo se ofrecen sólo las obras que no están en ninguna agrupación (el endpoint del
+  // catálogo ahora informa a quién pertenece cada una) y se avisa cuántas están en otras.
+  var libres = CATALOGO.filter(function (p) { return yaEstan.indexOf(p.id) < 0 && !p.company_id; });
+  var enOtras = CATALOGO.filter(function (p) { return p.company_id && p.company_id !== (ACTUAL && ACTUAL.id); });
+  document.getElementById('selObra').innerHTML = libres.length
+    ? libres.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.title) + '</option>'; }).join('')
+    : '<option value="">(no quedan obras libres en el catálogo)</option>';
+  document.getElementById('btnVincular').disabled = !libres.length;
+  var pista = document.getElementById('pistaObras');
+  if (pista) {
+    pista.textContent = enOtras.length
+      ? enOtras.length + ' obra(s) del catálogo ya pertenecen a otra agrupación: quitalas de ahí primero.'
+      : 'Todas las obras del catálogo están disponibles o ya son de esta agrupación.';
+  }
+}
+
+function pintarGente() {
+  var gente = (ACTUAL && ACTUAL.people) || [];
+  document.getElementById('gente').innerHTML = gente.length ? gente.map(function (p) {
+    // Sólo persona y cargo: el personaje es un papel de un montaje, no un dato fijo del integrante
+    return '<tr><td><b>' + esc(p.fullName) + '</b><div class="mini">' + esc(p.roleTitle || 'sin cargo') + '</div></td>' +
+      '<td><span class="pill">' + esc(p.kind || 'equipo') + '</span></td>' +
+      '<td class="mini">' + esc(p.email || '') + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' +
+      '<button class="btn chico" data-editar="' + esc(p.id) + '">Editar</button> ' +
+      '<button class="btn chico peligro" data-borrar="' + esc(p.id) + '">Quitar</button></td></tr>';
+  }).join('') : '<tr><td class="mini">Sin personas cargadas todavía.</td></tr>';
+  Array.prototype.forEach.call(document.querySelectorAll('#gente [data-borrar]'), function (b) {
+    b.addEventListener('click', function () { quitarPersona(b.getAttribute('data-borrar')); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#gente [data-editar]'), function (b) {
+    b.addEventListener('click', function () { editarPersona(b.getAttribute('data-editar')); });
+  });
+}
+
+function editarPersona(personId) {
+  var p = ((ACTUAL && ACTUAL.people) || []).filter(function (x) { return x.id === personId; })[0];
+  if (!p) return;
+  PERSONA_EDITANDO = personId;
+  document.getElementById('pNombre').value = p.fullName || '';
+  document.getElementById('pRol').value = p.roleTitle || '';
+  document.getElementById('pTipo').value = p.kind || 'elenco';
+  document.getElementById('pCorreo').value = p.email || '';
+  document.getElementById('pPersonaje').value = p.characterName || '';
+  document.getElementById('btnAgregarPersona').textContent = 'Guardar cambios del integrante';
+  document.getElementById('btnCancelarPersona').style.display = 'inline-block';
+  aviso('Editando a ' + p.fullName + ': el personaje se puede dejar vacío (es un papel del montaje, no del integrante).');
+}
+
+function cancelarEdicionPersona() {
+  PERSONA_EDITANDO = '';
+  ['pNombre', 'pRol', 'pCorreo', 'pPersonaje'].forEach(function (id) { document.getElementById(id).value = ''; });
+  document.getElementById('btnAgregarPersona').textContent = 'Agregar al elenco';
+  document.getElementById('btnCancelarPersona').style.display = 'none';
+  aviso('');
+}
+
+function recargar(mantener) {
+  return pedir('/api/v1/crm/companies').then(function (r) {
+    if (!r.d || !r.d.success) throw new Error((r.d && r.d.error) || 'no se pudo leer');
+    COMPANIAS = r.d.companies || [];
+    var id = mantener || (ACTUAL && ACTUAL.id);
+    pintarLista();
+    if (id) elegir(id);
+  });
+}
+
+function cargar() {
+  document.getElementById('quien').innerHTML = EMAIL ? 'Sesión: <b>' + esc(EMAIL) + '</b>' : 'Sin sesión';
+  if (!EMAIL) {
+    var p = document.getElementById('sinSesion');
+    p.style.display = 'block';
+    p.innerHTML = 'No hay sesión en este navegador: abrí esta página desde el CRM o agregá <b>?email=tucorreo@dominio.cl</b>.';
+  }
+  Promise.all([pedir('/api/v1/crm/companies'), pedir('/api/v1/crm/portfolio/projects')])
+    .then(function (rs) {
+      var c = rs[0], p = rs[1];
+      if (!c.d || !c.d.success) throw new Error((c.d && c.d.error) || 'no se pudieron leer las agrupaciones');
+      COMPANIAS = c.d.companies || [];
+      CATALOGO = ((p.d && (p.d.projects || p.d.data)) || []).map(function (x) {
+        return { id: x.id, title: x.title, company_name: x.companyName || x.company_name || '' };
+      });
+      pintarLista();
+      document.getElementById('error').style.display = 'none';
+      var primera = new URLSearchParams(location.search).get('id');
+      if (primera) elegir(primera);
+    })
+    .catch(function (e) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = 'No se pudo cargar: ' + e.message;
+    });
+}
+
+function guardar() {
+  if (!ACTUAL) return;
+  var cuerpo = {
+    name: document.getElementById('fNombre').value.trim(),
+    legalName: document.getElementById('fRazon').value.trim(),
+    discipline: document.getElementById('fDisciplina').value.trim(),
+    kind: document.getElementById('fTipo').value,
+    city: document.getElementById('fCiudad').value.trim(),
+    contactEmail: document.getElementById('fCorreo').value.trim(),
+    status: document.getElementById('fEstado').value,
+    description: document.getElementById('fDescripcion').value.trim(),
+  };
+  if (!cuerpo.name) { aviso('El nombre no puede quedar vacío.', 'malo'); return; }
+  aviso('Guardando…', '');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id), 'PUT', cuerpo).then(function (r) {
+    if (!r.d || !r.d.success) { aviso('No se guardó: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+    aviso('Guardado ✓ — los datos de la agrupación quedaron actualizados.', 'ok');
+    return recargar(ACTUAL.id);
+  }).catch(function (e) { aviso('No se guardó: ' + e.message, 'malo'); });
+}
+
+function agregarPersona() {
+  if (!ACTUAL) return;
+  var nombre = document.getElementById('pNombre').value.trim();
+  if (!nombre) { aviso('Escribe el nombre de la persona.', 'malo'); return; }
+  var cuerpo = {
+    fullName: nombre,
+    roleTitle: document.getElementById('pRol').value.trim(),
+    kind: document.getElementById('pTipo').value,
+    email: document.getElementById('pCorreo').value.trim(),
+    characterName: document.getElementById('pPersonaje').value.trim(),
+  };
+  var editando = !!PERSONA_EDITANDO;
+  aviso(editando ? 'Guardando…' : 'Agregando…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/people' + (editando ? '/' + encodeURIComponent(PERSONA_EDITANDO) : ''),
+    editando ? 'PUT' : 'POST', cuerpo).then(function (r) {
+    if (!r.d || !r.d.success) { aviso('No se guardó: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+    cancelarEdicionPersona();
+    aviso(editando ? 'Integrante actualizado ✓' : 'Agregada al elenco ✓', 'ok');
+    return recargar(ACTUAL.id);
+  }).catch(function (e) { aviso('No se guardó: ' + e.message, 'malo'); });
+}
+
+function quitarPersona(personId) {
+  aviso('Quitando…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/people/' + encodeURIComponent(personId), 'DELETE')
+    .then(function (r) {
+      if (!r.d || !r.d.success) { aviso('No se pudo quitar: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+      aviso('Persona quitada del elenco ✓', 'ok');
+      return recargar(ACTUAL.id);
+    }).catch(function (e) { aviso('No se pudo quitar: ' + e.message, 'malo'); });
+}
+
+function vincularObra() {
+  var projectId = document.getElementById('selObra').value;
+  if (!ACTUAL || !projectId) return;
+  aviso('Vinculando…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/projects', 'POST', { projectId: projectId })
+    .then(function (r) {
+      if (!r.d || !r.d.success) { aviso('No se vinculó: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+      aviso('«' + (r.d.title || 'obra') + '» quedó como montaje de la agrupación ✓', 'ok');
+      return recargar(ACTUAL.id);
+    }).catch(function (e) { aviso('No se vinculó: ' + e.message, 'malo'); });
+}
+
+function quitarObra(projectId) {
+  aviso('Quitando el montaje…');
+  pedir('/api/v1/crm/companies/' + encodeURIComponent(ACTUAL.id) + '/projects/' + encodeURIComponent(projectId), 'DELETE')
+    .then(function (r) {
+      if (!r.d || !r.d.success) { aviso('No se pudo quitar: ' + ((r.d && r.d.error) || 'error'), 'malo'); return; }
+      aviso('Montaje desvinculado (la obra sigue en el catálogo) ✓', 'ok');
+      return recargar(ACTUAL.id);
+    }).catch(function (e) { aviso('No se pudo quitar: ' + e.message, 'malo'); });
+}
+
+document.getElementById('buscar').addEventListener('input', pintarLista);
+document.getElementById('btnGuardar').addEventListener('click', guardar);
+document.getElementById('btnDescartar').addEventListener('click', function () { elegir(ACTUAL.id); });
+document.getElementById('btnAgregarPersona').addEventListener('click', agregarPersona);
+document.getElementById('btnCancelarPersona').addEventListener('click', cancelarEdicionPersona);
+document.getElementById('btnVincular').addEventListener('click', vincularObra);
+cargar();
+</script>
+</body>
+</html>
+`;
+app.get('/companias', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.type('html').send(PAGINA_COMPANIAS);
+});
+
 
 app.get('*', (req, res) => {
   // El index nunca se cachea: si no, el navegador sigue mostrando el bundle
@@ -4919,7 +9998,7 @@ app.use((err, req, res, next) => {
   if (grande) {
     return res.status(413).json({
       ok: false,
-      error: 'La foto es muy pesada para subirla. Probá de nuevo o elegí otra más chica.',
+      error: 'La foto es muy pesada para subirla. Prueba de nuevo o elige otra más chica.',
     });
   }
   console.error('[error]', req.method, req.originalUrl, err.message);
