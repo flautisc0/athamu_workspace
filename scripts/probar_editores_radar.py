@@ -16,7 +16,10 @@ import urllib.error
 import urllib.request
 
 PIPE = 'pipe.naranjo33@gmail.com'
-OTRO = 'flautisco.contacto@gmail.com'   # cuenta de artista: NO debe poder
+# Cuenta SIN permiso: se usa un correo que NO existe en el CRM a propósito. Antes se usaba una
+# cuenta real y dejó de servir cuando esa persona recibió el permiso (daba 200 y parecía una falla
+# de permisos cuando era el permiso funcionando). Un correo inexistente nunca va a tener permiso.
+OTRO = 'sin-permiso-radar@ejemplo.cl'
 
 
 def pedir(base, ruta, metodo='GET', cuerpo=None, email=''):

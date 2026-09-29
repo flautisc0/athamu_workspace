@@ -21,11 +21,11 @@ import urllib.error
 import urllib.request
 
 ADMIN = 'panxo.sms@gmail.com'
-# Cuenta SIN permiso de editar lugares: tiene que ser alguien que NO esté en `radar_editores`
-# ni sea administración. OJO: no usar el correo de Felipe (pipe.naranjo33@gmail.com): quedó
-# autorizado como editor de la cartelera el 2026-09-29, así que esta prueba daba 200 y parecía
-# una falla de permisos cuando en realidad era el permiso funcionando.
-SIN_PERMISO = 'flautisco.contacto@gmail.com'
+# Cuenta SIN permiso de editar lugares: un correo que NO existe en el CRM a propósito (nunca va a
+# tener permiso). Antes se usaba una cuenta real (primero el correo de Felipe y después el de
+# Francisco) y dejaba de servir en cuanto esa persona recibía el permiso: la prueba daba 200 y
+# parecía una falla de permisos cuando en realidad era el permiso funcionando.
+SIN_PERMISO = 'sin-permiso-radar@ejemplo.cl'
 NOMBRE = 'PRUEBA panel de nodos (se borra sola)'
 
 
