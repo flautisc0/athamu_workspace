@@ -500,6 +500,8 @@ async function perfilDeSesion(req) {
       inventario_total: !!alcance.total,
       inventario_companias: alcance.companies || [],
       puede_escribir_inventario: !!alcance.puedeEscribir,
+      // Permiso propio del radar: no se deduce del rol (ver `puedeEditarRadar`).
+      puede_editar_radar: !!alcance.total || (await esEditorRadar(email)),
       motivo: alcance.motivo || '',
     },
   };
@@ -3369,8 +3371,9 @@ app.get('/api/v1/crm/radar/nodos', async (req, res) => {
     // —la app— nunca los trae, aunque mande `incluir_borradores=1`.
     let verBorradores = false;
     if (incluir_borradores) {
-      const alcance = await alcanceInventario(email || ident.email || req.headers['x-atha-email'] || '');
-      verBorradores = !!alcance.total;
+      // Los borradores los ve quien administra el radar (administración o editor de lugares),
+      // no sólo administración del CRM.
+      verBorradores = await puedeEditarRadar(email || ident.email || req.headers['x-atha-email'] || '');
     }
     if (!verBorradores) sql += ' WHERE is_published = 1';
     sql += ' ORDER BY created_at DESC';
@@ -3423,7 +3426,9 @@ async function guardarNodoRadar(req, res, id) {
     const db = getPool();
     const email = b.email || req.headers['x-atha-email'] || '';
     const alcance = await alcanceInventario(email);
-    if (!alcance.total) {
+    // El permiso del radar es PROPIO (`radar_editores`), no prestado del rol: ascender a alguien
+    // a director sólo para que cargue lugares le abriría todo el CRM.
+    if (!alcance.total && !(await esEditorRadar(email))) {
       return res.status(403).json({ ok: false, error: 'sólo administración puede editar el radar' });
     }
     const campos = {
@@ -3442,7 +3447,7 @@ async function guardarNodoRadar(req, res, id) {
       is_published: b.is_published === undefined ? 1 : (b.is_published ? 1 : 0),
       /** Horario de atención: lo muestra la app tal como se escribe (si no, null) */
       hours: b.hours === undefined ? null : (b.hours ? String(b.hours).slice(0, 160) : null),
-      created_by: alcance.usuario ? alcance.usuario.email : null,
+      created_by: (alcance.usuario && alcance.usuario.email) || email || null,
     };
     const EDITABLES = ['name', 'short_description', 'full_description', 'category', 'latitude',
       'longitude', 'address', 'city', 'region', 'cover_url', 'unlock_radius_m', 'qr_code',
@@ -3488,10 +3493,8 @@ app.patch('/api/v1/crm/radar/nodos/:id', (req, res) => guardarNodoRadar(req, res
 // Baja de un nodo (administración): limpia también sus relaciones
 app.delete('/api/v1/crm/radar/nodos/:id', async (req, res) => {
   try {
-    const alcance = await alcanceInventario(
-      (req.body && req.body.email) || req.query.email || req.headers['x-atha-email'] || ''
-    );
-    if (!alcance.total) {
+    const quien = (req.body && req.body.email) || req.query.email || req.headers['x-atha-email'] || '';
+    if (!(await puedeEditarRadar(quien))) {
       return res.status(403).json({ ok: false, error: 'sólo administración puede eliminar nodos' });
     }
     const db = getPool();
@@ -3768,6 +3771,8 @@ app.get('/api/v1/crm/radar/feed', async (req, res) => {
     const limite = Math.min(Number(req.query.limite) || 30, 100);
     const usuarioActual = req.query.email ? await exploradorId(req.query.email) : null;
     const esAdmin = (await alcanceInventario(req.query.email || '')).total;
+    // El panel de la app pregunta acá si esta cuenta puede administrar lugares.
+    const puedeEditarLugares = esAdmin || (await esEditorRadar(req.query.email || ''));
 
     let sql = `SELECT p.*, u.display_name, u.email, COALESCE(u.picture, u.google_picture) AS avatar_url,
                       rp.explorer_number, rp.level, rp.xp
@@ -3836,7 +3841,7 @@ app.get('/api/v1/crm/radar/feed', async (req, res) => {
         })),
       };
     });
-    return res.json({ ok: true, total: feed.length, feed });
+    return res.json({ ok: true, total: feed.length, feed, puede_editar_radar: puedeEditarLugares });
   } catch (e) {
     return res.status(503).json({ ok: false, error: e.message });
   }
@@ -4208,6 +4213,57 @@ async function alcanceInventario(email) {
       : 'no pertenece a ninguna compañía en un rol de producción o técnico',
     usuario: u,
   };
+}
+
+/* ------------------------------------------------------------------------------------------
+ * EDITORES DEL RADAR · permiso propio para la cartelera de lugares
+ *
+ * El radar usaba un permiso PRESTADO: `alcanceInventario(...).total`, que significa
+ * "administración del CRM" (rol admin o director). Para que alguien cargue y corrija lugares
+ * había que ascenderlo a director, y eso le abre TODO el CRM (pantallas, finanzas, usuarios):
+ * es exactamente el patrón de escalada de privilegios que ya se corrigió una vez.
+ *
+ * Acá va un permiso acotado y explícito: la tabla `radar_editores` lista los correos que
+ * pueden crear, editar, publicar y borrar lugares del radar. No cambia el rol de nadie y se
+ * puede otorgar o quitar sin tocar el resto del sistema.
+ * ---------------------------------------------------------------------------------------- */
+let tablaEditoresRadarLista = false;
+async function asegurarTablaEditoresRadar(db) {
+  if (tablaEditoresRadarLista) return;
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS radar_editores (
+       email      VARCHAR(255) PRIMARY KEY,
+       nombre     VARCHAR(255),
+       nota       VARCHAR(255),
+       creado_por VARCHAR(255),
+       created_at DATETIME NOT NULL
+     )`
+  );
+  tablaEditoresRadarLista = true;
+}
+
+/** ¿El correo está en la lista de editores de lugares? (no incluye administración) */
+async function esEditorRadar(email) {
+  const correo = String(email || '').trim().toLowerCase();
+  if (!correo) return false;
+  try {
+    const db = getPool();
+    await asegurarTablaEditoresRadar(db);
+    const [filas] = await db.execute(
+      'SELECT email FROM radar_editores WHERE LOWER(email) = ? LIMIT 1', [correo]
+    );
+    return filas.length > 0;
+  } catch (e) {
+    console.error('[radar_editores] no se pudo consultar:', e.message);
+    return false;
+  }
+}
+
+/** Permiso efectivo para administrar lugares: administración del CRM o editor del radar. */
+async function puedeEditarRadar(email) {
+  const alcance = await alcanceInventario(email);
+  if (alcance.total) return true;
+  return esEditorRadar(email);
 }
 
 // Todo el inventario que el usuario puede ver (una compañía o todas) en una llamada.
